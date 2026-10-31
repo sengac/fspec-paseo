@@ -136,6 +136,8 @@ pub enum Envelope {
     SessionEvent(SessionEvent),
     /// 8 — RPC-433: connect-time open-session snapshot (always sent, even empty).
     SessionSnapshot(Vec<SessionInfo>),
+    /// 9 — RPC-445: work units of a workspace opened besides the start workspace.
+    WorkspaceWorkUnitsUpdate(WorkspaceWorkUnits),
 }
 ```
 
@@ -152,6 +154,15 @@ Wire encoding summary (bincode fixint, little-endian):
 | `CmdRes` | `06 00 00 00` | (unit — rejected) |
 | `SessionEvent` | `07 00 00 00` | `SessionEvent` |
 | `SessionSnapshot` | `08 00 00 00` | `Vec<SessionInfo>` |
+| `WorkspaceWorkUnitsUpdate` | `09 00 00 00` | `WorkspaceWorkUnits { workspace: String, units: Vec<WorkUnitInfo> }` |
+
+`WorkspaceWorkUnitsUpdate` (RPC-445) is pushed to every full-surface connection
+(`rpc-server/src/workspace_fanout.rs`) whenever the work units of a workspace the
+daemon opened **besides** its start workspace change; `workspace` is that
+workspace's canonical path. A workspace is opened by `list_workspace_work_units` or
+`create_session_in_workspace` (§5). The start workspace keeps using
+`WorkUnitsUpdate` (3). The plugin decodes it (FSPEC-049); a client that does not
+use it ignores it — it must never be treated as the start workspace's board.
 
 Direction rules: `Rpc` is the only client→server payload. All other variants
 flow server→client only; a client-sent push variant is counted in

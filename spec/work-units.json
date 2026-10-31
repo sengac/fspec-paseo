@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-10-30T06:23:24.044Z"
+    "lastUpdated": "2026-10-31T23:43:01.398Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -5514,8 +5514,8 @@
       "type": "story",
       "status": "backlog",
       "createdAt": "2026-10-30T05:16:10.623Z",
-      "updatedAt": "2026-10-30T05:16:59.056Z",
-      "description": "Make fspec's default model drive Paseo: when Paseo opens an fspec agent without an explicit model, use fspec's default (read with the new get_default_model RPC) instead of the catalog's first model, and offer a 'default model' control in the settings screen that calls set_default_model. Blocked on fspec card RPC-440 (Expose get_default_model over the RPC), which appends get_default_model at variant index 124.",
+      "updatedAt": "2026-10-31T23:39:50.219Z",
+      "description": "Make fspec's default model drive Paseo: when Paseo opens an fspec agent without an explicit model, use fspec's default (read with get_default_model, variant index 127, Option<String> 'provider/model') instead of the catalog's first model, and offer a 'default model' control in the settings screen that calls set_default_model (idx 30). fspec card RPC-440 delivered get_default_model, appended at index 127 (after the RPC-449 workspace methods 124-126).",
       "epic": "provider-settings",
       "children": [],
       "dependsOn": [
@@ -5773,12 +5773,166 @@
       ],
       "nextNoteId": 1,
       "estimate": 8
+    },
+    "FSPEC-049": {
+      "id": "FSPEC-049",
+      "title": "Decode fspec's WorkspaceWorkUnitsUpdate envelope instead of dropping it",
+      "type": "bug",
+      "status": "done",
+      "createdAt": "2026-10-31T23:39:30.321Z",
+      "updatedAt": "2026-10-31T23:43:01.398Z",
+      "description": "fspec RPC-445 appended Envelope variant 9 WorkspaceWorkUnitsUpdate(WorkspaceWorkUnits { workspace: String, units: Vec<WorkUnitInfo> }): work-unit pushes for workspaces the daemon opened besides its start workspace, fanned out to every full-surface connection (rust/rpc-server/src/workspace_fanout.rs, server/connection_fanouts.rs). server/wire.ts decodeEnvelope rejects every index above 8 with 'unknown Envelope variant index 9', so server/daemon.ts throws the frame away and the push never reaches the board; any caller decoding frames directly fails outright.",
+      "epic": "provider-plugin",
+      "children": [],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-10-31T23:39:50.257Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-10-31T23:41:15.936Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-10-31T23:42:50.959Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-10-31T23:42:58.052Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-10-31T23:43:01.398Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "The codec decodes and encodes Envelope variant index 9 WorkspaceWorkUnitsUpdate(WorkspaceWorkUnits { workspace: String, units: Vec<WorkUnitInfo> }) byte-exactly; only indices 10 and above are unknown",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:40:11.284Z"
+        },
+        {
+          "id": 1,
+          "text": "The daemon client hands a WorkspaceWorkUnitsUpdate push to its envelope listeners like any other push; it is never dropped as undecodable",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:40:11.316Z"
+        },
+        {
+          "id": 2,
+          "text": "Consumers that do not use workspace pushes ignore them: the provider's sessions are untouched and the board of the daemon's start workspace keeps its units and revision",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:40:11.338Z"
+        }
+      ],
+      "nextRuleId": 3,
+      "examples": [
+        {
+          "id": 0,
+          "text": "Golden vector: Envelope 09000000 + 02000000000000002f770000000000000000 decodes to { kind: workspaceWorkUnitsUpdate, workspace: '/w', units: [] } and encodes back to the same bytes",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:40:11.361Z"
+        },
+        {
+          "id": 1,
+          "text": "The board of /work is at revision r; the daemon pushes WorkspaceWorkUnitsUpdate for /other with one unit; a held watch for /work keeps holding and its next answer still shows /work's units",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:40:11.382Z"
+        }
+      ],
+      "nextExampleId": 2,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/wire.ts: WorkspaceWorkUnitsUpdateEnvelope { kind: 'workspaceWorkUnitsUpdate', workspace, units }, ENVELOPE_NAMES/envelopeVariantIndex/encode/decode gain index 9 (fspec rust/rpc-server/src/envelope.rs; rpc-types chrome.rs WorkspaceWorkUnits). The daemon fans it out to every full-surface connection (rpc-server/src/server/connection_fanouts.rs -> workspace_fanout.rs), only for workspaces opened besides the start workspace (the start workspace keeps WorkUnitsUpdate). server/board.ts ignores it for now; FSPEC-053 serves those workspaces' boards.",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:40:11.404Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "attachments": [
+        "spec/attachments/FSPEC-049/ast-research.md"
+      ],
+      "estimate": 2
+    },
+    "FSPEC-050": {
+      "id": "FSPEC-050",
+      "title": "Decode PauseState's details and real tool_call_id and attach the approval to its gated tool call",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-10-31T23:39:30.365Z",
+      "updatedAt": "2026-10-31T23:39:30.365Z",
+      "description": "fspec BUG-291 renamed PauseState's third field (which carried the pause details text under the name tool_call_id) to details and appended a real tool_call_id: the id of the streamed ToolCall chunk that raised the pause. server/wire.ts still decodes the 3-field layout, so get_pause_state (idx 80) leaves the 4th field unread and the old golden vectors no longer match the daemon. The approval request is still attached to whichever tool call happens to be running (FSPEC-016's workaround, transcript.runningToolCall) instead of the call the pause gates.",
+      "epic": "provider-plugin",
+      "children": []
+    },
+    "FSPEC-051": {
+      "id": "FSPEC-051",
+      "title": "Steer and queue prompts through fspec's submit_input",
+      "type": "story",
+      "status": "backlog",
+      "createdAt": "2026-10-31T23:39:45.021Z",
+      "updatedAt": "2026-10-31T23:39:45.021Z",
+      "description": "fspec RIG-016 added submit_input (idx 128: session_id, text, InputMode Steer|Queue|Interrupt). Advertise Paseo's prompt.steer: delivery 'steer' joins the running turn with submit_input Steer (prompt_result { type: 'steer', turnId }); a prompt that arrives while a turn runs is handed to the daemon with submit_input Queue so fspec holds and orders it, instead of relying on send_input's implicit queue. An interrupted turn now leaves queued inputs parked (Interrupted.queued_inputs) instead of dropping them: the plugin reports them and runs them on the next prompt rather than cancelling their turns.",
+      "epic": "provider-plugin",
+      "children": []
+    },
+    "FSPEC-052": {
+      "id": "FSPEC-052",
+      "title": "Run each Paseo agent in its own workspace on a multi-workspace fspec daemon",
+      "type": "story",
+      "status": "backlog",
+      "createdAt": "2026-10-31T23:39:45.065Z",
+      "updatedAt": "2026-10-31T23:39:45.065Z",
+      "description": "One fspec daemon can serve several workspaces (RPC-441..445): create_session_in_workspace (idx 126: workspace, role) runs a session in the named workspace, list_workspaces (idx 124) lists the ones it serves. Replace FSPEC-015's refusal of Paseo directories outside the daemon's start workspace: an agent in another directory gets a session in that workspace; the start workspace keeps create_session_checked. A workspace the daemon refuses fails the open with the daemon's reason.",
+      "epic": "provider-plugin",
+      "children": []
+    },
+    "FSPEC-053": {
+      "id": "FSPEC-053",
+      "title": "Show the fspec board for every workspace the daemon serves",
+      "type": "story",
+      "status": "backlog",
+      "createdAt": "2026-10-31T23:39:45.096Z",
+      "updatedAt": "2026-10-31T23:39:45.096Z",
+      "description": "The board, its availability check and the phone menu entry only exist for the daemon's start workspace. Use list_workspaces (idx 124) and list_workspace_work_units (idx 125) to serve the board of any listed workspace, kept live by WorkspaceWorkUnitsUpdate pushes (envelope 9, FSPEC-049).",
+      "epic": "kanban-board",
+      "children": []
+    },
+    "FSPEC-054": {
+      "id": "FSPEC-054",
+      "title": "Find the right local fspec daemon and authenticate to it",
+      "type": "story",
+      "status": "backlog",
+      "createdAt": "2026-10-31T23:39:45.123Z",
+      "updatedAt": "2026-10-31T23:39:45.123Z",
+      "description": "Every local fspec daemon now advertises itself in daemons/<pid>.json beside daemon.json (RPC-446), and daemon.json names one live daemon, no longer the last one started (BUG-289). Read the live entries, prefer the daemon whose workspace holds the Paseo directory, and fall back to daemon.json. A daemon started with FSPEC_DAEMON_TOKEN requires 'Authorization: Bearer <token>' on every WebSocket upgrade (RPC-447): send it when the plugin sees FSPEC_DAEMON_TOKEN. The loopback-only rule stays.",
+      "epic": "provider-plugin",
+      "children": []
+    },
+    "FSPEC-055": {
+      "id": "FSPEC-055",
+      "title": "Start fspec orchestrator bots from Paseo with a bot mode",
+      "type": "story",
+      "status": "backlog",
+      "createdAt": "2026-10-31T23:39:45.148Z",
+      "updatedAt": "2026-10-31T23:39:45.148Z",
+      "description": "The fspec TUI's New Bot (TUI-114) creates a session whose role is the orchestrator role from rust/sessions/src/bot.rs ORCHESTRATOR_ROLE (first line '# fspec bot: orchestrator'); a session is a bot iff its role starts with that marker. Expose Paseo provider modes 'agent' (default) and 'bot'; a bot agent's daemon session is created with that role on both creation paths, and a resumed or imported session whose role is a bot role shows as bot mode.",
+      "epic": "provider-plugin",
+      "children": []
     }
   },
   "states": {
     "backlog": [
       "FSPEC-046",
-      "FSPEC-047"
+      "FSPEC-047",
+      "FSPEC-050",
+      "FSPEC-051",
+      "FSPEC-052",
+      "FSPEC-053",
+      "FSPEC-054",
+      "FSPEC-055"
     ],
     "specifying": [],
     "testing": [],
@@ -5831,11 +5985,12 @@
       "FSPEC-043",
       "FSPEC-045",
       "FSPEC-044",
-      "FSPEC-048"
+      "FSPEC-048",
+      "FSPEC-049"
     ],
     "blocked": []
   },
   "prefixCounters": {
-    "FSPEC": 48
+    "FSPEC": 55
   }
 }

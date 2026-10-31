@@ -1,0 +1,117 @@
+{
+  "scenarios": [
+    {
+      "name": "The WorkspaceWorkUnitsUpdate envelope matches the daemon's encoding",
+      "testMappings": [
+        {
+          "file": "test/workspace-work-units-push.test.ts",
+          "lines": "50-65",
+          "implMappings": [
+            {
+              "file": "server/wire.ts",
+              "lines": [
+                61,
+                62,
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                82,
+                1587,
+                1630,
+                1631,
+                1632,
+                1633,
+                1642,
+                1643,
+                1644,
+                1645,
+                1646,
+                1678,
+                1679,
+                1680,
+                1681,
+                1697
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "The daemon client delivers a workspace push to its listeners",
+      "testMappings": [
+        {
+          "file": "test/workspace-work-units-push.test.ts",
+          "lines": "67-82",
+          "implMappings": [
+            {
+              "file": "server/wire.ts",
+              "lines": [
+                1678,
+                1679,
+                1680,
+                1681
+              ]
+            },
+            {
+              "file": "server/daemon.ts",
+              "lines": [
+                352,
+                353,
+                354,
+                355,
+                356,
+                357,
+                358,
+                379
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A push for another workspace leaves the start workspace's board alone",
+      "testMappings": [
+        {
+          "file": "test/workspace-work-units-push.test.ts",
+          "lines": "84-109",
+          "implMappings": [
+            {
+              "file": "server/board.ts",
+              "lines": [
+                88,
+                89,
+                90,
+                91,
+                92,
+                93,
+                94,
+                95
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalScenarios": 3,
+    "coveredScenarios": 3,
+    "coveragePercent": 100,
+    "testFiles": [
+      "test/workspace-work-units-push.test.ts"
+    ],
+    "implFiles": [
+      "server/wire.ts",
+      "server/daemon.ts",
+      "server/board.ts"
+    ],
+    "totalLinesCovered": 104
+  }
+}

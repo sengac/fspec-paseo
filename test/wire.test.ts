@@ -96,19 +96,19 @@ describe("Feature: Implement the fspec wire codec in TypeScript", () => {
   });
 
   describe("Scenario: Unknown Envelope variant index produces a descriptive error", () => {
-    // @step Given a frame whose Envelope variant index is 9 or higher (unknown)
+    // @step Given a frame whose Envelope variant index is 10 or higher (unknown)
     // @step When the developer hands the frame to the decoder
     it("throws a descriptive error naming the bad variant index", () => {
       let err: unknown;
       try {
-        wire.decodeEnvelope(Buffer.from("09000000", "hex"));
+        wire.decodeEnvelope(Buffer.from("0a000000", "hex"));
       } catch (e) {
         err = e;
       }
       // @step Then the decoder throws a descriptive error naming the bad variant index
       expect(err).toBeInstanceOf(Error);
       // @step And no silent mis-parse occurs
-      expect(String((err as Error).message)).toContain("9");
+      expect(String((err as Error).message)).toContain("unknown Envelope variant index 10");
     });
   });
 

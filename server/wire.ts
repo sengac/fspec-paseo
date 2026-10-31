@@ -58,6 +58,16 @@ export interface SessionSnapshotEnvelope {
   kind: "sessionSnapshot";
   sessions: SessionInfo[];
 }
+/**
+ * 9 — work units of a workspace the daemon opened besides its start workspace
+ * (fspec RPC-445), tagged with that workspace's canonical path. The start
+ * workspace keeps using WorkUnitsUpdate.
+ */
+export interface WorkspaceWorkUnitsUpdateEnvelope {
+  kind: "workspaceWorkUnitsUpdate";
+  workspace: string;
+  units: WorkUnitInfo[];
+}
 
 export type Envelope =
   | RpcEnvelope
@@ -68,7 +78,8 @@ export type Envelope =
   | CmdReqEnvelope
   | CmdResEnvelope
   | SessionEventEnvelope
-  | SessionSnapshotEnvelope;
+  | SessionSnapshotEnvelope
+  | WorkspaceWorkUnitsUpdateEnvelope;
 
 // ---------------------------------------------------------------------------
 // Shared payload types (§6)
@@ -1573,6 +1584,7 @@ const ENVELOPE_NAMES = [
   "CmdRes",
   "SessionEvent",
   "SessionSnapshot",
+  "WorkspaceWorkUnitsUpdate",
 ] as const;
 
 export function encodeEnvelope(envelope: Envelope): Uint8Array {
@@ -1615,6 +1627,10 @@ export function encodeEnvelope(envelope: Envelope): Uint8Array {
       w.enumIndex(8);
       writeVec(w, envelope.sessions, writeSessionInfo);
       break;
+    case "workspaceWorkUnitsUpdate":
+      w.enumIndex(9).string(envelope.workspace);
+      writeVec(w, envelope.units, writeWorkUnitInfo);
+      break;
   }
   return w.finish();
 }
@@ -1623,9 +1639,9 @@ export function decodeEnvelope(bytes: Uint8Array): Envelope {
   const r = new BincodeReader(bytes);
   const at = r.offset;
   const index = r.enumIndex("Envelope");
-  if (index > 8) {
+  if (index > ENVELOPE_NAMES.length - 1) {
     throw new WireDecodeError(
-      `unknown Envelope variant index ${index} at offset ${at} (known: 0..8)`,
+      `unknown Envelope variant index ${index} at offset ${at} (known: 0..${ENVELOPE_NAMES.length - 1})`,
     );
   }
   switch (index) {
@@ -1657,8 +1673,12 @@ export function decodeEnvelope(bytes: Uint8Array): Envelope {
       return { kind: "cmdRes" };
     case 7:
       return { kind: "sessionEvent", event: readSessionEvent(r) };
-    default:
+    case 8:
       return { kind: "sessionSnapshot", sessions: readVec(r, readSessionInfo) };
+    default: {
+      const workspace = r.string("WorkspaceWorkUnits.workspace");
+      return { kind: "workspaceWorkUnitsUpdate", workspace, units: readVec(r, readWorkUnitInfo) };
+    }
   }
 }
 
@@ -1674,6 +1694,7 @@ export function envelopeVariantIndex(envelope: Envelope): number {
     "cmdRes",
     "sessionEvent",
     "sessionSnapshot",
+    "workspaceWorkUnitsUpdate",
   ] as const;
   const i = kinds.indexOf(envelope.kind);
   if (i < 0) throw new Error(`unknown Envelope kind ${String(envelope.kind)}`);

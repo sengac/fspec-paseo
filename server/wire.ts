@@ -107,6 +107,9 @@ export type ThinkingLevel = "off" | "low" | "medium" | "high";
 
 export type InterruptionReason = "user" | "loopDetector";
 
+/** How submit_input (idx 128) delivers input to a busy session (rpc-types input_mode.rs, RIG-016). */
+export type InputMode = "steer" | "queue" | "interrupt";
+
 export interface WorkUnitInfo {
   id: string;
   title: string;
@@ -600,6 +603,7 @@ export const FspecMethodIndex = {
   destroySession: 87,
   getTranscriptPage: 117,
   getDefaultModel: 127,
+  submitInput: 128,
 } as const;
 
 export type FspecMethodName = keyof typeof FspecMethodIndex;
@@ -621,6 +625,7 @@ export type FspecServiceRequest =
   | { method: "createSession"; role: string | null }
   | { method: "createSessionChecked"; role: string | null }
   | { method: "sendInput"; sessionId: string; text: string }
+  | { method: "submitInput"; sessionId: string; text: string; mode: InputMode }
   | { method: "interrupt"; sessionId: string }
   | { method: "getSessionStatus"; sessionId: string }
   | { method: "health" }
@@ -725,6 +730,7 @@ export type FspecServiceResponse =
   | { method: "createSession"; value: string }
   | { method: "createSessionChecked"; value: Result<string> }
   | { method: "sendInput"; value: null }
+  | { method: "submitInput"; value: Result<void> }
   | { method: "interrupt"; value: null }
   | { method: "getSessionStatus"; value: SessionStatus }
   | { method: "health"; value: unknown }
@@ -822,6 +828,7 @@ const SESSION_STATE: SessionState[] = [
 const SEVERITY: NotificationSeverity[] = ["info", "warning", "error"];
 const THINKING_LEVEL: ThinkingLevel[] = ["off", "low", "medium", "high"];
 const INTERRUPTION_REASON: InterruptionReason[] = ["user", "loopDetector"];
+const INPUT_MODE: InputMode[] = ["steer", "queue", "interrupt"];
 const PAUSE_KIND: PauseKind[] = ["confirm", "triple"];
 const APPROVAL_CHOICE: ApprovalChoice[] = ["approve", "approveSession", "deny"];
 
@@ -1765,6 +1772,9 @@ function writeServiceRequest(w: BincodeWriter, message: FspecServiceRequest): vo
     case "sendInput":
       w.string(message.sessionId).string(message.text);
       return;
+    case "submitInput":
+      w.string(message.sessionId).string(message.text).enumIndex(enumIndex(INPUT_MODE, message.mode, "InputMode"));
+      return;
     case "interrupt":
     case "getSessionStatus":
     case "getModelInfo":
@@ -1934,6 +1944,11 @@ function readServiceRequest(r: BincodeReader): FspecServiceRequest {
     case "sendInput": {
       const sessionId = r.string("SessionId");
       return { method, sessionId, text: r.string() };
+    }
+    case "submitInput": {
+      const sessionId = r.string("SessionId");
+      const text = r.string("text");
+      return { method, sessionId, text, mode: readEnumAt(r, INPUT_MODE, "InputMode") };
     }
     case "interrupt":
     case "getSessionStatus":
@@ -2147,6 +2162,7 @@ export type DecodedResponse =
   | { requestId: number; ok: true; method: "createSession"; sessionId: string }
   | { requestId: number; ok: true; method: "createSessionChecked"; result: Result<string> }
   | { requestId: number; ok: true; method: "sendInput" }
+  | { requestId: number; ok: true; method: "submitInput"; result: Result<void> }
   | { requestId: number; ok: true; method: "interrupt" }
   | { requestId: number; ok: true; method: "getSessionStatus"; status: SessionStatus }
   | { requestId: number; ok: true; method: "health"; value: unknown }
@@ -2264,6 +2280,7 @@ export function encodeResponseFrame(input: {
     case "setGoalState":
     case "clearHistory":
     case "restoreCheckpointAll":
+    case "submitInput":
     case "setDefaultModel":
     case "addCustomModel":
     case "updateCustomModel":
@@ -2491,6 +2508,7 @@ export function decodeResponseFrame(bytes: Uint8Array): DecodedResponse {
     case "setGoalState":
     case "clearHistory":
     case "restoreCheckpointAll":
+    case "submitInput":
       return { requestId, ok: true, method, result: readResultVoid(r) };
     case "listCheckpoints":
       return {

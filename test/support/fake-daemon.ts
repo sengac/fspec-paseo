@@ -104,6 +104,7 @@ export class FakeDaemon {
     this.handlers.listProviders = () => [];
     this.handlers.listProviderSettings = () => ({ ok: true, value: [] });
     this.handlers.getDefaultModel = () => null;
+    this.handlers.submitInput = () => ({ ok: true, value: undefined });
     this.handlers.setDefaultModel = () => ({ ok: true, value: undefined });
   }
 

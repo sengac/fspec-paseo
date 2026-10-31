@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-10-31T23:51:02.171Z"
+    "lastUpdated": "2026-10-31T23:58:25.957Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -6054,12 +6054,130 @@
       "id": "FSPEC-051",
       "title": "Steer and queue prompts through fspec's submit_input",
       "type": "story",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-10-31T23:39:45.021Z",
-      "updatedAt": "2026-10-31T23:39:45.021Z",
+      "updatedAt": "2026-10-31T23:58:25.957Z",
       "description": "fspec RIG-016 added submit_input (idx 128: session_id, text, InputMode Steer|Queue|Interrupt). Advertise Paseo's prompt.steer: delivery 'steer' joins the running turn with submit_input Steer (prompt_result { type: 'steer', turnId }); a prompt that arrives while a turn runs is handed to the daemon with submit_input Queue so fspec holds and orders it, instead of relying on send_input's implicit queue. An interrupted turn now leaves queued inputs parked (Interrupted.queued_inputs) instead of dropping them: the plugin reports them and runs them on the next prompt rather than cancelling their turns.",
       "epic": "provider-plugin",
-      "children": []
+      "children": [],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-10-31T23:52:11.117Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-10-31T23:53:04.202Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-10-31T23:58:19.932Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-10-31T23:58:25.822Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-10-31T23:58:25.957Z"
+        }
+      ],
+      "userStory": {
+        "role": "Paseo user directing a busy fspec agent",
+        "action": "steer the running turn or queue a follow-up, with fspec holding and ordering what I send",
+        "benefit": "I can correct the agent mid-turn and nothing I queued is lost when I stop it"
+      },
+      "rules": [
+        {
+          "id": 0,
+          "text": "submit_input (idx 128: session_id, text, mode InputMode Steer=0 | Queue=1 | Interrupt=2) answers Result<(), String>; an unknown session answers Err('Session not found: <id>')",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:52:11.164Z"
+        },
+        {
+          "id": 1,
+          "text": "The provider advertises Paseo's prompt.steer capability",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:52:11.184Z"
+        },
+        {
+          "id": 2,
+          "text": "A delivery 'steer' prompt while a turn runs is sent with submit_input Steer and answered with session.prompt_result { type: 'steer', turnId: <running turn> }; it starts no turn, and the daemon's immediate UserInput echo carries the prompt's clientMessageId",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:52:11.202Z"
+        },
+        {
+          "id": 3,
+          "text": "A delivery 'steer' prompt with no running turn, or one the daemon rejects, is answered with session.prompt_result failed and starts no turn",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:52:11.223Z"
+        },
+        {
+          "id": 4,
+          "text": "With clearPendingPermissions, the steer is submitted first and then the approval pause or stdin question blocking the turn is denied, so the turn can reach the point where fspec reads the steer",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:52:11.248Z"
+        },
+        {
+          "id": 5,
+          "text": "A delivery 'auto' prompt while a turn runs is handed to fspec with submit_input Queue (fspec holds and orders it) and becomes the next turn, started only when every earlier turn settled; an idle session's prompt still uses send_input",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:52:11.269Z"
+        },
+        {
+          "id": 6,
+          "text": "A steer the turn never reached starts as its own daemon turn after the turn completes, ahead of queued prompts (fspec continue_with_inbox): the provider runs it as an extra turn, recognised by the daemon's UserInput not matching the next queued prompt",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:52:11.290Z"
+        },
+        {
+          "id": 7,
+          "text": "Interrupted/InterruptedWithReason cancels only the running turn: queued prompts stay parked in fspec (listed in queued_inputs), their turns are not started, and the provider shows a notice listing them; the next prompt is submitted with submit_input Queue so fspec runs the parked prompts first, each as its own turn, then the new one",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:52:11.308Z"
+        }
+      ],
+      "nextRuleId": 8,
+      "examples": [
+        {
+          "id": 0,
+          "text": "turn-1 running; Paseo steers 'use the staging database' -> submit_input(s, 'use the staging database', Steer); prompt_result { type: steer, turnId: turn-1 }; UserInput 'use the staging database' -> user_message with that clientMessageId; Done -> turn-1 completed",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:52:11.328Z"
+        },
+        {
+          "id": 1,
+          "text": "turn-1 running, Paseo sends 'b' (auto) -> submit_input(s, 'b', Queue), prompt_result turn-2; Done -> turn-1 completed, turn-2 started",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:52:11.347Z"
+        },
+        {
+          "id": 2,
+          "text": "turn-1 running, 'b' queued (turn-2); Stop -> InterruptedWithReason { queued_inputs: ['b'] } -> turn-1 canceled, turn-2 not started, notice '1 queued prompt is waiting'; Done -> nothing; Paseo sends 'c' -> submit_input(s, 'c', Queue), prompt_result turn-3, turn-2 started; Done -> turn-2 completed, turn-3 started",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:52:11.367Z"
+        },
+        {
+          "id": 3,
+          "text": "turn-1 running, 'b' queued; steer 's' never reached; Done -> turn-1 completed; UserInput 's' -> turn-3 started (extra turn); Done -> turn-3 completed, turn-2 started",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:52:11.388Z"
+        }
+      ],
+      "nextExampleId": 4,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/wire.ts submitInput 128 + InputMode table (rpc-types input_mode.rs). server/provider.ts capabilities += prompt.steer. server/session.ts: QueuedTurn gains text and parked; prompt() routes delivery steer / auto-while-busy / parked-resume; settle() watches for a steer overflow turn; handleChunk interrupts park the queue. Semantics: fspec rust/sessions/src/background_session/input_modes.rs submit_input (idle Queue resumes parked inputs ahead of it), rust/agent-loop/src/agent_loop/finalization.rs start_queued_input (an interrupted turn leaves the inbox parked), rust/cli/src/interactive/stream_loop/steer.rs (steer delivered at a safe boundary, no chunk), interrupted.rs (queued_inputs reported without draining). Matches the fspec TUI (agent-view-steer-and-queue-keys.feature): Enter steers and Alt+Enter queues while a turn runs; an idle Enter still sends a normal turn.",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:52:11.407Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "attachments": [
+        "spec/attachments/FSPEC-051/ast-research.md"
+      ],
+      "estimate": 5
     },
     "FSPEC-052": {
       "id": "FSPEC-052",
@@ -6109,7 +6227,6 @@
   "states": {
     "backlog": [
       "FSPEC-047",
-      "FSPEC-051",
       "FSPEC-052",
       "FSPEC-053",
       "FSPEC-054",
@@ -6169,7 +6286,8 @@
       "FSPEC-048",
       "FSPEC-049",
       "FSPEC-050",
-      "FSPEC-046"
+      "FSPEC-046",
+      "FSPEC-051"
     ],
     "blocked": []
   },

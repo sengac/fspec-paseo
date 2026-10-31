@@ -64,6 +64,7 @@ import type {
 } from "./wire.js";
 
 type Input<T extends ProviderInput["type"]> = Extract<ProviderInput, { type: T }>;
+type Event<T extends ProviderEvent["type"]> = Extract<ProviderEvent, { type: T }>;
 type TurnTerminal = "completed" | "failed" | "canceled";
 
 export type DaemonRequest = <M extends FspecServiceRequest["method"]>(
@@ -78,8 +79,15 @@ export interface SessionDeps {
 
 interface QueuedTurn {
   turnId: string;
+  /** The prompt text handed to the daemon; matched against its UserInput echo. */
+  text?: string;
   /** Set when the daemon never accepted the input; reported when the turn is due. */
   failure?: ProviderError;
+  /**
+   * Held by fspec after an interrupt (RIG-016): never started until the next
+   * prompt resumes the parked inputs with submit_input Queue (FSPEC-051).
+   */
+  parked?: boolean;
 }
 
 interface FspecSession {
@@ -116,6 +124,14 @@ interface FspecSession {
   /** Bumped on every Paused report so a late get_pause_state reply is dropped. */
   pauseGeneration: number;
   pausedNow: boolean;
+  /** Texts steered into the running turn (FSPEC-051). */
+  steers: string[];
+  /**
+   * Set when a turn that was steered completes: fspec starts the steers it
+   * never reached as their own turn, ahead of the queue, so the next turn is
+   * only known from the daemon's UserInput.
+   */
+  awaitSteerTurn: boolean;
 }
 
 /** Chunks that mean a sub-agent is working, so its supervisor-driven run shows as a turn. */
@@ -499,6 +515,8 @@ export function createSessionRegistry(deps: SessionDeps) {
       attachments: { images: 0 },
       pauseGeneration: 0,
       pausedNow: false,
+      steers: [],
+      awaitSteerTurn: false,
     };
     sessions.set(child.sessionId, child);
     byDaemonId.set(daemonSessionId, child);
@@ -659,6 +677,8 @@ export function createSessionRegistry(deps: SessionDeps) {
     session.turns.set(turnId, "settled");
     session.queue.shift();
     session.activeTurnId = null;
+    const steered = session.steers.length > 0;
+    session.steers = [];
     emit({
       type: "session.turn",
       sessionId: session.sessionId,
@@ -666,16 +686,112 @@ export function createSessionRegistry(deps: SessionDeps) {
       state,
       ...(error ? { error } : {}),
     });
+    // fspec runs the steers a finished turn never reached as a turn of their
+    // own, ahead of the queue (continue_with_inbox); an interrupt parks them.
+    if (steered && state !== "canceled") session.awaitSteerTurn = true;
     advance(session);
   }
 
   /** Queues a new turn and starts it once every earlier turn has settled. */
-  function enqueueTurn(session: FspecSession): QueuedTurn {
+  function enqueueTurn(session: FspecSession, text?: string): QueuedTurn {
     session.turnCounter += 1;
-    const queued: QueuedTurn = { turnId: `turn-${session.turnCounter}` };
+    const queued: QueuedTurn = { turnId: `turn-${session.turnCounter}`, ...(text !== undefined ? { text } : {}) };
     session.queue.push(queued);
     session.turns.set(queued.turnId, "active");
     return queued;
+  }
+
+  /**
+   * The daemon's UserInput after a steered turn completed names the next
+   * daemon turn: the queue head when it is that prompt, otherwise the
+   * leftover steers, which run as an extra turn first.
+   */
+  function startAfterSteers(session: FspecSession, text: string): void {
+    session.awaitSteerTurn = false;
+    const head = session.queue[0];
+    if (head === undefined || head.parked === true || head.text !== text) {
+      session.turnCounter += 1;
+      const extra: QueuedTurn = { turnId: `turn-${session.turnCounter}`, text };
+      session.queue.unshift(extra);
+      session.turns.set(extra.turnId, "active");
+    }
+    advance(session);
+  }
+
+  /**
+   * An interrupt cancels only the running turn (RIG-016): fspec keeps the
+   * queued inputs parked and runs them before the next prompt, so their turns
+   * wait unstarted. A prompt the daemon never accepted cannot run: it fails now.
+   */
+  function park(session: FspecSession, queuedInputs: readonly string[]): void {
+    const active = session.activeTurnId;
+    for (const queued of session.queue) if (queued.turnId !== active) queued.parked = true;
+    session.awaitSteerTurn = false;
+    settle(session, "canceled");
+    for (const queued of session.queue.filter((entry) => entry.failure !== undefined)) {
+      session.queue.splice(session.queue.indexOf(queued), 1);
+      session.turns.set(queued.turnId, "settled");
+      emit({ type: "session.turn", sessionId: session.sessionId, turnId: queued.turnId, state: "started" });
+      emit({ type: "session.turn", sessionId: session.sessionId, turnId: queued.turnId, state: "failed", error: queued.failure! });
+    }
+    const waiting = session.queue.length;
+    if (waiting === 0) return;
+    const texts = queuedInputs.length > 0 ? queuedInputs : session.queue.map((queued) => queued.text ?? "");
+    const quoted = texts.map((text) => `"${text.length > 80 ? `${text.slice(0, 77)}…` : text}"`).join(", ");
+    emit({
+      type: "session.notice",
+      sessionId: session.sessionId,
+      notice: {
+        id: `${session.epoch}:parked:${session.turnCounter}`,
+        severity: "info",
+        title: waiting === 1 ? "1 queued prompt is waiting" : `${waiting} queued prompts are waiting`,
+        description: `fspec kept ${waiting === 1 ? "it" : "them"} after the stop: ${quoted}. ${
+          waiting === 1 ? "It runs" : "They run"
+        }, in order, before the next prompt you send.`,
+      },
+    });
+  }
+
+  /** Denies whatever blocks the running turn so a steer can be read (clearPendingPermissions). */
+  async function releaseBlockers(session: FspecSession): Promise<void> {
+    resolveStdin(session);
+    const open = session.pause;
+    if (open === null) return;
+    const reply = interactionReply(open.interaction, { behavior: "deny" });
+    await request({
+      method: "replyInteractionChecked",
+      sessionId: session.daemonSessionId,
+      interaction: reply.method,
+      requestId: open.interaction.requestId,
+      arguments: reply.arguments,
+    }).catch(() => {});
+    if (session.pause?.permissionId === open.permissionId) resolvePause(session);
+  }
+
+  /** delivery "steer": join the running turn at fspec's next safe point (submit_input Steer). */
+  async function steerPrompt(session: FspecSession, input: Input<"session.prompt">): Promise<void> {
+    const reply = (result: Event<"session.prompt_result">["result"]) =>
+      emit({ type: "session.prompt_result", sessionId: session.sessionId, clientMessageId: input.prompt.clientMessageId, result });
+    const turnId = session.activeTurnId;
+    const prompt = input.prompt.input;
+    if (turnId === null || prompt.type !== "message") {
+      reply({ type: "failed", error: { message: "fspec has no running turn to steer" } });
+      return;
+    }
+    const text = promptText(attachmentKey(session), prompt.content, session.attachments);
+    session.transcript.expectEcho(text, input.prompt.clientMessageId);
+    session.steers.push(text);
+    try {
+      const { result } = await request({ method: "submitInput", sessionId: session.daemonSessionId, text, mode: "steer" });
+      if (!result.ok) throw new Error(result.error);
+    } catch (error) {
+      session.steers.splice(session.steers.indexOf(text), 1);
+      const message = error instanceof Error ? error.message : String(error);
+      reply({ type: "failed", error: { message, diagnostic: message } });
+      return;
+    }
+    reply({ type: "steer", turnId });
+    if (input.prompt.clearPendingPermissions === true) await releaseBlockers(session);
   }
 
   /**
@@ -727,7 +843,7 @@ export function createSessionRegistry(deps: SessionDeps) {
   /** Starts the queue head once nothing is running, so turns never interleave. */
   function advance(session: FspecSession): void {
     const head = session.queue[0];
-    if (session.activeTurnId !== null || head === undefined) return;
+    if (session.activeTurnId !== null || head === undefined || head.parked === true || session.awaitSteerTurn) return;
     session.activeTurnId = head.turnId;
     emit({ type: "session.turn", sessionId: session.sessionId, turnId: head.turnId, state: "started" });
     if (head.failure) settle(session, "failed", head.failure);
@@ -801,6 +917,8 @@ export function createSessionRegistry(deps: SessionDeps) {
         attachments: { images: 0 },
         pauseGeneration: 0,
         pausedNow: false,
+        steers: [],
+        awaitSteerTurn: false,
       };
       try {
         await applyModel(session, model);
@@ -955,7 +1073,11 @@ export function createSessionRegistry(deps: SessionDeps) {
         });
         return;
       }
-      const queued = enqueueTurn(session);
+      if (input.prompt.delivery === "steer") return steerPrompt(session, input);
+      // Anything running, waiting or parked: fspec holds and orders the input.
+      const busy = session.activeTurnId !== null || session.awaitSteerTurn || session.queue.length > 0;
+      const text = promptText(attachmentKey(session), prompt.content, session.attachments);
+      const queued = enqueueTurn(session, text);
       const turnId = queued.turnId;
       emit({
         type: "session.prompt_result",
@@ -963,16 +1085,22 @@ export function createSessionRegistry(deps: SessionDeps) {
         clientMessageId: input.prompt.clientMessageId,
         result: { type: "turn", turnId },
       });
-      // The daemon queues input sent while running, so it is sent now and
-      // started only when every earlier turn has settled.
+      // A queued submit to an idle session runs fspec's parked inputs first:
+      // their turns are due again, ahead of this one.
+      for (const waiting of session.queue) delete waiting.parked;
+      // Sent now, started only when every earlier turn has settled.
       advance(session);
-      const text = promptText(attachmentKey(session), prompt.content, session.attachments);
       session.transcript.expectEcho(text, input.prompt.clientMessageId);
       markActive(session);
       try {
         // The thinking level already reached the daemon via set_thinking_level;
         // it builds the provider-specific reasoning settings itself.
-        await request({ method: "sendInput", sessionId: session.daemonSessionId, text });
+        if (busy) {
+          const { result } = await request({ method: "submitInput", sessionId: session.daemonSessionId, text, mode: "queue" });
+          unwrap(result, "submit_input");
+        } else {
+          await request({ method: "sendInput", sessionId: session.daemonSessionId, text });
+        }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         const failure = { message, diagnostic: message };
@@ -1085,6 +1213,7 @@ export function createSessionRegistry(deps: SessionDeps) {
         enqueueTurn(session);
         advance(session);
       }
+      if (session.awaitSteerTurn && chunk.type === "userInput") startAfterSteers(session, chunk.text);
       if (chunk.type === "sessionStateChange") {
         if (chunk.state === "paused") {
           session.pausedNow = true;
@@ -1117,9 +1246,7 @@ export function createSessionRegistry(deps: SessionDeps) {
           return;
         case "interrupted":
         case "interruptedWithReason":
-          // The daemon dropped the queued inputs it reports; their turns end too.
-          settle(session, "canceled");
-          for (let i = 0; i < chunk.queuedInputs.length; i += 1) settle(session, "canceled");
+          park(session, chunk.queuedInputs);
           return;
         default:
           return;

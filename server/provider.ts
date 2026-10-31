@@ -20,6 +20,7 @@ import type { DecodedResponse, FspecServiceRequest } from "./wire.js";
 // What the provider implements; negotiated against what Paseo offers.
 const capabilities = [
   "prompt.message",
+  "prompt.steer",
   "session.configure",
   "session.persistence",
   "permission",

@@ -399,6 +399,7 @@ Variant index = 0-based position in the trait. Full order verified from
 | 39 | `SetThinkingLevel` | `set_thinking_level` | `session_id: SessionId, level: ThinkingLevel` | `Result<(), String>` |
 | 80 | `GetPauseState` | `get_pause_state` | `session_id: SessionId` | `Option<PauseState>` (§6.8; read for the gated tool call id) |
 | 119 | `GetInteractionSnapshot` | `get_interaction_snapshot` | `session_id: SessionId` | `Result<String, String>` (JSON, §6.8) |
+| 128 | `SubmitInput` | `submit_input` | `session_id: SessionId, text: String, mode: InputMode` | `Result<(), String>` (`Err("Session not found: <id>")`; RIG-016, see §6.9) |
 | 46 | `SendInputWithThinking` | `send_input_with_thinking` | `session_id: SessionId, text: String, thinking: Option<ThinkingConfig>` | `()` |
 | 30 | `SetDefaultModel` | `set_default_model` | `model: String` ("provider/model") | `Result<(), String>` (empty strings ignored) |
 | 127 | `GetDefaultModel` | `get_default_model` | — | `Option<String>` ("provider/model"; RPC-440) |
@@ -464,7 +465,8 @@ completed/failed, `UserNotification`(8)→ notification, `Error`(14)→ error,
 `TokenUpdate`(10)+`ContextFillUpdate`(11)→ usage, `CompactionComplete`(18)/
 `CommittedCompaction`(19)→ compaction row, `SessionStateChange`(7)/
 `ProviderWaiting`(31)→ status. `Done`(13)/`Interrupted`(9)/
-`InterruptedWithReason`(30) are turn terminals.
+`InterruptedWithReason`(30) are turn terminals; an interrupt is followed by a
+`Done` and its `queued_inputs` stay parked in the daemon (§6.9).
 
 ### 6.2 Supporting payloads (verbatim)
 
@@ -580,6 +582,30 @@ details text. `get_interaction_snapshot` returns `Result<String, String>` JSON
 answer must quote (`reply_interaction_checked`, idx 120) but **no tool call id**. The plugin
 therefore reads the snapshot for the request and `get_pause_state` only for
 `tool_call_id`, so the Paseo permission is attached to the gated tool call (FSPEC-050).
+
+### 6.9 Steer, queue and interrupt — `submit_input` (idx 128, RIG-016)
+
+```rust
+pub enum InputMode { Steer, Queue, Interrupt }   // 0-2, #[default] Steer (rpc-types input_mode.rs)
+```
+
+Behaviour (`sessions/src/background_session/input_modes.rs`, `agent-loop/.../finalization.rs`,
+`cli/src/interactive/stream_loop/{steer,interrupted}.rs`):
+
+| session | `Steer` | `Queue` | `Interrupt` |
+|---|---|---|---|
+| idle | like `send_input` (new turn) | queued, then the **oldest parked input** starts (parked inputs run ahead of it) | like `send_input` |
+| running | `UserInput` chunk emitted **now**; delivered at the next safe boundary (all tool results settled, before the next provider request) with no further chunk | starts as a new turn when the running turn completes, in order | cancels the turn; the text is parked at the front of the queue |
+
+- A turn that completes without an interrupt starts the steers it never reached
+  (joined with blank lines) as one new turn **before** the next queued input
+  (`continue_with_inbox`); each such turn begins with a `UserInput` chunk of its text.
+- An interrupted turn leaves queued inputs **parked**: `Interrupted`/`InterruptedWithReason`
+  lists them in `queued_inputs` (without draining), followed by `Done`; they only run on
+  resume, i.e. a `Queue` submit while idle. Older daemons dropped them.
+- The plugin (FSPEC-051): `delivery: "steer"` → `Steer`; a prompt while a turn runs, waits or
+  is parked → `Queue`; an idle prompt keeps `send_input`. It never sends `Interrupt` (Stop
+  uses `interrupt`, idx 5).
 
 ---
 

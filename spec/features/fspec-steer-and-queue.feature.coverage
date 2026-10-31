@@ -1,0 +1,244 @@
+{
+  "scenarios": [
+    {
+      "name": "submit_input matches the daemon's encoding",
+      "testMappings": [
+        {
+          "file": "test/steer-and-queue.test.ts",
+          "lines": "53-71",
+          "implMappings": [
+            {
+              "file": "server/wire.ts",
+              "lines": [
+                110,
+                111,
+                606,
+                628,
+                733,
+                831,
+                1775,
+                1776,
+                1948,
+                1949,
+                1950,
+                1951,
+                1952,
+                2165,
+                2283,
+                2511,
+                2512
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "The provider advertises steering",
+      "testMappings": [
+        {
+          "file": "test/steer-and-queue.test.ts",
+          "lines": "73-83",
+          "implMappings": [
+            {
+              "file": "server/provider.ts",
+              "lines": [
+                23
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A steered prompt joins the running turn",
+      "testMappings": [
+        {
+          "file": "test/steer-and-queue.test.ts",
+          "lines": "85-105",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                772,
+                773,
+                774,
+                775,
+                776,
+                777,
+                778,
+                779,
+                780,
+                781,
+                782,
+                783,
+                784,
+                785,
+                786,
+                787,
+                788,
+                789,
+                790,
+                791,
+                792,
+                793,
+                794,
+                795,
+                796,
+                797,
+                798,
+                1077
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A steer with no running turn fails",
+      "testMappings": [
+        {
+          "file": "test/steer-and-queue.test.ts",
+          "lines": "107-119",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                772,
+                773,
+                774,
+                775,
+                776,
+                777,
+                778,
+                779,
+                780
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A steer the daemon rejects fails its prompt",
+      "testMappings": [
+        {
+          "file": "test/steer-and-queue.test.ts",
+          "lines": "121-135",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                785,
+                786,
+                787,
+                788,
+                789,
+                790,
+                791,
+                792,
+                793,
+                794,
+                795
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A steer with clearPendingPermissions denies the pause blocking it",
+      "testMappings": [
+        {
+          "file": "test/steer-and-queue.test.ts",
+          "lines": "137-158",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                755,
+                756,
+                757,
+                758,
+                759,
+                760,
+                761,
+                762,
+                763,
+                764,
+                765,
+                766,
+                767,
+                768,
+                769,
+                797,
+                798
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A steer the running turn never reached runs as its own turn",
+      "testMappings": [
+        {
+          "file": "test/steer-and-queue.test.ts",
+          "lines": "160-176",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                680,
+                681,
+                682,
+                683,
+                684,
+                685,
+                686,
+                687,
+                688,
+                689,
+                690,
+                691,
+                692,
+                704,
+                705,
+                706,
+                707,
+                708,
+                709,
+                710,
+                711,
+                712,
+                713,
+                714,
+                715,
+                716,
+                717,
+                718,
+                719,
+                846,
+                1216
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalScenarios": 7,
+    "coveredScenarios": 7,
+    "coveragePercent": 100,
+    "testFiles": [
+      "test/steer-and-queue.test.ts"
+    ],
+    "implFiles": [
+      "server/wire.ts",
+      "server/provider.ts",
+      "server/session.ts"
+    ],
+    "totalLinesCovered": 232
+  }
+}

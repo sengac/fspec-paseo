@@ -72,6 +72,8 @@ describe("Feature: Show fspec subordinate agents as Paseo child sessions", () =>
     it("sends input to the subordinate without creating or destroying it", async () => {
       // @step Given an open Paseo child session "paseo-1:sub:sub-9" for daemon session "sub-9"
       const { h } = await withChild();
+      // The child's own run has finished, so the prompt starts a new turn.
+      await h.stream("sub-9", { type: "done" });
       // @step When Paseo prompts the child with "status?"
       await h.send(h.prompt(CHILD, "status?"));
       // @step Then the provider sent send_input("sub-9", "status?") and never created or destroyed a daemon session for the child

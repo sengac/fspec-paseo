@@ -40,7 +40,12 @@ export type Sheet =
 export type ScreenState =
   | { kind: "loading" }
   | { kind: "unavailable"; reason: string; retry: true }
-  | { kind: "ready"; workspace: string; tree: TreeProvider[] };
+  | {
+      kind: "ready";
+      workspace: string;
+      tree: TreeProvider[];
+      defaultModel: { value: string; options: Array<{ label: string; value: string }> };
+    };
 
 export const ENDPOINT_ERROR = "Enter an http:// or https:// URL";
 
@@ -200,10 +205,33 @@ export function testBadge(output: TestProviderOutput): string {
   return output.success ? `✓ ${output.latencyMs} ms` : `✗ ${output.error ?? "connection failed"}`;
 }
 
+/**
+ * The Default model row (FSPEC-046): every reachable model as provider/model,
+ * selecting fspec's current default, or "Not set" first when fspec has none.
+ */
+export function defaultModelChoice(list: Extract<SettingsListOutput, { state: "ready" }>): {
+  value: string;
+  options: Array<{ label: string; value: string }>;
+} {
+  const options = list.providers
+    .filter((provider) => !provider.unreachable)
+    .flatMap((provider) =>
+      provider.models.map((model) => {
+        const id = `${provider.id}/${model.id}`;
+        return { label: `${model.displayName} · ${id}`, value: id };
+      }),
+    );
+  const current = list.defaultModel;
+  if (current === null) return { value: "", options: [{ label: "Not set", value: "" }, ...options] };
+  // A default fspec no longer lists still shows as the current value.
+  const known = options.some((option) => option.value === current);
+  return { value: current, options: known ? options : [{ label: current, value: current }, ...options] };
+}
+
 export function screenState(list: SettingsListOutput | null): ScreenState {
   if (list === null) return { kind: "loading" };
   if (list.state === "unavailable") return { kind: "unavailable", reason: list.reason, retry: true };
-  return { kind: "ready", workspace: list.workspace, tree: buildTree(list.providers) };
+  return { kind: "ready", workspace: list.workspace, tree: buildTree(list.providers), defaultModel: defaultModelChoice(list) };
 }
 
 /** What a sign-in sheet says for its step (FSPEC-044). */

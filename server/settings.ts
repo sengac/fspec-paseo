@@ -51,6 +51,8 @@ export interface SettingsFeed {
   saveSettings(input: { providerId: string; definition: Definition }): Promise<WriteOutput>;
   saveProfile(input: SaveProfileInput): Promise<WriteOutput>;
   deleteProfile(input: { providerId: string; name: string }): Promise<WriteOutput>;
+  /** Makes a "provider/model" fspec's default model (FSPEC-046). */
+  setDefaultModel(input: { model: string }): Promise<WriteOutput>;
   /** OAuth sign-in and log-out (FSPEC-044). */
   oauthStart(input: OAuthStartInput): Promise<OAuthStartOutput>;
   oauthComplete(input: { loginId: string; code: string }): Promise<WriteOutput>;
@@ -162,6 +164,7 @@ export function createSettingsFeed(
         const { credentials } = await call({ method: "listProviderCredentials" });
         const { providers } = await call({ method: "listProviders" });
         const settings = await call({ method: "listProviderSettings" });
+        const { model: defaultModel } = await call({ method: "getDefaultModel" });
         // Profile names and base URLs only: a profile's api_key never leaves the server.
         const profilesOf = new Map(
           (settings.result.ok ? settings.result.value : []).map((config) => [
@@ -204,7 +207,7 @@ export function createSettingsFeed(
         }
         // Configured first; otherwise the daemon's order (Array#sort is stable).
         rows.sort((a, b) => Number(b.configured) - Number(a.configured));
-        return { state: "ready", workspace: workspace.cwd, providers: rows };
+        return { state: "ready", workspace: workspace.cwd, providers: rows, defaultModel };
       }),
 
     saveCredentials: ({ providerId, credential }) =>
@@ -282,6 +285,9 @@ export function createSettingsFeed(
         const { result } = await call({ method: "deleteProfile", providerId, profileName: name });
         return written(result);
       }),
+
+    setDefaultModel: ({ model }) =>
+      guarded(async () => written((await call({ method: "setDefaultModel", model })).result)),
 
     oauthStart: (input) => guarded(() => logins.start(input)),
     oauthComplete: (input) => guarded(() => logins.complete(input)),

@@ -16,6 +16,7 @@ import {
   saveCredentialsRpc,
   saveProfileRpc,
   saveSettingsRpc,
+  setDefaultModelRpc,
   settingsListRpc,
   testProviderRpc,
 } from "./shared/settings.js";
@@ -39,6 +40,7 @@ export default function contribute(
   server.handle(saveSettingsRpc, (input) => settings.saveSettings(input));
   server.handle(saveProfileRpc, (input) => settings.saveProfile(input));
   server.handle(deleteProfileRpc, (input) => settings.deleteProfile(input));
+  server.handle(setDefaultModelRpc, (input) => settings.setDefaultModel(input));
   server.handle(oauthStartRpc, (input) => settings.oauthStart(input));
   server.handle(oauthCompleteRpc, (input) => settings.oauthComplete(input));
   server.handle(oauthStatusRpc, (input) => settings.oauthStatus(input));

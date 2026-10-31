@@ -1,0 +1,292 @@
+{
+  "scenarios": [
+    {
+      "name": "get_default_model matches the daemon's encoding",
+      "testMappings": [
+        {
+          "file": "test/default-model.test.ts",
+          "lines": "45-62",
+          "implMappings": [
+            {
+              "file": "server/wire.ts",
+              "lines": [
+                602,
+                689,
+                768,
+                1855,
+                1856,
+                2050,
+                2051,
+                2190,
+                2191,
+                2349,
+                2350,
+                2351,
+                2568,
+                2569
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "The catalog marks fspec's default model as the default",
+      "testMappings": [
+        {
+          "file": "test/default-model.test.ts",
+          "lines": "64-74",
+          "implMappings": [
+            {
+              "file": "server/catalog.ts",
+              "lines": [
+                54,
+                55,
+                56,
+                57,
+                58,
+                59,
+                60,
+                61,
+                62,
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71,
+                72,
+                73,
+                74,
+                75,
+                76,
+                77,
+                78,
+                79,
+                80,
+                81,
+                82,
+                83,
+                84
+              ]
+            },
+            {
+              "file": "server/provider.ts",
+              "lines": [
+                153,
+                154,
+                155
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A default the catalog does not list leaves the first model as the default",
+      "testMappings": [
+        {
+          "file": "test/default-model.test.ts",
+          "lines": "76-85",
+          "implMappings": [
+            {
+              "file": "server/catalog.ts",
+              "lines": [
+                54,
+                55,
+                56,
+                57,
+                58,
+                59,
+                60
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "An agent opened without a model follows fspec's default model",
+      "testMappings": [
+        {
+          "file": "test/default-model.test.ts",
+          "lines": "87-103",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                768,
+                769,
+                770,
+                806
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "With no default model the chosen model becomes fspec's default",
+      "testMappings": [
+        {
+          "file": "test/default-model.test.ts",
+          "lines": "105-121",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                768,
+                769,
+                770,
+                771,
+                772,
+                773,
+                774,
+                775,
+                776
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A session fspec declines for want of a default model fails the open with the reason",
+      "testMappings": [
+        {
+          "file": "test/default-model.test.ts",
+          "lines": "123-144",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                155,
+                742,
+                743,
+                744,
+                745,
+                746,
+                747
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "The settings screen shows and changes fspec's default model",
+      "testMappings": [
+        {
+          "file": "test/default-model.test.ts",
+          "lines": "146-180",
+          "implMappings": [
+            {
+              "file": "server/settings.ts",
+              "lines": [
+                55,
+                167,
+                175,
+                289,
+                290
+              ]
+            },
+            {
+              "file": "shared/settings.ts",
+              "lines": [
+                41,
+                159,
+                160,
+                161,
+                162,
+                163,
+                164,
+                165
+              ]
+            },
+            {
+              "file": "client/settings-model.ts",
+              "lines": [
+                208,
+                209,
+                210,
+                211,
+                212,
+                213,
+                214,
+                215,
+                216,
+                217,
+                218,
+                219,
+                220,
+                221,
+                222,
+                223,
+                224,
+                225,
+                226,
+                227,
+                228,
+                229,
+                230
+              ]
+            },
+            {
+              "file": "client/settings-screen.tsx",
+              "lines": [
+                156,
+                157,
+                158,
+                159,
+                160,
+                161,
+                182,
+                183,
+                184,
+                185,
+                186,
+                187,
+                188,
+                189,
+                190,
+                191,
+                192,
+                193,
+                194
+              ]
+            },
+            {
+              "file": "index.server.ts",
+              "lines": [
+                43
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalScenarios": 7,
+    "coveredScenarios": 7,
+    "coveragePercent": 100,
+    "testFiles": [
+      "test/default-model.test.ts"
+    ],
+    "implFiles": [
+      "server/wire.ts",
+      "server/catalog.ts",
+      "server/provider.ts",
+      "server/session.ts",
+      "server/settings.ts",
+      "shared/settings.ts",
+      "client/settings-model.ts",
+      "client/settings-screen.tsx",
+      "index.server.ts"
+    ],
+    "totalLinesCovered": 261
+  }
+}

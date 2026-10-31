@@ -68,6 +68,8 @@ export async function harness() {
   home.writeDaemonJson();
   const daemon = new FakeDaemon();
   daemon.handlers.listProviders = () => CATALOG;
+  // fspec's default model: the catalog's first model, like a configured fspec.
+  daemon.handlers.getDefaultModel = () => "anthropic/claude-sonnet-4";
   const provider = createFspecProvider(daemonOptions(home, daemon));
   const connection: ProviderConnection = await provider.connect({
     versions: [1],

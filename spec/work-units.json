@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-10-31T23:45:50.499Z"
+    "lastUpdated": "2026-10-31T23:51:02.171Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -5512,16 +5512,122 @@
       "id": "FSPEC-046",
       "title": "Follow fspec's default model in Paseo",
       "type": "story",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-10-30T05:16:10.623Z",
-      "updatedAt": "2026-10-31T23:39:50.219Z",
+      "updatedAt": "2026-10-31T23:51:02.171Z",
       "description": "Make fspec's default model drive Paseo: when Paseo opens an fspec agent without an explicit model, use fspec's default (read with get_default_model, variant index 127, Option<String> 'provider/model') instead of the catalog's first model, and offer a 'default model' control in the settings screen that calls set_default_model (idx 30). fspec card RPC-440 delivered get_default_model, appended at index 127 (after the RPC-449 workspace methods 124-126).",
       "epic": "provider-settings",
       "children": [],
       "dependsOn": [
         "FSPEC-042",
         "FSPEC-043"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-10-31T23:47:39.753Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-10-31T23:48:17.284Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-10-31T23:50:55.253Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-10-31T23:51:02.021Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-10-31T23:51:02.171Z"
+        }
+      ],
+      "userStory": {
+        "role": "Paseo user running fspec agents",
+        "action": "have Paseo follow fspec's default model and change that default from the fspec providers screen",
+        "benefit": "new agents use the model I chose in fspec instead of whichever model happens to be listed first"
+      },
+      "rules": [
+        {
+          "id": 0,
+          "text": "get_default_model (idx 127, no arguments) answers Option<String> 'provider/model'; the provider reads it for the catalog and for every session.open",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:47:39.801Z"
+        },
+        {
+          "id": 1,
+          "text": "The catalog's defaultModel (and isDefault) is fspec's default model when the catalog lists it; otherwise the first reachable model, as before",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:47:39.823Z"
+        },
+        {
+          "id": 2,
+          "text": "An agent opened with no explicit or saved model gets fspec's default model; an explicit or saved model still wins and is applied with set_session_model",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:47:39.842Z"
+        },
+        {
+          "id": 3,
+          "text": "When fspec has no default model, the model the agent opens with (explicit, saved, else the catalog's first) is made fspec's default with set_default_model before the session is created, as the fspec TUI does when a model is chosen with no session (PROV-118); with no model at all the open fails",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:47:39.862Z"
+        },
+        {
+          "id": 4,
+          "text": "create_session_checked answering Ok with an empty id (fspec declined: no default model) fails the open with 'fspec could not create a session: fspec has no default model — choose one under fspec providers' instead of a later 'Session not found'",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:47:39.885Z"
+        },
+        {
+          "id": 5,
+          "text": "The fspec providers screen has a Default model row listing every reachable model as provider/model, showing fspec's current default (or 'Not set'); choosing one calls set_default_model (idx 30), then reloads and refreshes Paseo's fspec models",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:47:39.907Z"
+        }
+      ],
+      "nextRuleId": 6,
+      "examples": [
+        {
+          "id": 0,
+          "text": "get_default_model = Some('openai/gpt-5'), catalog anthropic/claude-sonnet-4, openai/gpt-5 -> catalog defaultModel 'openai/gpt-5' with isDefault on it; Paseo opens an agent with no model -> set_session_model(openai, gpt-5), session.config model 'openai/gpt-5'",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:47:39.927Z"
+        },
+        {
+          "id": 1,
+          "text": "get_default_model = None; Paseo opens with model 'openai/gpt-5' -> set_default_model('openai/gpt-5') then create_session_checked, set_session_model(openai, gpt-5)",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:47:39.948Z"
+        },
+        {
+          "id": 2,
+          "text": "Settings screen: Default model shows 'anthropic/claude-sonnet-4'; the user picks 'openai/gpt-5' -> fspec.settings.set-default-model { model: 'openai/gpt-5' } -> set_default_model('openai/gpt-5'), list reloads, paseo.providers.refresh(['fspec'])",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:47:39.968Z"
+        },
+        {
+          "id": 3,
+          "text": "Golden: get_default_model reply 01 19000000.. 'anthropic/claude-sonnet-4' decodes to model 'anthropic/claude-sonnet-4'; 00 decodes to null; the request is variant index 127 (7f000000) with no argument bytes",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:47:39.989Z"
+        }
+      ],
+      "nextExampleId": 4,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/wire.ts getDefaultModel 127 (request no fields, response Option<String>). server/catalog.ts buildCatalog(providers, defaultModel). server/provider.ts catalog and server/session.ts open() read it; open() calls setDefaultModel (30) only when fspec has none (TUI parity: rust/fspec-tui/src/app/dispatch_model_thinking_dialogs.rs handle_model_selected_no_session) and treats an empty created id as the PROV-101 decline (rust/sessions/src/handle_creation.rs create_session_checked returns Ok(empty) without a default). shared/settings.ts: settings.list gains defaultModel; new fspec.settings.set-default-model RPC. client/settings-model.ts defaultModelChoice (pure); client/settings-screen.tsx a Default model SettingsSelect section.",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:47:40.010Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "attachments": [
+        "spec/attachments/FSPEC-046/ast-research.md"
+      ],
+      "estimate": 5
     },
     "FSPEC-047": {
       "id": "FSPEC-047",
@@ -6002,7 +6108,6 @@
   },
   "states": {
     "backlog": [
-      "FSPEC-046",
       "FSPEC-047",
       "FSPEC-051",
       "FSPEC-052",
@@ -6063,7 +6168,8 @@
       "FSPEC-044",
       "FSPEC-048",
       "FSPEC-049",
-      "FSPEC-050"
+      "FSPEC-050",
+      "FSPEC-046"
     ],
     "blocked": []
   },

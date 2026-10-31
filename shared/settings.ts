@@ -37,6 +37,8 @@ export const settingsListRpc = defineRpc({
       state: z.literal("ready"),
       workspace: z.string(),
       providers: z.array(settingsProviderSchema),
+      /** fspec's default model as "provider/model" (get_default_model), null when none is set. */
+      defaultModel: z.string().nullable(),
     }),
     unavailableSchema,
   ]),
@@ -152,6 +154,13 @@ export const saveProfileRpc = defineRpc({
 export const deleteProfileRpc = defineRpc({
   name: "fspec.settings.delete-profile",
   input: z.object({ providerId: z.string(), name: z.string() }),
+  output: writeOutput,
+});
+
+/** Makes "provider/model" fspec's default model (set_default_model, FSPEC-046). */
+export const setDefaultModelRpc = defineRpc({
+  name: "fspec.settings.set-default-model",
+  input: z.object({ model: z.string().min(1) }),
   output: writeOutput,
 });
 

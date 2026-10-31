@@ -26,7 +26,7 @@ The plugin is an ordinary client of a running **fspec daemon**. It doesn't start
 
 **An `fspec` agent provider in Paseo**
 
-- **Models:** the model picker lists every model from every *reachable* provider configured in fspec, as `provider/model`. The first one is the default. Thinking levels are Off / Low / Medium / High.
+- **Models:** the model picker lists every model from every *reachable* provider configured in fspec, as `provider/model`. The default is fspec's own default model, the one the fspec TUI sets (the first model when fspec's default isn't listed). An agent opened without a model gets it. If fspec has no default yet, the model you open the agent with becomes it, as in the TUI. Thinking levels are Off / Low / Medium / High.
 - **Live timeline:** streaming assistant text, reasoning, tool calls with their results and progress, notices, errors, compaction, and token/context usage.
 - **Stop:** interrupts the running fspec turn. Prompts sent while a turn is running are queued and run in order.
 - **Approvals and questions:** fspec approval pauses and HITL (human-in-the-loop) questions appear as Paseo permission prompts, and so do the ones raised by sub-agents. An approval shows fspec's message and details and is attached to the tool call it holds back. A command waiting on stdin asks you for the input.
@@ -65,6 +65,7 @@ This screen mirrors the fspec TUI's `/provider` view.
   - **⚙ Settings**, for every provider: Context Window, Max Output Tokens, Compaction Threshold (`80%` or `200000`), Streaming, Auto-Continue, Preserve Thinking, Max Images, and Loop Detection with its Window, Repeat and Retries. These use the same defaults, hints and validation as the TUI.
   - **📁 profiles** and **+ Add profile**: named endpoints under any provider. Each has a Name, a Base URL, an API key and the same settings. Profiles can be created, edited, renamed or deleted. OpenAI profiles need their own endpoint and key; other providers' profiles inherit authentication.
 - **Keys and tokens stay off the app.** API keys, profile keys, OAuth tokens and PKCE verifiers never reach it. You see masked keys or "a key is stored", and leaving a key field empty keeps the stored key.
+- **Default model:** the **Default model** row at the top lists every reachable model as `provider/model` and shows fspec's current default. Choosing one makes it fspec's default (the same setting the TUI's model selector writes), so new fspec agents start on it.
 - **Paseo's fspec model picker updates after every change.** Changes made in the fspec TUI are picked up too.
 
 ## Requirements
@@ -179,14 +180,14 @@ An agent profile makes fspec a one-click choice in Paseo. You can create it in t
         "color": "green",
         "provider": "fspec",
         "thinkingOptionId": "off",
-        "notes": "Runs the agent through the local fspec daemon. Model defaults to the daemon's first reachable model."
+        "notes": "Runs the agent through the local fspec daemon. Model defaults to fspec's default model."
       }
     ]
   }
 }
 ```
 
-If you leave `model` out, the profile uses the first model of fspec's first reachable provider. To pin a model, set `"model": "<fspec-provider>/<model-id>"` using an id from `paseo provider models fspec`.
+If you leave `model` out, the profile uses fspec's default model. To pin a model, set `"model": "<fspec-provider>/<model-id>"` using an id from `paseo provider models fspec`.
 
 If you only want fspec agents, you can turn off the built-in providers under `agents.providers` (for example `"claude": { "enabled": false }`). This is optional.
 

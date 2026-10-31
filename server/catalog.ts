@@ -46,20 +46,28 @@ export function isThinkingLevel(value: string): value is ThinkingLevel {
 }
 
 /**
- * Unreachable providers are excluded; the first model of the first reachable
- * provider is the default (the wire exposes no get_default_model). With no
- * reachable model the catalog is empty and carries no defaultModel.
+ * Unreachable providers are excluded. The default is fspec's own default
+ * model (get_default_model, FSPEC-046) when the catalog lists it, otherwise
+ * the first model of the first reachable provider. With no reachable model
+ * the catalog is empty and carries no defaultModel.
  */
-export function buildCatalog(providers: readonly ProviderInfo[]): ProviderCatalog {
+export function buildCatalog(providers: readonly ProviderInfo[], fspecDefault: string | null = null): ProviderCatalog {
+  const ids: string[] = [];
+  for (const provider of providers) {
+    if (provider.isUnreachable) continue;
+    for (const entry of provider.models) ids.push(catalogModelId(provider.key, entry.id));
+  }
+  const defaultModel = fspecDefault !== null && ids.includes(fspecDefault) ? fspecDefault : ids[0];
   const models: ProviderModel[] = [];
   for (const provider of providers) {
     if (provider.isUnreachable) continue;
     for (const entry of provider.models) {
+      const id = catalogModelId(provider.key, entry.id);
       models.push({
-        id: catalogModelId(provider.key, entry.id),
+        id,
         label: entry.displayName,
         contextWindowMaxTokens: entry.contextWindow,
-        ...(models.length === 0 ? { isDefault: true } : {}),
+        ...(id === defaultModel ? { isDefault: true } : {}),
       });
     }
   }
@@ -67,7 +75,7 @@ export function buildCatalog(providers: readonly ProviderInfo[]): ProviderCatalo
     models,
     modes: [],
     thinkingOptions: THINKING_OPTIONS,
-    ...(models.length > 0 ? { defaultModel: models[0]!.id } : {}),
+    ...(defaultModel !== undefined ? { defaultModel } : {}),
     defaultThinkingOption: DEFAULT_THINKING_OPTION,
   };
 }

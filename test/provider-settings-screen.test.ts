@@ -296,7 +296,7 @@ describe("Feature: Manage fspec providers from a Paseo settings screen", () => {
       // @step Then it shows that reason with a Retry action, not an empty list
       expect(state).toEqual({ kind: "unavailable", reason, retry: true });
       expect(screenState(null)).toEqual({ kind: "loading" });
-      const ready = screenState({ state: "ready", workspace: "/w", providers: feedRows });
+      const ready = screenState({ state: "ready", workspace: "/w", providers: feedRows, defaultModel: null });
       expect(ready).toMatchObject({ kind: "ready", workspace: "/w" });
       expect(ready.kind === "ready" && ready.tree.map((p) => p.id)).toEqual(["anthropic", "openai", "gemini"]);
     });

@@ -599,6 +599,7 @@ export const FspecMethodIndex = {
   resumeSession: 55,
   destroySession: 87,
   getTranscriptPage: 117,
+  getDefaultModel: 127,
 } as const;
 
 export type FspecMethodName = keyof typeof FspecMethodIndex;
@@ -685,6 +686,7 @@ export type FspecServiceRequest =
       maxBytes: number;
     }
   | { method: "setDefaultModel"; model: string }
+  | { method: "getDefaultModel" }
   | { method: "addCustomModel"; providerId: string; profileName: string; definition: CustomModelDefinition }
   | {
       method: "updateCustomModel";
@@ -763,6 +765,7 @@ export type FspecServiceResponse =
   | { method: "getPendingInput"; value: string | null }
   | { method: "restoreCheckpointAll"; value: Result<void> }
   | { method: "getTranscriptPage"; value: TranscriptResult }
+  | { method: "getDefaultModel"; value: string | null }
   | { method: VoidSettingsMethod; value: Result<void> }
   | { method: "listProviderSettings"; value: Result<ProviderSettingsConfig[]> }
   | { method: "listProviderCredentials"; value: ProviderCredentialInfo[] }
@@ -1849,6 +1852,8 @@ function writeServiceRequest(w: BincodeWriter, message: FspecServiceRequest): vo
     case "setDefaultModel":
       w.string(message.model);
       return;
+    case "getDefaultModel":
+      return;
     case "addCustomModel":
       w.string(message.providerId).string(message.profileName);
       writeCustomModelDefinition(w, message.definition);
@@ -2042,6 +2047,8 @@ function readServiceRequest(r: BincodeReader): FspecServiceRequest {
     }
     case "setDefaultModel":
       return { method, model: r.string("model") };
+    case "getDefaultModel":
+      return { method };
     case "addCustomModel": {
       const providerId = r.string("provider_id");
       const profileName = r.string("profile_name");
@@ -2180,6 +2187,8 @@ export type DecodedResponse =
   | { requestId: number; ok: true; method: "getPendingInput"; text: string | null }
   | { requestId: number; ok: true; method: "restoreCheckpointAll"; result: Result<void> }
   | { requestId: number; ok: true; method: "getTranscriptPage"; result: TranscriptResult }
+  /** fspec's default model as "provider/model", or null when none is set (RPC-440). */
+  | { requestId: number; ok: true; method: "getDefaultModel"; model: string | null }
   // One member per method (not `method: VoidSettingsMethod`), so Extract narrows by method.
   | { [M in VoidSettingsMethod]: { requestId: number; ok: true; method: M; result: Result<void> } }[VoidSettingsMethod]
   | { requestId: number; ok: true; method: "listProviderSettings"; result: Result<ProviderSettingsConfig[]> }
@@ -2337,6 +2346,7 @@ export function encodeResponseFrame(input: {
       break;
     case "getActiveSession":
     case "getPendingInput":
+    case "getDefaultModel":
       w.option((input.value ?? null) as string | null, (x, id) => x.string(id));
       break;
     case "getSessionStatus":
@@ -2555,6 +2565,8 @@ export function decodeResponseFrame(bytes: Uint8Array): DecodedResponse {
       };
     case "getTranscriptPage":
       return { requestId, ok: true, method, result: readTranscriptResult(r) };
+    case "getDefaultModel":
+      return { requestId, ok: true, method, model: r.skipOption((x) => x.string("default model")) };
     case "setDefaultModel":
     case "addCustomModel":
     case "updateCustomModel":

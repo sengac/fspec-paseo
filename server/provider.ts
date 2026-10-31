@@ -151,7 +151,8 @@ function createConnection(
     switch (input.type) {
       case "catalog": {
         const { providers } = await request({ method: "listProviders" });
-        emit({ type: "catalog", requestId: input.requestId, catalog: buildCatalog(providers) });
+        const { model } = await request({ method: "getDefaultModel" });
+        emit({ type: "catalog", requestId: input.requestId, catalog: buildCatalog(providers, model) });
         return;
       }
       case "sessions":

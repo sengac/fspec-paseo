@@ -103,6 +103,8 @@ export class FakeDaemon {
     this.handlers.setWorkUnitFocus = () => ({ ok: true, value: { revision: 1, context: null, source: "paseo" } });
     this.handlers.listProviders = () => [];
     this.handlers.listProviderSettings = () => ({ ok: true, value: [] });
+    this.handlers.getDefaultModel = () => null;
+    this.handlers.setDefaultModel = () => ({ ok: true, value: undefined });
   }
 
   readonly openSocket = (_url: string): SocketLike => {

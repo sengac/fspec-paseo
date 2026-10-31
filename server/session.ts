@@ -151,6 +151,9 @@ function promptPreview(text: string, query: string): string {
   return trimmed.slice(start, start + PROMPT_PREVIEW_CHARS);
 }
 
+/** Why an open fails when fspec declined to create a session for want of a default model. */
+const NO_DEFAULT_MODEL = "fspec could not create a session: fspec has no default model — choose one under fspec providers";
+
 /** The single question of a stdin request; Paseo returns its answer under this header. */
 const STDIN_HEADER = "Input";
 
@@ -738,6 +741,8 @@ export function createSessionRegistry(deps: SessionDeps) {
   async function createDaemonSession(): Promise<string> {
     const { result } = await request({ method: "createSessionChecked", role: null });
     if (!result.ok) throw new Error(`fspec could not create a session: ${result.error}`);
+    // fspec declines with an empty id when it has no default model (PROV-101).
+    if (result.value === "") throw new Error(NO_DEFAULT_MODEL);
     return result.value;
   }
 
@@ -760,7 +765,14 @@ export function createSessionRegistry(deps: SessionDeps) {
       }
       const saved = input.persistence ? readPersistence(input.persistence) : undefined;
       const { providers } = await request({ method: "listProviders" });
-      const catalog = buildCatalog(providers);
+      const { model: fspecDefault } = await request({ method: "getDefaultModel" });
+      const catalog = buildCatalog(providers, fspecDefault);
+      const model = input.config.model ?? saved?.model ?? catalog.defaultModel;
+      // fspec creates sessions with its default model and declines without
+      // one; like the TUI, the model chosen with no default becomes it.
+      if (fspecDefault === null && model !== undefined) {
+        unwrap((await request({ method: "setDefaultModel", model })).result, "set_default_model");
+      }
       // A saved session may have been dropped from daemon memory (close calls
       // destroy_session); resume_session rebuilds it from its manifest.
       const resumeError = saved ? await resume(saved.sessionId) : null;
@@ -791,7 +803,7 @@ export function createSessionRegistry(deps: SessionDeps) {
         pausedNow: false,
       };
       try {
-        await applyModel(session, input.config.model ?? saved?.model ?? catalog.defaultModel);
+        await applyModel(session, model);
         await applyThinking(
           session,
           thinkingLevel(input.config.thinkingOption ?? saved?.thinkingOption ?? DEFAULT_THINKING_OPTION),

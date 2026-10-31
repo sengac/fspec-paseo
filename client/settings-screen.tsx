@@ -7,6 +7,7 @@ import {
   SettingsInput,
   SettingsRow,
   SettingsSection,
+  SettingsSelect,
   useToast,
 } from "@getpaseo/plugin/client/ui";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -24,6 +25,7 @@ import {
   saveCredentialsRpc,
   saveProfileRpc,
   saveSettingsRpc,
+  setDefaultModelRpc,
   type SettingsListOutput,
   type SettingsProvider,
   settingsListRpc,
@@ -86,6 +88,7 @@ export function SettingsScreen({ theme }: PluginSurfaceProps) {
     saveSettings: useRpc(saveSettingsRpc),
     saveProfile: useRpc(saveProfileRpc),
     deleteProfile: useRpc(deleteProfileRpc),
+    setDefaultModel: useRpc(setDefaultModelRpc),
     oauthStart: useRpc(oauthStartRpc),
     oauthComplete: useRpc(oauthCompleteRpc),
     oauthStatus: useRpc(oauthStatusRpc),
@@ -104,6 +107,7 @@ export function SettingsScreen({ theme }: PluginSurfaceProps) {
   const [badges, setBadges] = useState<Record<string, { text: string; ok: boolean }>>({});
   const [allModels, setAllModels] = useState<string | null>(null);
   const [sheet, setSheet] = useState<Sheet | null>(null);
+  const [defaultError, setDefaultError] = useState<string | null>(null);
 
   const reload = useCallback(async () => {
     try {
@@ -149,6 +153,13 @@ export function SettingsScreen({ theme }: PluginSurfaceProps) {
     show(outcome.ok ? `${count} ${count === 1 ? "model" : "models"}` : `✗ ${outcome.error}`);
   }
 
+  async function chooseDefault(model: string) {
+    if (model === "") return;
+    const outcome = await runWrite({ write: () => rpcRef.current.setDefaultModel({ model }), reload, refreshPaseo });
+    setDefaultError(outcome.ok ? null : outcome.error);
+    if (outcome.ok) toast.show(`fspec's default model is now ${model}`, { variant: "success" });
+  }
+
   const state = screenState(answer);
   if (state.kind === "loading") {
     return <Text style={{ color: c.foregroundMuted, padding: 16 }}>Loading fspec providers…</Text>;
@@ -168,6 +179,18 @@ export function SettingsScreen({ theme }: PluginSurfaceProps) {
 
   return (
     <View>
+      <SettingsSection title="Default model" info="The model fspec gives new sessions; Paseo's fspec agents follow it">
+        <SettingsCard>
+          <SettingsSelect
+            label="Default model"
+            hint={state.defaultModel.value === "" ? "Not set: choose one so fspec can create sessions" : state.defaultModel.value}
+            error={defaultError}
+            value={state.defaultModel.value}
+            options={state.defaultModel.options}
+            onValueChange={(model) => void chooseDefault(model)}
+          />
+        </SettingsCard>
+      </SettingsSection>
       <SettingsSection
         title="Providers"
         info={`The providers of the fspec daemon serving ${state.workspace}`}

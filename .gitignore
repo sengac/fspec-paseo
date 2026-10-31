@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Agents
+.claude/
+
+# Build output
+dist/
+*.tsbuildinfo
+
+# Test results / coverage
+coverage/
+.nyc_output/
+*.lcov
+
+# IDEs
+.vscode/
+.idea/
+
+# Logs
+*.log
+logs/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# OS
+.DS_Store
+
+# fspec local caches (code index graph)
+.fspec/

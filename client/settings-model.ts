@@ -1,0 +1,223 @@
+import type { OAuthStep, SettingsListOutput, SettingsProvider, TestProviderOutput } from "../shared/settings.js";
+
+/**
+ * The fspec TUI's provider tree (rust/fspec-tui/src/views/provider_settings):
+ * nav_item.rs build_nav_items for the row order, projection.rs for the OAuth
+ * methods and labels, row_render.rs for the icons. Pure, so it is testable.
+ */
+
+export type OAuthMethod = "browser" | "code" | "device";
+
+/** One child row of an expanded provider, in the TUI's order. */
+export type TreeRow =
+  | { kind: "oauthStatus"; label: string }
+  | { kind: "oauthLogin"; method: OAuthMethod; label: string }
+  | { kind: "apiKey"; label: string }
+  | { kind: "settings"; label: string }
+  | { kind: "profile"; name: string; baseUrl: string; label: string }
+  | { kind: "addProfile"; label: string };
+
+export interface TreeProvider {
+  id: string;
+  displayName: string;
+  /** The header's status segments, e.g. "✓ sk-••••abcd [env] (2 profiles)". */
+  status: string;
+  configured: boolean;
+  canTest: boolean;
+  canRefresh: boolean;
+  provider: SettingsProvider;
+  rows: TreeRow[];
+}
+
+/** What a tapped row opens. */
+export type Sheet =
+  | { kind: "apiKey"; providerId: string }
+  | { kind: "settings"; providerId: string }
+  | { kind: "profile"; providerId: string; profile: string | null }
+  | { kind: "oauthLogin"; providerId: string; method: OAuthMethod }
+  | { kind: "oauthStatus"; providerId: string };
+
+export type ScreenState =
+  | { kind: "loading" }
+  | { kind: "unavailable"; reason: string; retry: true }
+  | { kind: "ready"; workspace: string; tree: TreeProvider[] };
+
+export const ENDPOINT_ERROR = "Enter an http:// or https:// URL";
+
+const LOGIN_LABELS: Record<OAuthMethod, string> = {
+  browser: "Sign in with browser",
+  code: "Sign in with code",
+  device: "Sign in with device code",
+};
+
+/** projection.rs oauth_login_methods. */
+function oauthMethods(providerId: string): OAuthMethod[] {
+  switch (providerId) {
+    case "anthropic":
+      return ["browser", "code"];
+    case "codex":
+      return ["browser", "device"];
+    case "github-copilot":
+      return ["device"];
+    default:
+      return ["browser"];
+  }
+}
+
+/** projection.rs oauth_label. */
+export function oauthLabel(providerId: string): string {
+  switch (providerId) {
+    case "anthropic":
+      return "Claude";
+    case "codex":
+      return "ChatGPT";
+    case "github-copilot":
+      return "GitHub Copilot";
+    default:
+      return "OAuth";
+  }
+}
+
+function keySegments(row: SettingsProvider): string {
+  const key = row.maskedKey ?? "configured";
+  return row.source === null ? `✓ ${key}` : `✓ ${key} [${row.source}]`;
+}
+
+function headerStatus(row: SettingsProvider, profileCount: number): string {
+  let status: string;
+  if (!row.configured) status = "(not configured)";
+  else if (row.credentialType === "oauth") status = `✓ OAuth [${oauthLabel(row.id)}]`;
+  else if (row.credentialType === "custom") status = "✓ custom endpoint";
+  else status = keySegments(row);
+  if (profileCount > 0) status += ` (${profileCount} ${profileCount === 1 ? "profile" : "profiles"})`;
+  return status;
+}
+
+function childRows(row: SettingsProvider, profiles: ReadonlyArray<{ name: string; baseUrl: string }>): TreeRow[] {
+  const rows: TreeRow[] = [];
+  if (row.credentialType === "oauth") {
+    if (row.configured) rows.push({ kind: "oauthStatus", label: `✓ Logged in [${oauthLabel(row.id)}]` });
+    for (const method of oauthMethods(row.id)) {
+      rows.push({ kind: "oauthLogin", method, label: `🔑 ${LOGIN_LABELS[method]}` });
+    }
+  }
+  // nav_item.rs: no API key row for openai, whose keys live in profiles or the environment.
+  if (row.credentialType === "api_key" && row.id !== "openai") {
+    rows.push({ kind: "apiKey", label: row.configured ? `🔑 API key ${keySegments(row)}` : "🔑 API key (not set)" });
+  }
+  rows.push({ kind: "settings", label: "⚙ Settings" });
+  for (const profile of profiles) {
+    const target = profile.baseUrl === "" ? "(inherits auth)" : profile.baseUrl;
+    rows.push({ kind: "profile", name: profile.name, baseUrl: profile.baseUrl, label: `📁 ${profile.name} → ${target}` });
+  }
+  rows.push({ kind: "addProfile", label: "+ Add profile" });
+  return rows;
+}
+
+/**
+ * Folds '<provider>:<profile>' rows under their provider, orders configured
+ * providers first (otherwise the daemon's order) and builds each provider's
+ * header and child rows.
+ */
+export function buildTree(rows: readonly SettingsProvider[]): TreeProvider[] {
+  const ids = new Set(rows.map((row) => row.id));
+  const folded = new Map<string, string[]>();
+  const providers: SettingsProvider[] = [];
+  for (const row of rows) {
+    const colon = row.id.indexOf(":");
+    const parent = colon > 0 ? row.id.slice(0, colon) : null;
+    if (parent !== null && ids.has(parent)) {
+      const names = folded.get(parent) ?? [];
+      names.push(row.id.slice(colon + 1));
+      folded.set(parent, names);
+    } else {
+      providers.push(row);
+    }
+  }
+  const tree = providers.map((row): TreeProvider => {
+    const profiles = [...row.profiles];
+    // A profile the daemon lists as a provider but not in the settings still shows.
+    for (const name of folded.get(row.id) ?? []) {
+      if (!profiles.some((profile) => profile.name === name)) profiles.push({ name, baseUrl: "" });
+    }
+    return {
+      id: row.id,
+      displayName: row.displayName,
+      status: headerStatus(row, profiles.length),
+      configured: row.configured,
+      canTest: row.configured,
+      canRefresh: row.configured,
+      provider: row,
+      rows: childRows(row, profiles),
+    };
+  });
+  // Array#sort is stable, so each group keeps the daemon's order.
+  return tree.sort((a, b) => Number(b.configured) - Number(a.configured));
+}
+
+export function sheetFor(providerId: string, row: TreeRow): Sheet {
+  switch (row.kind) {
+    case "oauthStatus":
+      return { kind: "oauthStatus", providerId };
+    case "oauthLogin":
+      return { kind: "oauthLogin", providerId, method: row.method };
+    case "apiKey":
+      return { kind: "apiKey", providerId };
+    case "settings":
+      return { kind: "settings", providerId };
+    case "profile":
+      return { kind: "profile", providerId, profile: row.name };
+    case "addProfile":
+      return { kind: "profile", providerId, profile: null };
+  }
+}
+
+/** Expands a collapsed provider or collapses an expanded one. */
+export function toggleExpanded(expanded: ReadonlySet<string>, id: string): ReadonlySet<string> {
+  const next = new Set(expanded);
+  if (!next.delete(id)) next.add(id);
+  return next;
+}
+
+/** The form-side check for an endpoint URL; null when it is acceptable. */
+export function validateEndpoint(text: string): string | null {
+  try {
+    const url = new URL(text.trim());
+    return url.protocol === "http:" || url.protocol === "https:" ? null : ENDPOINT_ERROR;
+  } catch {
+    return ENDPOINT_ERROR;
+  }
+}
+
+export function removePrompt(row: SettingsProvider): string {
+  return `Remove the ${row.displayName} key from fspec?`;
+}
+
+/** The test-result decoration on a provider header (row_render.rs RPC-158). */
+export function testBadge(output: TestProviderOutput): string {
+  if ("state" in output) return `✗ ${output.reason}`;
+  if (!output.ok) return `✗ ${output.error}`;
+  return output.success ? `✓ ${output.latencyMs} ms` : `✗ ${output.error ?? "connection failed"}`;
+}
+
+export function screenState(list: SettingsListOutput | null): ScreenState {
+  if (list === null) return { kind: "loading" };
+  if (list.state === "unavailable") return { kind: "unavailable", reason: list.reason, retry: true };
+  return { kind: "ready", workspace: list.workspace, tree: buildTree(list.providers) };
+}
+
+/** What a sign-in sheet says for its step (FSPEC-044). */
+export function oauthIntro(step: OAuthStep): string {
+  switch (step.kind) {
+    case "browser":
+      return "A browser opens on the computer running fspec. Finish signing in there.";
+    case "code":
+      return "Open the sign-in page, sign in, then paste the code it shows.";
+    case "device":
+      return `Open ${step.verificationUrl} and enter the code ${step.userCode}.`;
+  }
+}
+
+export function logoutPrompt(providerId: string): string {
+  return `Log out of ${oauthLabel(providerId)} in fspec?`;
+}

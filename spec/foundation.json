@@ -1,0 +1,440 @@
+{
+  "version": "2.0.0",
+  "project": {
+    "name": "fspec-paseo",
+    "vision": "Give Paseo users one place to drive their fspec work: a Paseo provider plugin that attaches to a running fspec daemon as a real client over the fspec RPC protocol, so an fspec agent session appears in Paseo as a normal agent with live streaming, models, and interruption.",
+    "projectType": "plugin"
+  },
+  "problemSpace": {
+    "primaryProblem": {
+      "title": "fspec sessions are invisible outside the fspec TUI",
+      "description": "A developer who runs fspec for spec-driven work (work units, Gherkin scenarios, the ACDD pipeline) and Paseo for agent orchestration has to live in two windows. fspec's agent sessions only speak to the fspec TUI: the daemon already hosts every session and serves many clients over its WebSocket RPC protocol, but the only clients that exist are fspec's own TUI, the NAPI frontend, and the `fspec client --mcp` stdio bridge. Paseo has no way to attach. So the developer cannot start an fspec session from Paseo's agent form, cannot watch its streaming output, tool calls, thinking, or token usage in Paseo's timeline, cannot interrupt it from Paseo, and cannot compare it side by side with the Claude, Codex, or Copilot agents they run there. Every switch costs context: the board, the running session, and the transcript are all in the other window. The missing piece is not a new agent runtime; fspec already has one. It is a Paseo provider plugin that behaves like any other Paseo provider while acting as an ordinary client of the fspec daemon.",
+      "impact": "high"
+    }
+  },
+  "solutionSpace": {
+    "overview": "A Paseo provider plugin that registers one provider (\"fspec\") and, for every Paseo agent, opens a session on an already-running fspec daemon instead of spawning a new agent runtime. The plugin is a real client of the daemon: it speaks the internal fspec RPC protocol directly (bincode 1.x-encoded tarpc 0.34 messages carried in the daemon's WebSocket envelope frames), discovers the daemon through `daemon.json` or an explicit connect URL, and consumes the daemon's server-pushed frames (stream chunks, session status, session lifecycle, work-unit snapshots) as the live source of truth. Paseo's provider contract and the daemon's RPC surface are mapped one to one: the daemon's provider/model/thinking catalog becomes Paseo's model picker; `create_session` plus `send_input` plus the pushed chunk stream become Paseo's session open, prompt, turn lifecycle, and timeline; `interrupt` becomes Stop. Nothing is re-implemented in the middle: no second agent loop, no polling of the daemon, no fspec CLI subprocess. The plugin owns only the translation between the two contracts plus the connection lifecycle, and it keeps the wire codec in one small audited module so the protocol stays traceable to the Rust source that defines it.",
+    "capabilities": [
+      {
+        "name": "fspec daemon connection",
+        "description": "Discover and attach to a running fspec daemon as a client: daemon.json autodiscovery, an explicit connect URL from provider configuration, loopback-only enforcement, and a clean shutdown of the connection when Paseo unloads the plugin."
+      },
+      {
+        "name": "fspec provider catalog in Paseo",
+        "description": "Present fspec as a selectable Paseo provider: report availability with a useful diagnostic when no daemon is reachable, and build Paseo's model picker from the daemon's provider and model catalog (list_providers, model entries, thinking levels) with defaults."
+      },
+      {
+        "name": "fspec session lifecycle from Paseo",
+        "description": "Open, drive, and stop an fspec session from Paseo: create the daemon session on session.open, send prompts with send_input, publish exactly one prompt result and one terminal turn event per prompt, interrupt the running session from Paseo's Stop, and release the session on close and on connection teardown."
+      },
+      {
+        "name": "Live fspec transcript in Paseo",
+        "description": "Turn the daemon's pushed stream chunks into Paseo timeline snapshots: assistant text, reasoning, tool calls with their results and progress, notifications, errors, and compaction, plus token and context usage, each published as a complete updatable item so Paseo derives the live delta."
+      },
+      {
+        "name": "fspec RPC wire client",
+        "description": "Encode and decode the fspec wire format in TypeScript: bincode 1.3.3 free-function config (little-endian, FIXED-WIDTH integers — u8/u16/u32/u64/u128 = 1/2/4/8/16 LE bytes, NOT varint; u64-LE length prefixes for String/Vec/bytes; u32-LE enum variant indices; 1-byte Option tag), the Envelope framing (9 variants, index 0..8), and tarpc 0.34 ClientMessage/Response framing (Request{context,id,message}; Response{request_id,message:Result}; 12-byte relative-deadline + 16-byte LE trace id + 8-byte span id + 4-byte sampling decision context), so the plugin can call the daemon's FspecService methods and read its pushed frames. Wire layout validated against Rust-generated golden vectors."
+      }
+    ]
+  },
+  "personas": [
+    {
+      "name": "Spec-driven developer",
+      "description": "Runs fspec in a workspace for work-unit and Gherkin-driven work and keeps Paseo open as the place where coding agents are launched, watched, and compared.",
+      "goals": [
+        "Start and steer an fspec agent session from Paseo without switching to the fspec TUI",
+        "Watch fspec output, tool calls, and token usage live in Paseo's timeline",
+        "Interrupt or stop a running fspec session from Paseo",
+        "Run fspec side by side with Claude, Codex, or Copilot agents in one place"
+      ]
+    }
+  ],
+  "eventStorm": {
+    "level": "big_picture",
+    "items": [
+      {
+        "id": 1,
+        "type": "bounded_context",
+        "text": "Daemon Connection",
+        "color": null,
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:03.153Z"
+      },
+      {
+        "id": 2,
+        "type": "bounded_context",
+        "text": "Provider Catalog",
+        "color": null,
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:03.356Z"
+      },
+      {
+        "id": 3,
+        "type": "bounded_context",
+        "text": "Session Lifecycle",
+        "color": null,
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:03.562Z"
+      },
+      {
+        "id": 4,
+        "type": "bounded_context",
+        "text": "Transcript",
+        "color": null,
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:03.739Z"
+      },
+      {
+        "id": 5,
+        "type": "bounded_context",
+        "text": "RPC Wire Client",
+        "color": null,
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:03.925Z"
+      },
+      {
+        "id": 6,
+        "type": "aggregate",
+        "text": "DaemonEndpoint",
+        "boundedContextId": 1,
+        "color": "yellow",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:36.530Z"
+      },
+      {
+        "id": 7,
+        "type": "aggregate",
+        "text": "DaemonConnection",
+        "boundedContextId": 1,
+        "color": "yellow",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:36.757Z"
+      },
+      {
+        "id": 8,
+        "type": "aggregate",
+        "text": "ProviderCatalog",
+        "boundedContextId": 2,
+        "color": "yellow",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:36.975Z"
+      },
+      {
+        "id": 9,
+        "type": "aggregate",
+        "text": "FspecSession",
+        "boundedContextId": 3,
+        "color": "yellow",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:37.221Z"
+      },
+      {
+        "id": 10,
+        "type": "aggregate",
+        "text": "TranscriptItem",
+        "boundedContextId": 4,
+        "color": "yellow",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:37.462Z"
+      },
+      {
+        "id": 11,
+        "type": "aggregate",
+        "text": "UsageMetrics",
+        "boundedContextId": 4,
+        "color": "yellow",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:37.683Z"
+      },
+      {
+        "id": 12,
+        "type": "aggregate",
+        "text": "WireCodec",
+        "boundedContextId": 5,
+        "color": "yellow",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:37.898Z"
+      },
+      {
+        "id": 13,
+        "type": "aggregate",
+        "text": "RpcCall",
+        "boundedContextId": 5,
+        "color": "yellow",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:38.119Z"
+      },
+      {
+        "id": 14,
+        "type": "event",
+        "text": "DaemonDiscovered",
+        "boundedContextId": 1,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:57.676Z"
+      },
+      {
+        "id": 15,
+        "type": "event",
+        "text": "ConnectionEstablished",
+        "boundedContextId": 1,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:57.890Z"
+      },
+      {
+        "id": 16,
+        "type": "event",
+        "text": "ConnectionLost",
+        "boundedContextId": 1,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:58.092Z"
+      },
+      {
+        "id": 17,
+        "type": "event",
+        "text": "ConnectionShutdown",
+        "boundedContextId": 1,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:58.286Z"
+      },
+      {
+        "id": 18,
+        "type": "event",
+        "text": "ProviderAvailabilityChanged",
+        "boundedContextId": 2,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:58.485Z"
+      },
+      {
+        "id": 19,
+        "type": "event",
+        "text": "CatalogFetched",
+        "boundedContextId": 2,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:58.726Z"
+      },
+      {
+        "id": 20,
+        "type": "event",
+        "text": "SessionCreated",
+        "boundedContextId": 3,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:58.929Z"
+      },
+      {
+        "id": 21,
+        "type": "event",
+        "text": "PromptSent",
+        "boundedContextId": 3,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:59.138Z"
+      },
+      {
+        "id": 22,
+        "type": "event",
+        "text": "PromptResultPublished",
+        "boundedContextId": 3,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:59.329Z"
+      },
+      {
+        "id": 23,
+        "type": "event",
+        "text": "TurnCompleted",
+        "boundedContextId": 3,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:59.547Z"
+      },
+      {
+        "id": 24,
+        "type": "event",
+        "text": "SessionInterrupted",
+        "boundedContextId": 3,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:59.752Z"
+      },
+      {
+        "id": 25,
+        "type": "event",
+        "text": "SessionReleased",
+        "boundedContextId": 3,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:26:59.954Z"
+      },
+      {
+        "id": 26,
+        "type": "event",
+        "text": "TranscriptItemPublished",
+        "boundedContextId": 4,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:11.350Z"
+      },
+      {
+        "id": 27,
+        "type": "event",
+        "text": "TranscriptItemUpdated",
+        "boundedContextId": 4,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:11.573Z"
+      },
+      {
+        "id": 28,
+        "type": "event",
+        "text": "UsageUpdated",
+        "boundedContextId": 4,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:11.755Z"
+      },
+      {
+        "id": 29,
+        "type": "event",
+        "text": "FrameReceived",
+        "boundedContextId": 5,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:11.971Z"
+      },
+      {
+        "id": 30,
+        "type": "event",
+        "text": "RpcResponseReceived",
+        "boundedContextId": 5,
+        "color": "orange",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:12.176Z"
+      },
+      {
+        "id": 31,
+        "type": "command",
+        "text": "DiscoverDaemon",
+        "boundedContextId": 1,
+        "color": "blue",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:38.444Z"
+      },
+      {
+        "id": 32,
+        "type": "command",
+        "text": "ConnectToDaemon",
+        "boundedContextId": 1,
+        "color": "blue",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:38.621Z"
+      },
+      {
+        "id": 33,
+        "type": "command",
+        "text": "ShutdownConnection",
+        "boundedContextId": 1,
+        "color": "blue",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:38.794Z"
+      },
+      {
+        "id": 34,
+        "type": "command",
+        "text": "CheckProviderAvailability",
+        "boundedContextId": 2,
+        "color": "blue",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:38.987Z"
+      },
+      {
+        "id": 35,
+        "type": "command",
+        "text": "BuildModelPicker",
+        "boundedContextId": 2,
+        "color": "blue",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:39.153Z"
+      },
+      {
+        "id": 36,
+        "type": "command",
+        "text": "OpenSession",
+        "boundedContextId": 3,
+        "color": "blue",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:39.319Z"
+      },
+      {
+        "id": 37,
+        "type": "command",
+        "text": "SendPrompt",
+        "boundedContextId": 3,
+        "color": "blue",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:39.607Z"
+      },
+      {
+        "id": 38,
+        "type": "command",
+        "text": "StopSession",
+        "boundedContextId": 3,
+        "color": "blue",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:40.186Z"
+      },
+      {
+        "id": 39,
+        "type": "command",
+        "text": "CloseSession",
+        "boundedContextId": 3,
+        "color": "blue",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:40.342Z"
+      },
+      {
+        "id": 40,
+        "type": "command",
+        "text": "PublishTranscriptItem",
+        "boundedContextId": 4,
+        "color": "blue",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:40.489Z"
+      },
+      {
+        "id": 41,
+        "type": "command",
+        "text": "PublishUsageUpdate",
+        "boundedContextId": 4,
+        "color": "blue",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:40.646Z"
+      },
+      {
+        "id": 42,
+        "type": "command",
+        "text": "EncodeRpcMessage",
+        "boundedContextId": 5,
+        "color": "blue",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:40.827Z"
+      },
+      {
+        "id": 43,
+        "type": "command",
+        "text": "DecodeRpcMessage",
+        "boundedContextId": 5,
+        "color": "blue",
+        "deleted": false,
+        "createdAt": "2026-10-30T10:27:40.997Z"
+      }
+    ],
+    "nextItemId": 44
+  }
+}

@@ -1,0 +1,255 @@
+{
+  "scenarios": [
+    {
+      "name": "A session is found by text from one of its prompts",
+      "testMappings": [
+        {
+          "file": "test/session-search.test.ts",
+          "lines": "46-57",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                136,
+                137,
+                138,
+                139,
+                140,
+                141,
+                142,
+                143,
+                144,
+                145,
+                674,
+                675,
+                676,
+                677,
+                678,
+                679,
+                680,
+                681,
+                682,
+                683,
+                684,
+                850,
+                851,
+                852,
+                853,
+                854,
+                855,
+                856,
+                857,
+                858,
+                859,
+                860,
+                861,
+                862,
+                863,
+                864
+              ]
+            },
+            {
+              "file": "server/wire.ts",
+              "lines": [
+                138,
+                139,
+                140,
+                141,
+                142,
+                446,
+                504,
+                757,
+                758,
+                759,
+                760,
+                761,
+                762,
+                1397,
+                1503,
+                1764,
+                1765,
+                1766,
+                1767,
+                1768,
+                1769,
+                1770,
+                1771,
+                1880,
+                1881
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A session is still found by its name",
+      "testMappings": [
+        {
+          "file": "test/session-search.test.ts",
+          "lines": "59-68",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                136,
+                137,
+                138,
+                139,
+                140,
+                141,
+                142,
+                143,
+                144,
+                145,
+                674,
+                675,
+                676,
+                677,
+                678,
+                679,
+                680,
+                681,
+                682,
+                683,
+                684,
+                850,
+                851,
+                852,
+                853,
+                854,
+                855,
+                856,
+                857,
+                858,
+                859,
+                860,
+                861,
+                862,
+                863,
+                864
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A failed history search falls back to name matching",
+      "testMappings": [
+        {
+          "file": "test/session-search.test.ts",
+          "lines": "70-79",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                136,
+                137,
+                138,
+                139,
+                140,
+                141,
+                142,
+                143,
+                144,
+                145,
+                674,
+                675,
+                676,
+                677,
+                678,
+                679,
+                680,
+                681,
+                682,
+                683,
+                684,
+                850,
+                851,
+                852,
+                853,
+                854,
+                855,
+                856,
+                857,
+                858,
+                859,
+                860,
+                861,
+                862,
+                863,
+                864
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "History matches for sessions no longer listed are ignored",
+      "testMappings": [
+        {
+          "file": "test/session-search.test.ts",
+          "lines": "81-90",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                136,
+                137,
+                138,
+                139,
+                140,
+                141,
+                142,
+                143,
+                144,
+                145,
+                674,
+                675,
+                676,
+                677,
+                678,
+                679,
+                680,
+                681,
+                682,
+                683,
+                684,
+                850,
+                851,
+                852,
+                853,
+                854,
+                855,
+                856,
+                857,
+                858,
+                859,
+                860,
+                861,
+                862,
+                863,
+                864
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalScenarios": 4,
+    "coveredScenarios": 4,
+    "coveragePercent": 100,
+    "testFiles": [
+      "test/session-search.test.ts"
+    ],
+    "implFiles": [
+      "server/session.ts",
+      "server/wire.ts"
+    ],
+    "totalLinesCovered": 211
+  }
+}

@@ -1,0 +1,8 @@
+{
+  "id": "fspec-paseo-provider",
+  "name": "fspec for Paseo",
+  "description": "Drives fspec daemon sessions from Paseo over the fspec RPC protocol, and shows the live fspec board",
+  "requirements": {
+    "paseo": ">=0.13.0"
+  }
+}

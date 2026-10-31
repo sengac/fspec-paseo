@@ -1,0 +1,88 @@
+{
+  "categories": [
+    {
+      "name": "Phase Tags",
+      "description": "Phase identification tags",
+      "required": true,
+      "tags": []
+    },
+    {
+      "name": "Component Tags",
+      "description": "Architectural component tags",
+      "required": true,
+      "tags": [
+        {
+          "name": "@board",
+          "description": "fspec Kanban board served to and shown in Paseo plugin UI"
+        },
+        {
+          "name": "@provider",
+          "description": "Paseo provider plugin surface (registration, connection, catalog, session)"
+        }
+      ]
+    },
+    {
+      "name": "Feature Group Tags",
+      "description": "Functional area tags",
+      "required": true,
+      "tags": [
+        {
+          "name": "@core",
+          "description": "Core provider loop: registration, catalog, session lifecycle, transcript"
+        },
+        {
+          "name": "@kanban",
+          "description": "fspec Kanban board in Paseo (kanban-board epic)"
+        }
+      ]
+    },
+    {
+      "name": "Technical Tags",
+      "description": "Technical concern tags",
+      "required": false,
+      "tags": []
+    },
+    {
+      "name": "Platform Tags",
+      "description": "Platform-specific tags",
+      "required": false,
+      "tags": []
+    },
+    {
+      "name": "Priority Tags",
+      "description": "Implementation priority tags",
+      "required": false,
+      "tags": []
+    },
+    {
+      "name": "Status Tags",
+      "description": "Development status tags",
+      "required": false,
+      "tags": [
+        {
+          "name": "@done",
+          "description": "Completed work"
+        },
+        {
+          "name": "@wip",
+          "description": "Work in progress"
+        }
+      ]
+    },
+    {
+      "name": "Testing Tags",
+      "description": "Test-related tags",
+      "required": false,
+      "tags": []
+    },
+    {
+      "name": "Automation Tags",
+      "description": "Automation integration tags",
+      "required": false,
+      "tags": []
+    }
+  ],
+  "statistics": {
+    "lastUpdated": "2026-10-30T03:22:18.852Z"
+  }
+}

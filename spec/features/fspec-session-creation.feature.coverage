@@ -1,0 +1,97 @@
+{
+  "scenarios": [
+    {
+      "name": "A daemon session that cannot be created fails the open with its cause",
+      "testMappings": [
+        {
+          "file": "test/session-creation.test.ts",
+          "lines": "13-35",
+          "implMappings": [
+            {
+              "file": "server/wire.ts",
+              "lines": [
+                471,
+                511,
+                584,
+                1416,
+                1528,
+                1676,
+                1856,
+                1991
+              ]
+            },
+            {
+              "file": "server/session.ts",
+              "lines": [
+                718,
+                719,
+                720,
+                721,
+                722,
+                723,
+                724,
+                725,
+                726,
+                727,
+                753
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A created daemon session opens as before",
+      "testMappings": [
+        {
+          "file": "test/session-creation.test.ts",
+          "lines": "37-50",
+          "implMappings": [
+            {
+              "file": "server/wire.ts",
+              "lines": [
+                471,
+                511,
+                584,
+                1416,
+                1528,
+                1676,
+                1856,
+                1991
+              ]
+            },
+            {
+              "file": "server/session.ts",
+              "lines": [
+                718,
+                719,
+                720,
+                721,
+                722,
+                723,
+                724,
+                725,
+                726,
+                727,
+                753
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalScenarios": 2,
+    "coveredScenarios": 2,
+    "coveragePercent": 100,
+    "testFiles": [
+      "test/session-creation.test.ts"
+    ],
+    "implFiles": [
+      "server/wire.ts",
+      "server/session.ts"
+    ],
+    "totalLinesCovered": 75
+  }
+}

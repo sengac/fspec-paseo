@@ -1,0 +1,76 @@
+{
+  "epics": {
+    "provider-plugin": {
+      "id": "provider-plugin",
+      "title": "fspec Provider Plugin for Paseo",
+      "createdAt": "2026-10-30T01:42:31.558Z",
+      "description": "A Paseo provider plugin that registers an \"fspec\" provider and acts as a real client of a running fspec daemon over the fspec RPC protocol (bincode-encoded tarpc messages in WebSocket envelope frames). No second agent loop, no polling, no fspec subprocess - only contract translation plus connection lifecycle.",
+      "workUnits": [
+        "FSPEC-001",
+        "FSPEC-002",
+        "FSPEC-003",
+        "FSPEC-004",
+        "FSPEC-005",
+        "FSPEC-006",
+        "FSPEC-007",
+        "FSPEC-008",
+        "FSPEC-009",
+        "FSPEC-010",
+        "FSPEC-011",
+        "FSPEC-012",
+        "FSPEC-013",
+        "FSPEC-014",
+        "FSPEC-015",
+        "FSPEC-016",
+        "FSPEC-017",
+        "FSPEC-018",
+        "FSPEC-019",
+        "FSPEC-020",
+        "FSPEC-021",
+        "FSPEC-022",
+        "FSPEC-023",
+        "FSPEC-024",
+        "FSPEC-025",
+        "FSPEC-026",
+        "FSPEC-027",
+        "FSPEC-028",
+        "FSPEC-029",
+        "FSPEC-030",
+        "FSPEC-031",
+        "FSPEC-032",
+        "FSPEC-033",
+        "FSPEC-039"
+      ]
+    },
+    "kanban-board": {
+      "id": "kanban-board",
+      "title": "fspec Kanban board in Paseo",
+      "createdAt": "2026-10-30T03:21:01.401Z",
+      "description": "A native Paseo workspace panel (desktop + mobile) that mirrors the fspec board: live columns from the daemon's WorkUnitsUpdate push, card details, in-column reorder and open-in-agent. Parity with the fspec TUI board only - no status changes, no card editing, no fspec daemon changes.",
+      "workUnits": [
+        "FSPEC-034",
+        "FSPEC-035",
+        "FSPEC-036",
+        "FSPEC-037",
+        "FSPEC-038",
+        "FSPEC-040",
+        "FSPEC-048"
+      ]
+    },
+    "provider-settings": {
+      "id": "provider-settings",
+      "title": "fspec provider settings in Paseo",
+      "createdAt": "2026-10-30T04:55:10.687Z",
+      "description": "Manage fspec's model providers from Paseo, like the fspec TUI's /provider view: credentials (API key, OAuth, custom endpoint), connection tests, model-cache refresh, default model, local-server profiles and custom models. Changes refresh Paseo's fspec model picker. Every write goes through the daemon RPCs the TUI already uses; nothing is reimplemented.",
+      "workUnits": [
+        "FSPEC-041",
+        "FSPEC-042",
+        "FSPEC-043",
+        "FSPEC-044",
+        "FSPEC-045",
+        "FSPEC-046",
+        "FSPEC-047"
+      ]
+    }
+  }
+}

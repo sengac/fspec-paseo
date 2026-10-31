@@ -1,0 +1,212 @@
+{
+  "scenarios": [
+    {
+      "name": "Closing a parent destroys its whole sub-agent tree",
+      "testMappings": [
+        {
+          "file": "test/subordinate-close.test.ts",
+          "lines": "32-46",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                633,
+                634,
+                635,
+                636,
+                637,
+                638,
+                639,
+                640,
+                641,
+                642,
+                643,
+                644,
+                645,
+                646,
+                647,
+                648,
+                649,
+                650,
+                651,
+                652,
+                653,
+                654,
+                655,
+                656,
+                963
+              ]
+            },
+            {
+              "file": "server/wire.ts",
+              "lines": [
+                462,
+                528
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A sub-agent shared with another supervisor is left running",
+      "testMappings": [
+        {
+          "file": "test/subordinate-close.test.ts",
+          "lines": "48-58",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                633,
+                634,
+                635,
+                636,
+                637,
+                638,
+                639,
+                640,
+                641,
+                642,
+                643,
+                644,
+                645,
+                646,
+                647,
+                648,
+                649,
+                650,
+                651,
+                652,
+                653,
+                654,
+                655,
+                656,
+                963
+              ]
+            },
+            {
+              "file": "server/wire.ts",
+              "lines": [
+                462,
+                528
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A failed sub-agent destroy does not stop the parent closing",
+      "testMappings": [
+        {
+          "file": "test/subordinate-close.test.ts",
+          "lines": "60-76",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                633,
+                634,
+                635,
+                636,
+                637,
+                638,
+                639,
+                640,
+                641,
+                642,
+                643,
+                644,
+                645,
+                646,
+                647,
+                648,
+                649,
+                650,
+                651,
+                652,
+                653,
+                654,
+                655,
+                656,
+                963
+              ]
+            },
+            {
+              "file": "server/wire.ts",
+              "lines": [
+                462,
+                528
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Provider shutdown destroys sub-agents too",
+      "testMappings": [
+        {
+          "file": "test/subordinate-close.test.ts",
+          "lines": "78-88",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                633,
+                634,
+                635,
+                636,
+                637,
+                638,
+                639,
+                640,
+                641,
+                642,
+                643,
+                644,
+                645,
+                646,
+                647,
+                648,
+                649,
+                650,
+                651,
+                652,
+                653,
+                654,
+                655,
+                656,
+                1088,
+                1089,
+                1090,
+                1091,
+                1092,
+                1093,
+                1094,
+                1095,
+                1096,
+                1097,
+                1098
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalScenarios": 4,
+    "coveredScenarios": 4,
+    "coveragePercent": 100,
+    "testFiles": [
+      "test/subordinate-close.test.ts"
+    ],
+    "implFiles": [
+      "server/session.ts",
+      "server/wire.ts"
+    ],
+    "totalLinesCovered": 170
+  }
+}

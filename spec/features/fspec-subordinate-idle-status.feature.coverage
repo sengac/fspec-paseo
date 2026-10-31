@@ -1,0 +1,188 @@
+{
+  "scenarios": [
+    {
+      "name": "A sub-agent's run settles when it goes idle",
+      "testMappings": [
+        {
+          "file": "test/subordinate-idle-status.test.ts",
+          "lines": "46-59",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                120,
+                121,
+                122,
+                123,
+                124,
+                125,
+                126,
+                127,
+                128,
+                129,
+                130,
+                131,
+                132,
+                133,
+                619,
+                620,
+                621,
+                622,
+                623,
+                624,
+                625,
+                985,
+                986,
+                987,
+                988,
+                989,
+                990
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Each new supervisor-driven run of an idle sub-agent is its own turn",
+      "testMappings": [
+        {
+          "file": "test/subordinate-idle-status.test.ts",
+          "lines": "61-76",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                120,
+                121,
+                122,
+                123,
+                124,
+                125,
+                126,
+                127,
+                128,
+                129,
+                130,
+                131,
+                132,
+                133,
+                619,
+                620,
+                621,
+                622,
+                623,
+                624,
+                625,
+                985,
+                986,
+                987,
+                988,
+                989,
+                990
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Non-work chunks do not mark an idle sub-agent running",
+      "testMappings": [
+        {
+          "file": "test/subordinate-idle-status.test.ts",
+          "lines": "78-101",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                120,
+                121,
+                122,
+                123,
+                124,
+                125,
+                126,
+                127,
+                128,
+                129,
+                130,
+                131,
+                132,
+                133,
+                619,
+                620,
+                621,
+                622,
+                623,
+                624,
+                625,
+                985,
+                986,
+                987,
+                988,
+                989,
+                990
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Owned sessions start turns only from Paseo prompts",
+      "testMappings": [
+        {
+          "file": "test/subordinate-idle-status.test.ts",
+          "lines": "103-113",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                120,
+                121,
+                122,
+                123,
+                124,
+                125,
+                126,
+                127,
+                128,
+                129,
+                130,
+                131,
+                132,
+                133,
+                619,
+                620,
+                621,
+                622,
+                623,
+                624,
+                625,
+                985,
+                986,
+                987,
+                988,
+                989,
+                990
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalScenarios": 4,
+    "coveredScenarios": 4,
+    "coveragePercent": 100,
+    "testFiles": [
+      "test/subordinate-idle-status.test.ts"
+    ],
+    "implFiles": [
+      "server/session.ts"
+    ],
+    "totalLinesCovered": 173
+  }
+}

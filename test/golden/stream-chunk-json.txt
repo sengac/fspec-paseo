@@ -1,0 +1,9 @@
+"Done"
+{"Text":{"text":"hi","correlationId":null,"observedCorrelationIds":null}}
+{"ToolCall":{"toolCall":{"id":"c1","name":"Bash","input":"{\"command\":\"ls\"}"},"correlationId":null,"observedCorrelationIds":null}}
+{"ToolResult":{"toolResult":{"tool_call_id":"c1","content":"ok","is_error":true},"correlationId":null,"observedCorrelationIds":null}}
+{"ToolProgress":{"toolProgress":{"tool_call_id":"c1","tool_name":"Bash","output_chunk":"x","is_stderr":false},"correlationId":null,"observedCorrelationIds":null}}
+{"UserNotification":{"message":"m","severity":"Warning"}}
+{"InterruptedWithReason":{"queuedInputs":["q"],"reason":"loopDetector"}}
+{"CompactionProgressUpdate":{"progress":{"phase":"p","current":1,"total":2}}}
+{"UserInput":{"text":"u"}}

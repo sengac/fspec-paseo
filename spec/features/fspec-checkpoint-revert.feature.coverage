@@ -1,0 +1,239 @@
+{
+  "scenarios": [
+    {
+      "name": "A checkpoint created by an fspec tool call becomes a revert point",
+      "testMappings": [
+        {
+          "file": "test/checkpoint-revert.test.ts",
+          "lines": "24-41",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                192,
+                193,
+                194,
+                195,
+                202,
+                203,
+                204,
+                205,
+                206,
+                207,
+                208,
+                209,
+                210,
+                922,
+                923,
+                924,
+                925,
+                926,
+                927,
+                928,
+                929,
+                930,
+                931,
+                932,
+                933,
+                934,
+                935,
+                936,
+                937,
+                938,
+                939,
+                940,
+                941,
+                942,
+                943,
+                944,
+                945,
+                946,
+                947,
+                948,
+                949,
+                950,
+                951,
+                952,
+                953,
+                954,
+                955,
+                956,
+                957,
+                958,
+                959,
+                960,
+                961,
+                962,
+                963,
+                964,
+                965,
+                966,
+                967
+              ]
+            },
+            {
+              "file": "server/transcript.ts",
+              "lines": [
+                271,
+                272,
+                273,
+                274,
+                275,
+                276,
+                87,
+                88,
+                89,
+                90,
+                91,
+                92,
+                93,
+                94,
+                95,
+                96,
+                97,
+                98,
+                99,
+                100,
+                101,
+                102,
+                103,
+                104,
+                105
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Reverting files restores the checkpoint",
+      "testMappings": [
+        {
+          "file": "test/checkpoint-revert.test.ts",
+          "lines": "43-54",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                744,
+                745,
+                746,
+                747,
+                748,
+                749,
+                750,
+                751,
+                752,
+                753
+              ]
+            },
+            {
+              "file": "server/provider.ts",
+              "lines": [
+                118,
+                119,
+                120,
+                121,
+                122,
+                123,
+                124,
+                125,
+                126,
+                127,
+                128,
+                129,
+                130,
+                131,
+                132,
+                133,
+                134,
+                135,
+                136,
+                137,
+                138,
+                139,
+                140,
+                141,
+                142,
+                143,
+                144,
+                145,
+                146,
+                147,
+                148
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A failed or malformed revert is reported",
+      "testMappings": [
+        {
+          "file": "test/checkpoint-revert.test.ts",
+          "lines": "56-71",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                744,
+                745,
+                746,
+                747,
+                748,
+                749,
+                750,
+                751,
+                752,
+                753
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Only file revert is offered",
+      "testMappings": [
+        {
+          "file": "test/checkpoint-revert.test.ts",
+          "lines": "73-84",
+          "implMappings": [
+            {
+              "file": "server/provider.ts",
+              "lines": [
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalScenarios": 4,
+    "coveredScenarios": 4,
+    "coveragePercent": 100,
+    "testFiles": [
+      "test/checkpoint-revert.test.ts"
+    ],
+    "implFiles": [
+      "server/session.ts",
+      "server/transcript.ts",
+      "server/provider.ts"
+    ],
+    "totalLinesCovered": 205
+  }
+}

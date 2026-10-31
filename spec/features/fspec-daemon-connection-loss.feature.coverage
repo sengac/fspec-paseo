@@ -1,0 +1,208 @@
+{
+  "scenarios": [
+    {
+      "name": "A dropped connection fails the running session after terminalizing its rows",
+      "testMappings": [
+        {
+          "file": "test/daemon-connection-loss.test.ts",
+          "lines": "15-44",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                975,
+                976,
+                977,
+                978,
+                979,
+                980,
+                981,
+                982,
+                983,
+                984,
+                985,
+                986,
+                987,
+                988,
+                989,
+                990,
+                991,
+                992,
+                993,
+                994,
+                995,
+                996
+              ]
+            },
+            {
+              "file": "server/provider.ts",
+              "lines": [
+                114,
+                115,
+                116
+              ]
+            },
+            {
+              "file": "server/transcript.ts",
+              "lines": [
+                150,
+                151,
+                152,
+                153,
+                154,
+                155,
+                156,
+                157,
+                158,
+                159,
+                160,
+                161,
+                162,
+                163
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Idle sessions are failed too",
+      "testMappings": [
+        {
+          "file": "test/daemon-connection-loss.test.ts",
+          "lines": "46-57",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                975,
+                976,
+                977,
+                978,
+                979,
+                980,
+                981,
+                982,
+                983,
+                984,
+                985,
+                986,
+                987,
+                988,
+                989,
+                990,
+                991,
+                992,
+                993,
+                994,
+                995,
+                996
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A failed session can be reopened and resumed",
+      "testMappings": [
+        {
+          "file": "test/daemon-connection-loss.test.ts",
+          "lines": "59-81",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                975,
+                976,
+                977,
+                978,
+                979,
+                980,
+                981,
+                982,
+                983,
+                984,
+                985,
+                986,
+                987,
+                988,
+                989,
+                990,
+                991,
+                992,
+                993,
+                994,
+                995,
+                996,
+                347,
+                348,
+                349,
+                350,
+                351,
+                352,
+                353,
+                354
+              ]
+            },
+            {
+              "file": "server/daemon.ts",
+              "lines": [
+                422,
+                423,
+                424,
+                425,
+                426,
+                427,
+                428,
+                429,
+                430,
+                431,
+                432,
+                434,
+                435,
+                436,
+                437,
+                438,
+                439,
+                440,
+                441,
+                442,
+                443,
+                444,
+                445,
+                446,
+                447,
+                448,
+                449,
+                450,
+                451,
+                452,
+                453,
+                454,
+                455,
+                456,
+                457
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalScenarios": 3,
+    "coveredScenarios": 3,
+    "coveragePercent": 100,
+    "testFiles": [
+      "test/daemon-connection-loss.test.ts"
+    ],
+    "implFiles": [
+      "server/session.ts",
+      "server/provider.ts",
+      "server/transcript.ts",
+      "server/daemon.ts"
+    ],
+    "totalLinesCovered": 191
+  }
+}

@@ -1,0 +1,233 @@
+{
+  "scenarios": [
+    {
+      "name": "A follow-up prompt becomes the next turn without interleaving",
+      "testMappings": [
+        {
+          "file": "test/prompt-queue.test.ts",
+          "lines": "26-44",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                77,
+                78,
+                79,
+                80,
+                81,
+                583,
+                584,
+                585,
+                586,
+                587,
+                588,
+                589,
+                590,
+                591,
+                592,
+                593,
+                594,
+                595,
+                596,
+                597,
+                600,
+                601,
+                602,
+                603,
+                604,
+                605,
+                606,
+                782,
+                783,
+                784,
+                785,
+                786,
+                787,
+                788,
+                789,
+                790,
+                791,
+                792,
+                793,
+                794,
+                795,
+                796,
+                797,
+                798,
+                799,
+                800,
+                801,
+                802,
+                803,
+                804,
+                805,
+                806,
+                807,
+                808,
+                809,
+                810,
+                811,
+                812,
+                813,
+                814,
+                815,
+                816,
+                817,
+                818,
+                819,
+                820,
+                821,
+                822,
+                823,
+                824,
+                825,
+                826,
+                827,
+                828,
+                829,
+                830,
+                831,
+                832,
+                833,
+                834,
+                835,
+                836
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Stopping cancels the running turn and the inputs the daemon dropped",
+      "testMappings": [
+        {
+          "file": "test/prompt-queue.test.ts",
+          "lines": "46-60",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                583,
+                584,
+                585,
+                586,
+                587,
+                588,
+                589,
+                590,
+                591,
+                592,
+                593,
+                594,
+                595,
+                596,
+                597,
+                600,
+                601,
+                602,
+                603,
+                604,
+                605,
+                606,
+                959,
+                960,
+                961
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A queued prompt that cannot be sent fails in its turn",
+      "testMappings": [
+        {
+          "file": "test/prompt-queue.test.ts",
+          "lines": "62-80",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                600,
+                601,
+                602,
+                603,
+                604,
+                605,
+                606,
+                782,
+                783,
+                784,
+                785,
+                786,
+                787,
+                788,
+                789,
+                790,
+                791,
+                792,
+                793,
+                794,
+                795,
+                796,
+                797,
+                798,
+                799,
+                800,
+                801,
+                802,
+                803,
+                804,
+                805,
+                806,
+                807,
+                808,
+                809,
+                810,
+                811,
+                812,
+                813,
+                814,
+                815,
+                816,
+                817,
+                818,
+                819,
+                820,
+                821,
+                822,
+                823,
+                824,
+                825,
+                826,
+                827,
+                828,
+                829,
+                830,
+                831,
+                832,
+                833,
+                834,
+                835,
+                836
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalScenarios": 3,
+    "coveredScenarios": 3,
+    "coveragePercent": 100,
+    "testFiles": [
+      "test/prompt-queue.test.ts"
+    ],
+    "implFiles": [
+      "server/session.ts"
+    ],
+    "totalLinesCovered": 222
+  }
+}

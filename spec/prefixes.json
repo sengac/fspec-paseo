@@ -1,0 +1,14 @@
+{
+  "prefixes": {
+    "FOUND": {
+      "prefix": "FOUND",
+      "description": "Foundation Event Storm tasks",
+      "createdAt": "2026-10-30T01:14:48.464Z"
+    },
+    "FSPEC": {
+      "prefix": "FSPEC",
+      "description": "Paseo provider plugin that acts as an fspec RPC client",
+      "createdAt": "2026-10-30T01:41:56.168Z"
+    }
+  }
+}

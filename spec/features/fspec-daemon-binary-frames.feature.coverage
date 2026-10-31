@@ -1,0 +1,73 @@
+{
+  "scenarios": [
+    {
+      "name": "The default WebSocket receives daemon frames as ArrayBuffer",
+      "testMappings": [
+        {
+          "file": "test/daemon-binary-frames.test.ts",
+          "lines": "72-90",
+          "implMappings": [
+            {
+              "file": "server/daemon.ts",
+              "lines": [
+                158,
+                559,
+                560,
+                561,
+                562,
+                563
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A Blob frame is decoded instead of dropped",
+      "testMappings": [
+        {
+          "file": "test/daemon-binary-frames.test.ts",
+          "lines": "92-114",
+          "implMappings": [
+            {
+              "file": "server/daemon.ts",
+              "lines": [
+                320,
+                321,
+                322,
+                323,
+                324,
+                325,
+                326,
+                327,
+                328,
+                329,
+                330,
+                331,
+                332,
+                333,
+                334,
+                335,
+                336,
+                337,
+                338
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalScenarios": 2,
+    "coveredScenarios": 2,
+    "coveragePercent": 100,
+    "testFiles": [
+      "test/daemon-binary-frames.test.ts"
+    ],
+    "implFiles": [
+      "server/daemon.ts"
+    ],
+    "totalLinesCovered": 67
+  }
+}

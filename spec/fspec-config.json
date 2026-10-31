@@ -1,0 +1,13 @@
+{
+  "agent": "claude",
+  "tools": {
+    "test": {
+      "command": "npm test"
+    },
+    "qualityCheck": {
+      "commands": [
+        "npm run typecheck"
+      ]
+    }
+  }
+}

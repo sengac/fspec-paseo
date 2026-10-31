@@ -1,0 +1,303 @@
+{
+  "scenarios": [
+    {
+      "name": "Workspaces the fspec daemon serves get an fspec board button",
+      "testMappings": [
+        {
+          "file": "test/board-mobile-entry.test.ts",
+          "lines": "52-80",
+          "implMappings": [
+            {
+              "file": "client/board-buttons.ts",
+              "lines": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13,
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                40,
+                41,
+                42,
+                43,
+                44,
+                45,
+                46,
+                47,
+                48,
+                49,
+                50,
+                51,
+                52,
+                53,
+                54,
+                55,
+                56,
+                57,
+                58,
+                59,
+                60,
+                61,
+                62,
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71,
+                72,
+                73,
+                74,
+                75,
+                76,
+                77,
+                78,
+                79,
+                80,
+                81,
+                82,
+                83,
+                84,
+                85,
+                86,
+                87,
+                88,
+                89,
+                90,
+                91,
+                92,
+                93,
+                94,
+                95
+              ]
+            },
+            {
+              "file": "client/register.ts",
+              "lines": [
+                56,
+                57,
+                58,
+                59,
+                60,
+                61,
+                62,
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71,
+                72,
+                73,
+                74,
+                75,
+                76,
+                77,
+                78,
+                79,
+                80,
+                81,
+                82,
+                83,
+                84,
+                85,
+                86,
+                87,
+                88,
+                89,
+                90,
+                91,
+                92,
+                93,
+                94,
+                95,
+                96,
+                97,
+                98
+              ]
+            },
+            {
+              "file": "index.client.tsx",
+              "lines": [
+                1,
+                2,
+                3,
+                4,
+                5,
+                6,
+                7,
+                8,
+                9,
+                10,
+                11
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Buttons follow workspace removal and plugin unload",
+      "testMappings": [
+        {
+          "file": "test/board-mobile-entry.test.ts",
+          "lines": "82-107",
+          "implMappings": [
+            {
+              "file": "client/board-buttons.ts",
+              "lines": [
+                36,
+                37,
+                38,
+                39,
+                40,
+                41,
+                42,
+                43,
+                86,
+                87,
+                88,
+                89,
+                90,
+                91,
+                92,
+                93
+              ]
+            },
+            {
+              "file": "client/register.ts",
+              "lines": [
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71,
+                72,
+                73,
+                74,
+                75,
+                76,
+                77,
+                78,
+                79,
+                80,
+                81,
+                82,
+                83,
+                84,
+                85,
+                86,
+                87,
+                88,
+                89,
+                90
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "The daemon answers which directories it serves",
+      "testMappings": [
+        {
+          "file": "test/board-mobile-entry.test.ts",
+          "lines": "109-128",
+          "implMappings": [
+            {
+              "file": "server/board.ts",
+              "lines": [
+                238,
+                239,
+                240,
+                241,
+                242,
+                243,
+                244,
+                245,
+                246
+              ]
+            },
+            {
+              "file": "shared/board.ts",
+              "lines": [
+                79,
+                80,
+                81,
+                82,
+                83,
+                84
+              ]
+            },
+            {
+              "file": "index.server.ts",
+              "lines": [
+                14
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "stats": {
+    "totalScenarios": 3,
+    "coveredScenarios": 3,
+    "coveragePercent": 100,
+    "testFiles": [
+      "test/board-mobile-entry.test.ts"
+    ],
+    "implFiles": [
+      "client/board-buttons.ts",
+      "client/register.ts",
+      "index.client.tsx",
+      "server/board.ts",
+      "shared/board.ts",
+      "index.server.ts"
+    ],
+    "totalLinesCovered": 284
+  }
+}

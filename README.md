@@ -29,7 +29,7 @@ The plugin is an ordinary client of a running **fspec daemon**. It doesn't start
 - **Models:** the model picker lists every model from every *reachable* provider configured in fspec, as `provider/model`. The first one is the default. Thinking levels are Off / Low / Medium / High.
 - **Live timeline:** streaming assistant text, reasoning, tool calls with their results and progress, notices, errors, compaction, and token/context usage.
 - **Stop:** interrupts the running fspec turn. Prompts sent while a turn is running are queued and run in order.
-- **Approvals and questions:** fspec approval pauses and HITL (human-in-the-loop) questions appear as Paseo permission prompts, and so do the ones raised by sub-agents. A command waiting on stdin asks you for the input.
+- **Approvals and questions:** fspec approval pauses and HITL (human-in-the-loop) questions appear as Paseo permission prompts, and so do the ones raised by sub-agents. An approval shows fspec's message and details and is attached to the tool call it holds back. A command waiting on stdin asks you for the input.
 - **Sub-agents:** fspec sub-agent sessions appear as child sessions under the parent agent.
 - **Composer commands:** `/compact`, `/clear`, `/continue [on|off|N]`, `/goal [text|clear|verify <cmd>]`, `/focus <work-unit-id|none>`. These behave the same as in the fspec TUI.
 - **Attachments:** fspec only accepts text, so the plugin saves pasted images to a private temp folder and passes their paths to the agent. Uploaded files are passed by the path Paseo stored them at.

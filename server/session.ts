@@ -54,6 +54,7 @@ import type {
   DecodedResponse,
   ExecStdinRequest,
   GoalState,
+  PauseState,
   WorkUnitFocus,
   SessionEvent,
   FspecServiceRequest,
@@ -425,12 +426,26 @@ export function createSessionRegistry(deps: SessionDeps) {
     const generation = ++session.pauseGeneration;
     const { result } = await request({ method: "getInteractionSnapshot", sessionId: session.daemonSessionId });
     if (!result.ok) return;
-    const interaction = parseInteractionSnapshot(result.value);
+    const parsed = parseInteractionSnapshot(result.value);
+    // The snapshot names no tool call: get_pause_state's tool_call_id does (fspec BUG-291).
+    const pause = parsed?.kind === "pause" ? await pauseState(session) : null;
+    const interaction =
+      parsed?.kind === "pause" && parsed.details === null && pause?.details ? { ...parsed, details: pause.details } : parsed;
     if (interaction === null || !session.pausedNow || generation !== session.pauseGeneration) return;
     if (!sessions.has(session.sessionId) || session.pause !== null) return;
     const permissionId = `${session.epoch}:${interaction.kind}:${generation}`;
     session.pause = { permissionId, interaction };
-    showPermission(session, permissionRequest(interaction, permissionId, session.transcript.runningToolCall()));
+    const gated = pause?.toolCallId ? session.transcript.toolCall(pause.toolCallId) : undefined;
+    showPermission(session, permissionRequest(interaction, permissionId, gated ?? session.transcript.runningToolCall()));
+  }
+
+  /** The daemon's PauseState, or null when it has none or cannot be read. */
+  async function pauseState(session: FspecSession): Promise<PauseState | null> {
+    try {
+      return (await request({ method: "getPauseState", sessionId: session.daemonSessionId })).pause;
+    } catch {
+      return null;
+    }
   }
 
   /**

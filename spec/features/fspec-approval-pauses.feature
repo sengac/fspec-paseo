@@ -2,10 +2,11 @@
 @core
 @provider
 @FSPEC-016
+@FSPEC-050
 Feature: Surface fspec tool approval pauses as Paseo permission requests
 
   """
-  server/wire.ts getPauseState/pauseConfirm/pauseTriple (idx 80/77/78); server/session.ts turns live Paused into session.permission and answers via pause RPCs; provider.ts advertises 'permission' and routes session.permission.
+  server/wire.ts getPauseState/pauseConfirm/pauseTriple (idx 80/77/78); server/session.ts turns live Paused into session.permission and answers via pause RPCs; provider.ts advertises 'permission' and routes session.permission. FSPEC-050: PauseState is { kind, prompt, details, tool_call_id } since fspec BUG-291; the permission is attached to the tool call named by tool_call_id (transcript.toolCall), falling back to the running tool call.
   """
 
   # ========================================
@@ -19,11 +20,13 @@ Feature: Surface fspec tool approval pauses as Paseo permission requests
   #   4. A session.permission answer maps to pause_triple (Approve / ApproveSession / Deny) or pause_confirm (accept true / false); without selectedActionId, allow maps to Approve/accept and deny to Deny/reject
   #   5. Each pause gets exactly one session.permission_resolved: after the answer is applied, or when the pause ends another way (state leaves Paused, the turn ends, the session closes or the daemon connection drops)
   #   6. A session.permission for an unknown session is rejected synchronously with Unknown session; an answer for a pause that already resolved is ignored
+  #   7. FSPEC-050: get_pause_state decodes PauseState { kind, prompt, details, tool_call_id }; the permission takes its name and detail from the tool call tool_call_id names and carries metadata.toolCallId; without a known id it falls back to the most recent running tool call
   #
   # EXAMPLES:
   #   1. Live: Bash 'ps -axo pid,etime,comm | grep -i system_profiler' -> Paused; get_pause_state = Triple 'Bash: RLCD security: P(risk)=0.46282515 >= promptThreshold 0.45 ...' -> Paseo shows Approve / Approve for session / Deny with the shell command; choosing Approve calls pause_triple(session, Approve) and the tool runs and streams its output
   #   2. Confirm pause 'Allow writing outside the workspace?' -> actions accept/deny; the user denies -> pause_confirm(session, false), then session.permission_resolved
   #   3. The user presses Stop while a pause is open -> the daemon reports Interrupted -> the provider emits session.permission_resolved for that pause before the canceled turn event
+  #   4. FSPEC-050: Bash call-1 'ps -axo pid' and Read call-2 both running; get_pause_state names tool_call_id 'call-1' -> detail shell 'ps -axo pid', metadata { toolCallId: 'call-1' }
   #
   # ========================================
 
@@ -62,6 +65,19 @@ Feature: Surface fspec tool approval pauses as Paseo permission requests
     Given Rust golden vectors for Option<PauseState> and the pause_confirm and pause_triple arguments
     When the codec encodes and decodes those values
     Then the bytes match the golden vectors exactly
+    And the pause state carries the details "rm -rf build" and the tool call id "call-1" as separate fields
+
+
+  Scenario: A paused tool call's approval is attached to the call it gates
+    Given an fspec session whose turn is running Bash tool call "call-1" with command "ps -axo pid" and then Read tool call "call-2"
+    When the daemon reports SessionStateChange Paused and get_pause_state names tool call "call-1"
+    Then the provider emitted one session.permission named "Bash" with shell detail "ps -axo pid" and metadata toolCallId "call-1"
+
+
+  Scenario: An approval without a known tool call id uses the running tool call
+    Given an fspec session whose turn is running Bash tool call "call-1" with command "ps -axo pid"
+    When the daemon reports SessionStateChange Paused and get_pause_state names no tool call
+    Then the provider emitted one session.permission with shell detail "ps -axo pid" and no toolCallId metadata
 
 
   Scenario: A permission answer for an unknown session is rejected

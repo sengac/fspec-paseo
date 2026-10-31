@@ -13,7 +13,7 @@ Feature: Answer fspec interactions with the request-bound interaction API
   # ========================================
   #
   # BUSINESS RULES:
-  #   1. On SessionStateChange Paused the provider reads get_interaction_snapshot (idx 119, Result<String JSON, String>) instead of get_pause_state / get_hitl_request; the JSON is { pause: { request_id, state: { kind, tool_name, message, details } | null }, hitl: { request_id, state: { questions: [{ id, header, question, options: [{label, description}] | null }] } | null } }
+  #   1. On SessionStateChange Paused the provider reads get_interaction_snapshot (idx 119, Result<String JSON, String>) instead of get_pause_state / get_hitl_request (since FSPEC-050 get_pause_state is read only for the gated tool call's id, which the snapshot lacks); the JSON is { pause: { request_id, state: { kind, tool_name, message, details } | null }, hitl: { request_id, state: { questions: [{ id, header, question, options: [{label, description}] | null }] } | null } }
   #   2. Every answer goes through reply_interaction_checked (idx 120: session_id, method, request_id, arguments JSON): Triple -> method pause_triple { choice: Approve | ApproveSession | Deny }; Confirm -> pause_confirm { accept }; Continue -> pause_resume {}; HITL -> send_hitl_response { response: { cancelled, answers: [{ id, selected, other }] } }, always with the request_id from the snapshot the request was built from
   #   3. The approval request uses the snapshot's separate fields: name = tool_name, description = message (plus details when present), detail = the running tool call's detail
   #   4. Continue pauses (fspec PauseKind::Continue) show a single Continue action; any answer resumes them with pause_resume
@@ -36,7 +36,7 @@ Feature: Answer fspec interactions with the request-bound interaction API
     Given an fspec session whose running Bash tool call pauses
     When get_interaction_snapshot returns pause request "p-7" with kind Triple, tool_name "Bash", message "RLCD security: P(risk)=0.46" and details "about to run ps"
     Then the provider emitted one session.permission named "Bash" whose description holds the message and the details
-    And it called neither get_pause_state nor get_hitl_request
+    And it read get_pause_state only for the gated tool call's id and never called get_hitl_request
 
 
   Scenario: An approval is answered against its request id

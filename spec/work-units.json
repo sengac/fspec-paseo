@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-10-31T23:43:01.398Z"
+    "lastUpdated": "2026-10-31T23:45:50.499Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -5860,12 +5860,89 @@
       "id": "FSPEC-050",
       "title": "Decode PauseState's details and real tool_call_id and attach the approval to its gated tool call",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-10-31T23:39:30.365Z",
-      "updatedAt": "2026-10-31T23:39:30.365Z",
+      "updatedAt": "2026-10-31T23:45:50.499Z",
       "description": "fspec BUG-291 renamed PauseState's third field (which carried the pause details text under the name tool_call_id) to details and appended a real tool_call_id: the id of the streamed ToolCall chunk that raised the pause. server/wire.ts still decodes the 3-field layout, so get_pause_state (idx 80) leaves the 4th field unread and the old golden vectors no longer match the daemon. The approval request is still attached to whichever tool call happens to be running (FSPEC-016's workaround, transcript.runningToolCall) instead of the call the pause gates.",
       "epic": "provider-plugin",
-      "children": []
+      "children": [],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-10-31T23:43:32.911Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-10-31T23:44:06.945Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-10-31T23:45:43.320Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-10-31T23:45:50.345Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-10-31T23:45:50.499Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "get_pause_state (idx 80) decodes Option<PauseState { kind, prompt, details: Option<String>, tool_call_id: Option<String> }> in that field order (fspec BUG-291): details is the pause details text, tool_call_id the id of the streamed ToolCall that raised the pause",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:43:32.948Z"
+        },
+        {
+          "id": 1,
+          "text": "When a paused session's snapshot holds an approval pause, the provider reads get_pause_state for its tool_call_id and builds the permission from that tool call: its name and detail, and metadata.toolCallId; the request is still answered by the snapshot's request_id",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:43:32.970Z"
+        },
+        {
+          "id": 2,
+          "text": "When get_pause_state has no tool_call_id, names a call the transcript never saw, or fails, the permission falls back to the most recent running tool call as before",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:43:32.991Z"
+        },
+        {
+          "id": 3,
+          "text": "The permission description is the pause message plus its details text (the snapshot's details, or PauseState.details when the snapshot has none)",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:43:33.013Z"
+        }
+      ],
+      "nextRuleId": 4,
+      "examples": [
+        {
+          "id": 0,
+          "text": "Bash call-1 'ps -axo pid' and Read call-2 are both running; Paused; get_pause_state = Triple 'Bash: risky', details 'rm -rf build', tool_call_id 'call-1' -> permission name Bash, detail shell 'ps -axo pid', metadata { toolCallId: 'call-1' }",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:43:33.034Z"
+        },
+        {
+          "id": 1,
+          "text": "Golden: 01 01000000 'Bash: risky' 01 'rm -rf build' 01 'call-1' decodes to { kind: triple, prompt: 'Bash: risky', details: 'rm -rf build', toolCallId: 'call-1' }; Confirm 'ok?' with neither ends 00 00",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:43:33.053Z"
+        }
+      ],
+      "nextExampleId": 2,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/wire.ts PauseState gains details; read/write 4 fields. server/session.ts openPause: after get_interaction_snapshot (still the source of request_id and the answer path, FSPEC-018) call getPauseState for the gated tool call id. server/transcript.ts gains toolCall(callId) -> { name, detail }. Supersedes FSPEC-016 rule 5 (tool_call_id carried the details text on fspec 0.10.9 before BUG-291). The interaction snapshot JSON (sessions/src/background_session/interactions.rs interaction_snapshot) carries no tool call id, so get_pause_state is the only source.",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:43:33.074Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "attachments": [
+        "spec/attachments/FSPEC-050/ast-research.md"
+      ],
+      "estimate": 2
     },
     "FSPEC-051": {
       "id": "FSPEC-051",
@@ -5927,7 +6004,6 @@
     "backlog": [
       "FSPEC-046",
       "FSPEC-047",
-      "FSPEC-050",
       "FSPEC-051",
       "FSPEC-052",
       "FSPEC-053",
@@ -5986,7 +6062,8 @@
       "FSPEC-045",
       "FSPEC-044",
       "FSPEC-048",
-      "FSPEC-049"
+      "FSPEC-049",
+      "FSPEC-050"
     ],
     "blocked": []
   },

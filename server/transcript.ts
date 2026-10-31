@@ -278,12 +278,19 @@ export function createTranscript(epoch: string) {
     toolCallMentioning(text: string): string | undefined {
       return [...tools.values()].reverse().find((state) => state.output?.includes(text))?.callId;
     },
-    /** The most recent tool call still running: the one an approval pause gates. */
+    /** The most recent tool call still running: the fallback for a pause with no known tool call. */
     runningToolCall(): { name: string; detail: ProviderToolCallDetail } | undefined {
       const running = [...tools.values()].filter((state) => state.status === "running").at(-1);
       if (!running) return undefined;
       const item = toolItem(running);
       return item.type === "tool_call" ? { name: item.name, detail: item.detail } : undefined;
+    },
+    /** One tool call by its daemon id, e.g. the call an approval pause gates (FSPEC-050). */
+    toolCall(callId: string): { name: string; detail: ProviderToolCallDetail; toolCallId: string } | undefined {
+      const state = tools.get(callId);
+      if (!state) return undefined;
+      const item = toolItem(state);
+      return item.type === "tool_call" ? { name: item.name, detail: item.detail, toolCallId: callId } : undefined;
     },
     /** Remembers a Paseo prompt so its daemon UserInput echo carries clientMessageId. */
     expectEcho(text: string, clientMessageId: string): void {

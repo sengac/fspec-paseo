@@ -397,6 +397,8 @@ Variant index = 0-based position in the trait. Full order verified from
 | 28 | `ListProviders` | `list_providers` | — | `Vec<ProviderInfo>` |
 | 29 | `SetSessionModel` | `set_session_model` | `session_id: SessionId, provider_id: String, model_id: String` | `Result<(), String>` |
 | 39 | `SetThinkingLevel` | `set_thinking_level` | `session_id: SessionId, level: ThinkingLevel` | `Result<(), String>` |
+| 80 | `GetPauseState` | `get_pause_state` | `session_id: SessionId` | `Option<PauseState>` (§6.8; read for the gated tool call id) |
+| 119 | `GetInteractionSnapshot` | `get_interaction_snapshot` | `session_id: SessionId` | `Result<String, String>` (JSON, §6.8) |
 | 46 | `SendInputWithThinking` | `send_input_with_thinking` | `session_id: SessionId, text: String, thinking: Option<ThinkingConfig>` | `()` |
 | 87 | `DestroySession` | `destroy_session` | `session_id: SessionId` | `Result<(), String>` |
 | 123 | `GetWorkUnitDetails` | `get_work_unit_details` | `id: String` | `Result<String, String>` (JSON `{id, workspace, workUnit}`) |
@@ -550,6 +552,27 @@ entry.id`, `label` = `display_name`, `contextWindowMaxTokens` =
 levels are global (`ThinkingLevel`, idx 21 via `get_thinking_level` / set via
 `set_thinking_level` idx 39), not per-model.
 
+
+### 6.8 Approval pauses — `get_pause_state` (idx 80) and `get_interaction_snapshot` (idx 119)
+
+```rust
+pub enum PauseKind { Confirm, Triple }                                   // 0-1
+pub struct PauseState {
+    pub kind: PauseKind,
+    pub prompt: String,
+    pub details: Option<String>,      // BUG-291: renamed in place from `tool_call_id` (it always carried the details text)
+    pub tool_call_id: Option<String>, // BUG-291: NEW — id of the streamed ToolCall chunk that raised the pause
+}
+```
+
+`get_pause_state` returns `Option<PauseState>` (tag byte, then the four fields in this
+order). fspec 0.10.9 builds before BUG-291 sent only three fields, the third being the
+details text. `get_interaction_snapshot` returns `Result<String, String>` JSON
+`{"pause":{"request_id","state":{kind,tool_name,message,details}|null},"hitl":{"request_id","state":{questions}|null}}`
+(`sessions/src/background_session/interactions.rs`); it carries the `request_id` every
+answer must quote (`reply_interaction_checked`, idx 120) but **no tool call id**. The plugin
+therefore reads the snapshot for the request and `get_pause_state` only for
+`tool_call_id`, so the Paseo permission is attached to the gated tool call (FSPEC-050).
 
 ---
 

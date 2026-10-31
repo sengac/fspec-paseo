@@ -390,6 +390,9 @@ export type ApprovalChoice = "approve" | "approveSession" | "deny";
 export interface PauseState {
   kind: PauseKind;
   prompt: string;
+  /** The pause details text (fspec BUG-291 renamed it from tool_call_id in place). */
+  details: string | null;
+  /** The id of the streamed ToolCall that raised the pause (fspec BUG-291). */
   toolCallId: string | null;
 }
 
@@ -2390,6 +2393,7 @@ export function encodeResponseFrame(input: {
     case "getPauseState":
       w.option(input.value as PauseState | null, (x, pause) => {
         x.enumIndex(enumIndex(PAUSE_KIND, pause.kind, "PauseKind")).string(pause.prompt);
+        x.option(pause.details, (y, details) => y.string(details));
         x.option(pause.toolCallId, (y, id) => y.string(id));
       });
       break;
@@ -2545,6 +2549,7 @@ export function decodeResponseFrame(bytes: Uint8Array): DecodedResponse {
         pause: r.skipOption((x) => ({
           kind: readEnumAt(x, PAUSE_KIND, "PauseKind"),
           prompt: x.string("PauseState.prompt"),
+          details: x.skipOption((y) => y.string("PauseState.details")),
           toolCallId: x.skipOption((y) => y.string("PauseState.tool_call_id")),
         })),
       };

@@ -129,22 +129,57 @@ describe("Feature: Surface fspec tool approval pauses as Paseo permission reques
       const frame = (payload: string) =>
         new Uint8Array(Buffer.from("0000000000000000" + "00000000" + "50000000" + payload, "hex"));
       // @step When the codec encodes and decodes those values
-      const some = wire.decodeResponseFrame(frame(vector("pause_state_some")));
-      const confirm = wire.decodeResponseFrame(frame(vector("pause_state_confirm")));
+      const some = wire.decodeResponseFrame(frame(vector("pause_state_v2_some")));
+      const confirm = wire.decodeResponseFrame(frame(vector("pause_state_v2_confirm")));
       const none = wire.decodeResponseFrame(frame(vector("pause_state_none")));
-      // @step Then the bytes match the golden vectors exactly
-      expect(some).toMatchObject({ method: "getPauseState", pause: { kind: "triple", prompt: "Bash: risky", toolCallId: "call-1" } });
-      expect(confirm).toMatchObject({ pause: { kind: "confirm", prompt: "ok?", toolCallId: null } });
-      expect(none).toMatchObject({ pause: null });
-      const encoded = wire.encodeResponseFrame({
-        requestId: 0,
-        message: "getPauseState",
-        value: { kind: "triple", prompt: "Bash: risky", toolCallId: "call-1" },
-      });
-      expect(Buffer.from(encoded.subarray(16)).toString("hex")).toBe(vector("pause_state_some"));
+      const value: wire.PauseState = { kind: "triple", prompt: "Bash: risky", details: "rm -rf build", toolCallId: "call-1" };
+      const encoded = wire.encodeResponseFrame({ requestId: 0, message: "getPauseState", value });
       const hex = (message: wire.FspecServiceRequest) => Buffer.from(wire.encodeRequestFrame({ id: 0, message })).toString("hex");
+      // @step Then the bytes match the golden vectors exactly
+      expect(Buffer.from(encoded.subarray(16)).toString("hex")).toBe(vector("pause_state_v2_some"));
+      expect(confirm).toMatchObject({ pause: { kind: "confirm", prompt: "ok?", details: null, toolCallId: null } });
+      expect(none).toMatchObject({ pause: null });
       expect(hex({ method: "pauseConfirm", sessionId: "s", accept: true }).endsWith("4d000000" + vector("pause_confirm_args"))).toBe(true);
       expect(hex({ method: "pauseTriple", sessionId: "s", choice: "approveSession" }).endsWith("4e000000" + vector("pause_triple_args"))).toBe(true);
+      // @step And the pause state carries the details "rm -rf build" and the tool call id "call-1" as separate fields
+      expect(some).toMatchObject({ method: "getPauseState", pause: value });
+    });
+  });
+
+  describe("Scenario: A paused tool call's approval is attached to the call it gates", () => {
+    it("takes the name and detail from the tool call get_pause_state names", async () => {
+      // @step Given an fspec session whose turn is running Bash tool call "call-1" with command "ps -axo pid" and then Read tool call "call-2"
+      const h = await harness();
+      await h.open("paseo-1");
+      await h.send(h.prompt("paseo-1", "check processes"));
+      await h.waitFor("session.turn", (event) => event.state === "started");
+      await h.stream(DAEMON, toolCall("call-1", "Bash", { command: "ps -axo pid" }), toolCall("call-2", "Read", { file_path: "/work/a.txt" }));
+      // @step When the daemon reports SessionStateChange Paused and get_pause_state names tool call "call-1"
+      h.daemon.handlers.getInteractionSnapshot = () => interactionSnapshot({ pause: { ...TRIPLE, toolName: "" } });
+      h.daemon.handlers.getPauseState = () => ({ kind: "triple", prompt: "Bash: risky", details: DETAILS, toolCallId: "call-1" });
+      await h.stream(DAEMON, { type: "sessionStateChange", state: "paused" });
+      const request = await h.waitFor("session.permission");
+      // @step Then the provider emitted one session.permission named "Bash" with shell detail "ps -axo pid" and metadata toolCallId "call-1"
+      expect(h.ofType("session.permission")).toHaveLength(1);
+      expect(h.daemon.sent("getPauseState")).toEqual([{ method: "getPauseState", sessionId: DAEMON }]);
+      expect(request.request).toMatchObject({
+        name: "Bash",
+        detail: { type: "shell", command: "ps -axo pid" },
+        metadata: { toolCallId: "call-1" },
+      });
+    });
+  });
+
+  describe("Scenario: An approval without a known tool call id uses the running tool call", () => {
+    it("falls back to the most recent running tool call", async () => {
+      // @step Given an fspec session whose turn is running Bash tool call "call-1" with command "ps -axo pid"
+      // @step When the daemon reports SessionStateChange Paused and get_pause_state names no tool call
+      const { h, request } = await paused(TRIPLE);
+      expect(h.daemon.sent("getPauseState")).toHaveLength(1);
+      // @step Then the provider emitted one session.permission with shell detail "ps -axo pid" and no toolCallId metadata
+      expect(h.ofType("session.permission")).toHaveLength(1);
+      expect(request.request.detail).toEqual({ type: "shell", command: "ps -axo pid" });
+      expect(request.request.metadata).toBeUndefined();
     });
   });
 

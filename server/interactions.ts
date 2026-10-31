@@ -104,11 +104,15 @@ export function questionHeader(question: HitlQuestion): string {
   return question.header.trim() !== "" ? question.header : question.id;
 }
 
-/** The Paseo permission request for an interaction. */
+/**
+ * The Paseo permission request for an interaction. `gatedTool` is the tool
+ * call the pause holds: named by get_pause_state's tool_call_id when known
+ * (then carried as metadata.toolCallId), else the running tool call.
+ */
 export function permissionRequest(
   interaction: Interaction,
   id: string,
-  runningTool: { name: string; detail: ProviderToolCallDetail } | undefined,
+  gatedTool: { name: string; detail: ProviderToolCallDetail; toolCallId?: string } | undefined,
 ): ProviderPermissionRequest {
   if (interaction.kind === "hitl") {
     return {
@@ -129,14 +133,15 @@ export function permissionRequest(
       },
     };
   }
-  const name = interaction.toolName || runningTool?.name || "fspec";
+  const name = interaction.toolName || gatedTool?.name || "fspec";
   return {
     id,
     name,
     kind: "tool",
     title: interaction.pauseKind === "continue" ? "fspec paused" : `Allow ${name}?`,
     description: interaction.details ? `${interaction.message}\n\n${interaction.details}` : interaction.message,
-    ...(runningTool ? { detail: runningTool.detail } : {}),
+    ...(gatedTool ? { detail: gatedTool.detail } : {}),
+    ...(gatedTool?.toolCallId !== undefined ? { metadata: { toolCallId: gatedTool.toolCallId } } : {}),
     actions:
       interaction.pauseKind === "triple"
         ? TRIPLE_ACTIONS

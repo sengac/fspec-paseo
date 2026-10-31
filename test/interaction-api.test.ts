@@ -42,8 +42,8 @@ describe("Feature: Answer fspec interactions with the request-bound interaction 
       // @step Then the provider emitted one session.permission named "Bash" whose description holds the message and the details
       expect(h.ofType("session.permission")).toHaveLength(1);
       expect(request.request).toMatchObject({ name: "Bash", description: "RLCD security: P(risk)=0.46\n\nabout to run ps" });
-      // @step And it called neither get_pause_state nor get_hitl_request
-      expect(h.daemon.sent("getPauseState")).toEqual([]);
+      // @step And it read get_pause_state only for the gated tool call's id and never called get_hitl_request
+      expect(h.daemon.sent("getPauseState")).toEqual([{ method: "getPauseState", sessionId: DAEMON }]);
       expect(h.daemon.sent("getHitlRequest")).toEqual([]);
     });
   });

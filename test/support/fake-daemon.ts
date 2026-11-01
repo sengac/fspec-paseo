@@ -105,6 +105,13 @@ export class FakeDaemon {
     this.handlers.listProviderSettings = () => ({ ok: true, value: [] });
     this.handlers.getDefaultModel = () => null;
     this.handlers.submitInput = () => ({ ok: true, value: undefined });
+    // One workspace, the start workspace get_workspace_info reports.
+    this.handlers.listWorkspaces = async (request) => {
+      const info = (await this.handlers.getWorkspaceInfo!(request)) as wire.WorkspaceInfo;
+      return { ok: true, value: [{ path: info.cwd, name: info.cwd.split("/").at(-1) ?? info.cwd, start: true }] };
+    };
+    this.handlers.createSessionInWorkspace = () => ({ ok: true, value: `fspec-sess-${this.nextSession++}` });
+    this.handlers.listWorkspaceWorkUnits = () => ({ ok: true, value: [] });
     this.handlers.setDefaultModel = () => ({ ok: true, value: undefined });
   }
 

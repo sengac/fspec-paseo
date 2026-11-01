@@ -8,8 +8,6 @@
  * into timeline snapshots by the session's transcript (FSPEC-006).
  */
 import { randomUUID } from "node:crypto";
-import { realpathSync } from "node:fs";
-import { relative, resolve, isAbsolute } from "node:path";
 import type {
   ProviderConfigState,
   ProviderContent,
@@ -43,6 +41,7 @@ import {
   parseGoal,
 } from "./commands.js";
 import { createTranscript, type Transcript } from "./transcript.js";
+import { servingWorkspace, within } from "./workspaces.js";
 import { parseStreamChunkJson } from "./transcript-json.js";
 import {
   describeTranscriptError,
@@ -61,6 +60,7 @@ import type {
   Result,
   StreamChunk,
   ThinkingLevel,
+  WorkspaceEntry,
 } from "./wire.js";
 
 type Input<T extends ProviderInput["type"]> = Extract<ProviderInput, { type: T }>;
@@ -176,20 +176,7 @@ const STDIN_HEADER = "Input";
 /** The daemon accepts 1024..=65536; replay asks for the largest page. */
 const TRANSCRIPT_PAGE_BYTES = 65536;
 
-/** Resolves symlinks when the path exists; otherwise normalizes it. */
-function canonicalPath(path: string): string {
-  try {
-    return realpathSync(path);
-  } catch {
-    return resolve(path);
-  }
-}
-
-/** True when `dir` is `root` or lies inside it. */
-export function within(root: string, dir: string): boolean {
-  const rel = relative(canonicalPath(root), canonicalPath(dir));
-  return rel === "" || (!rel.startsWith("..") && !isAbsolute(rel));
-}
+export { within };
 
 /** One folder per open, so reused or concurrent session ids never share images. */
 function attachmentKey(session: FspecSession): string {
@@ -854,12 +841,33 @@ export function createSessionRegistry(deps: SessionDeps) {
    * then surfaces as a misleading "Session not found"; the checked variant
    * (idx 121) carries the daemon's reason.
    */
-  async function createDaemonSession(): Promise<string> {
-    const { result } = await request({ method: "createSessionChecked", role: null });
-    if (!result.ok) throw new Error(`fspec could not create a session: ${result.error}`);
+  async function createDaemonSession(workspace: { path: string; start: boolean }, role: string | null): Promise<string> {
+    const { result } = workspace.start
+      ? await request({ method: "createSessionChecked", role })
+      : await request({ method: "createSessionInWorkspace", workspace: workspace.path, role });
+    if (!result.ok) {
+      const where = workspace.start ? "" : ` in ${workspace.path}`;
+      throw new Error(`fspec could not create a session${where}: ${result.error}`);
+    }
     // fspec declines with an empty id when it has no default model (PROV-101).
     if (result.value === "") throw new Error(NO_DEFAULT_MODEL);
     return result.value;
+  }
+
+  /** The daemon's workspaces, start first; a daemon that cannot list them serves its start workspace. */
+  async function workspaces(): Promise<WorkspaceEntry[]> {
+    const { result } = await request({ method: "listWorkspaces" });
+    if (result.ok && result.value.length > 0) return result.value;
+    const { workspace } = await request({ method: "getWorkspaceInfo" });
+    return [{ path: workspace.cwd, name: workspace.cwd, start: true }];
+  }
+
+  /**
+   * The workspace a Paseo directory's session runs in (FSPEC-052): the listed
+   * workspace holding it, else the directory itself, which the daemon opens.
+   */
+  async function workspaceFor(cwd: string): Promise<{ path: string; start: boolean }> {
+    return servingWorkspace(await workspaces(), cwd) ?? { path: cwd, start: false };
   }
 
   const registry = {
@@ -871,14 +879,8 @@ export function createSessionRegistry(deps: SessionDeps) {
       if (sessions.has(input.sessionId)) {
         throw new Error(`Session already open: ${input.sessionId}`);
       }
-      // A daemon serves one workspace and has no per-session cwd: refuse to
-      // run an agent anywhere else rather than silently using that workspace.
-      const { workspace } = await request({ method: "getWorkspaceInfo" });
-      if (!within(workspace.cwd, input.config.cwd)) {
-        throw new Error(
-          `the fspec daemon serves ${workspace.cwd}, not ${input.config.cwd} — start fspec in ${input.config.cwd} to use it there`,
-        );
-      }
+      // A session belongs to one workspace: the one holding the Paseo cwd.
+      const workspace = await workspaceFor(input.config.cwd);
       const saved = input.persistence ? readPersistence(input.persistence) : undefined;
       const { providers } = await request({ method: "listProviders" });
       const { model: fspecDefault } = await request({ method: "getDefaultModel" });
@@ -893,7 +895,7 @@ export function createSessionRegistry(deps: SessionDeps) {
       // destroy_session); resume_session rebuilds it from its manifest.
       const resumeError = saved ? await resume(saved.sessionId) : null;
       const resumed = saved !== undefined && resumeError === null;
-      const daemonSessionId = resumed ? saved.sessionId : await createDaemonSession();
+      const daemonSessionId = resumed ? saved.sessionId : await createDaemonSession(workspace, null);
       const epoch = randomUUID().slice(0, 8);
       const session: FspecSession = {
         sessionId: input.sessionId,
@@ -1016,13 +1018,16 @@ export function createSessionRegistry(deps: SessionDeps) {
       emit({ type: "request.completed", requestId: input.requestId });
     },
 
-    /** Paseo's import list: the daemon workspace's live and persisted sessions. */
+    /** Paseo's import list: the live and persisted sessions of the workspace holding cwd. */
     async list(input: Input<"sessions">): Promise<void> {
-      const { workspace } = await request({ method: "getWorkspaceInfo" });
-      if (input.cwd !== undefined && !within(workspace.cwd, input.cwd)) {
+      const served = await workspaces();
+      const entry = input.cwd === undefined ? served.find((candidate) => candidate.start) : servingWorkspace(served, input.cwd);
+      // Never open a workspace just to list it.
+      if (entry === undefined || entry === null) {
         emit({ type: "sessions", requestId: input.requestId, sessions: [] });
         return;
       }
+      const workspace = { cwd: entry.path };
       const listed = (await request({ method: "listSessions", projectPath: workspace.cwd })).sessions;
       const query = input.query?.trim().toLowerCase() ?? "";
       const prompts = query === "" ? new Map<string, string>() : await matchingPrompts(query);

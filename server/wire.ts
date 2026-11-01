@@ -442,6 +442,15 @@ export interface WorkspaceInfo {
   cwd: string;
   gitBranch: string | null;
 }
+/** One workspace a daemon serves (list_workspaces, idx 124; rpc-types chrome.rs, RPC-443). */
+export interface WorkspaceEntry {
+  /** Canonical path. */
+  path: string;
+  /** Display name: the path's last component. */
+  name: string;
+  /** True for the daemon's start workspace, listed first. */
+  start: boolean;
+}
 export interface ThinkingConfig {
   providerId: string;
   level: ThinkingLevel;
@@ -602,6 +611,9 @@ export const FspecMethodIndex = {
   resumeSession: 55,
   destroySession: 87,
   getTranscriptPage: 117,
+  listWorkspaces: 124,
+  listWorkspaceWorkUnits: 125,
+  createSessionInWorkspace: 126,
   getDefaultModel: 127,
   submitInput: 128,
 } as const;
@@ -624,6 +636,9 @@ export type FspecServiceRequest =
   | { method: "listLiveSessions" }
   | { method: "createSession"; role: string | null }
   | { method: "createSessionChecked"; role: string | null }
+  | { method: "listWorkspaces" }
+  | { method: "listWorkspaceWorkUnits"; workspace: string }
+  | { method: "createSessionInWorkspace"; workspace: string; role: string | null }
   | { method: "sendInput"; sessionId: string; text: string }
   | { method: "submitInput"; sessionId: string; text: string; mode: InputMode }
   | { method: "interrupt"; sessionId: string }
@@ -729,6 +744,9 @@ export type FspecServiceResponse =
   | { method: "listLiveSessions"; value: string[] }
   | { method: "createSession"; value: string }
   | { method: "createSessionChecked"; value: Result<string> }
+  | { method: "listWorkspaces"; value: Result<WorkspaceEntry[]> }
+  | { method: "listWorkspaceWorkUnits"; value: Result<WorkUnitInfo[]> }
+  | { method: "createSessionInWorkspace"; value: Result<string> }
   | { method: "sendInput"; value: null }
   | { method: "submitInput"; value: Result<void> }
   | { method: "interrupt"; value: null }
@@ -940,6 +958,13 @@ function readSessionInfo(r: BincodeReader): SessionInfo {
     role: r.skipOption((x) => x.string()),
     updatedAtMs: r.skipOption((x) => x.i64()),
     workUnitFocus: readWorkUnitFocus(r),
+  };
+}
+function readWorkspaceEntry(r: BincodeReader): WorkspaceEntry {
+  return {
+    path: r.string("WorkspaceEntry.path"),
+    name: r.string("WorkspaceEntry.name"),
+    start: r.bool("WorkspaceEntry.start"),
   };
 }
 function readHistoryMatch(r: BincodeReader): HistoryMatch {
@@ -1769,6 +1794,14 @@ function writeServiceRequest(w: BincodeWriter, message: FspecServiceRequest): vo
     case "createSessionChecked":
       w.option(message.role, (x, v) => x.string(v));
       return;
+    case "listWorkspaces":
+      return;
+    case "listWorkspaceWorkUnits":
+      w.string(message.workspace);
+      return;
+    case "createSessionInWorkspace":
+      w.string(message.workspace).option(message.role, (x, v) => x.string(v));
+      return;
     case "sendInput":
       w.string(message.sessionId).string(message.text);
       return;
@@ -1941,6 +1974,14 @@ function readServiceRequest(r: BincodeReader): FspecServiceRequest {
     case "createSession":
     case "createSessionChecked":
       return { method, role: r.skipOption((x) => x.string()) };
+    case "listWorkspaces":
+      return { method };
+    case "listWorkspaceWorkUnits":
+      return { method, workspace: r.string("workspace") };
+    case "createSessionInWorkspace": {
+      const workspace = r.string("workspace");
+      return { method, workspace, role: r.skipOption((x) => x.string("role")) };
+    }
     case "sendInput": {
       const sessionId = r.string("SessionId");
       return { method, sessionId, text: r.string() };
@@ -2161,6 +2202,9 @@ export type DecodedResponse =
   | { requestId: number; ok: true; method: "listLiveSessions"; sessionIds: string[] }
   | { requestId: number; ok: true; method: "createSession"; sessionId: string }
   | { requestId: number; ok: true; method: "createSessionChecked"; result: Result<string> }
+  | { requestId: number; ok: true; method: "listWorkspaces"; result: Result<WorkspaceEntry[]> }
+  | { requestId: number; ok: true; method: "listWorkspaceWorkUnits"; result: Result<WorkUnitInfo[]> }
+  | { requestId: number; ok: true; method: "createSessionInWorkspace"; result: Result<string> }
   | { requestId: number; ok: true; method: "sendInput" }
   | { requestId: number; ok: true; method: "submitInput"; result: Result<void> }
   | { requestId: number; ok: true; method: "interrupt" }
@@ -2401,8 +2445,17 @@ export function encodeResponseFrame(input: {
       } else w.enumIndex(RESULT_ERR).string(result.error);
       break;
     }
+    case "listWorkspaces":
+      writeResult(w, input.value as Result<WorkspaceEntry[]>, (x, v) =>
+        writeVec(x, v, (y, e) => y.string(e.path).string(e.name).bool(e.start)),
+      );
+      break;
+    case "listWorkspaceWorkUnits":
+      writeResult(w, input.value as Result<WorkUnitInfo[]>, (x, v) => writeVec(x, v, writeWorkUnitInfo));
+      break;
     case "getInteractionSnapshot":
     case "getWorkUnitDetails":
+    case "createSessionInWorkspace":
     case "createSessionChecked": {
       const result = input.value as Result<string>;
       if (result.ok) w.enumIndex(RESULT_OK).string(result.value);
@@ -2540,8 +2593,13 @@ export function decodeResponseFrame(bytes: Uint8Array): DecodedResponse {
       return { requestId, ok: true, method, result: readResultWith(r, readWorkUnitFocus) };
     case "getInteractionSnapshot":
     case "getWorkUnitDetails":
+    case "createSessionInWorkspace":
     case "createSessionChecked":
       return { requestId, ok: true, method, result: readResultString(r) };
+    case "listWorkspaces":
+      return { requestId, ok: true, method, result: readResultWith(r, (x) => readVec(x, readWorkspaceEntry)) };
+    case "listWorkspaceWorkUnits":
+      return { requestId, ok: true, method, result: readResultWith(r, (x) => readVec(x, readWorkUnitInfo)) };
     case "getSubordinates":
     case "getSupervisors":
       return { requestId, ok: true, method, sessions: readVec(r, (x) => x.string("SessionId")) };

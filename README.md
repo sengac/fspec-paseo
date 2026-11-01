@@ -18,7 +18,7 @@ The plugin is an ordinary client of a running **fspec daemon**. It doesn't start
                                │ ws://127.0.0.1:<port>/  (bincode + tarpc frames)
 ┌──────────────────────────────┴─────────────────────────────┐
 │ fspec daemon  (fspec daemon  |  fspec with TUI)            │
-│   one workspace · sessions · work units · checkpoints      │
+│   workspaces · sessions · work units · checkpoints         │
 └────────────────────────────────────────────────────────────┘
 ```
 
@@ -82,7 +82,7 @@ From the project root, set fspec up the way you normally would: `fspec bootstrap
 
 ### 2. Start the fspec daemon in that project
 
-A daemon serves **one workspace**, which is the directory it was started in. Start it from the project root, either headless:
+A daemon starts in one directory, its **start workspace**, and can serve other workspaces too: an fspec agent opened from Paseo in another project gets a session in that project's workspace on the same daemon. Start it from a project root, either headless:
 
 ```sh
 cd ~/projects/my-app
@@ -204,9 +204,15 @@ The plugin runs inside the Paseo daemon, so it sees the Paseo daemon's environme
 
 ## How it works
 
-### Workspace rule
+### Workspaces
 
-An fspec daemon has a single workspace and no per-session working directory. The plugin therefore **refuses** to open an fspec agent whose Paseo working directory isn't inside the daemon's workspace. You get an error like `the fspec daemon serves /path/a, not /path/b — start fspec in /path/b to use it there`, rather than an agent that silently edits a different project. The board, the import list, and the phone menu entry follow the same rule. They only show up for workspaces the running daemon serves.
+One fspec daemon can serve several workspaces (`list_workspaces`). Each fspec agent runs in the workspace of its Paseo working directory, so it never silently edits a different project:
+
+- A directory inside the daemon's **start workspace** gets an ordinary session there (`create_session_checked`).
+- A directory inside another workspace the daemon already serves gets a session in that workspace. The deepest match wins, so a project inside the start workspace keeps its own workspace.
+- Any other directory becomes a new workspace: the daemon opens it and creates the session there (`create_session_in_workspace`). If the daemon refuses, the open fails with its reason, for example `fspec could not create a session in /gone: workspace path is not a directory: /gone`.
+
+Paseo's import list shows the sessions of the served workspace that holds the directory, and nothing for a directory no workspace holds. Listing never opens a workspace.
 
 Only one fspec daemon can be discovered through `daemon.json` at a time. To switch projects, stop the daemon and start it in the other project, or point `FSPEC_DAEMON_URL` at a specific daemon.
 
@@ -270,7 +276,8 @@ This project is itself built with fspec. Every feature has a work unit and a Ghe
 |---|---|
 | fspec provider unavailable: `no daemon.json found at …` | No daemon is running. Run `fspec daemon` (or `fspec`) in the project. |
 | `stale daemon.json removed at …` | The daemon died without cleaning up. Start it again. |
-| `the fspec daemon serves X, not Y` | The Paseo workspace is outside the daemon's workspace. Start fspec in Y, or open the agent in X. |
+| `fspec could not create a session in X: …` | The daemon could not open X as a workspace, or could not create the session there. The reason follows the colon. |
+| `the fspec daemon serves X, not Y` (board) | The board only shows the daemon's start workspace. Start fspec in Y, or open the board in X. |
 | No models in the picker | fspec has no reachable model provider. Fix the provider config or credentials in fspec. |
 | `non-loopback daemon host …` | `FSPEC_DAEMON_URL` points at a non-loopback host. Only loopback is supported, because the daemon has no auth or TLS. |
 | No fspec board button on phone | The workspace's directory isn't served by the running daemon. |

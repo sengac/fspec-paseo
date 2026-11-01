@@ -399,6 +399,9 @@ Variant index = 0-based position in the trait. Full order verified from
 | 39 | `SetThinkingLevel` | `set_thinking_level` | `session_id: SessionId, level: ThinkingLevel` | `Result<(), String>` |
 | 80 | `GetPauseState` | `get_pause_state` | `session_id: SessionId` | `Option<PauseState>` (§6.8; read for the gated tool call id) |
 | 119 | `GetInteractionSnapshot` | `get_interaction_snapshot` | `session_id: SessionId` | `Result<String, String>` (JSON, §6.8) |
+| 124 | `ListWorkspaces` | `list_workspaces` | — | `Result<Vec<WorkspaceEntry { path, name, start: bool }>, String>` (start workspace first; RPC-443) |
+| 125 | `ListWorkspaceWorkUnits` | `list_workspace_work_units` | `workspace: String` | `Result<Vec<WorkUnitInfo>, String>` (opens the workspace if needed) |
+| 126 | `CreateSessionInWorkspace` | `create_session_in_workspace` | `workspace: String, role: Option<String>` | `Result<SessionId, String>` (opens the workspace; `Err` for a non-directory or no default model; RPC-444) |
 | 128 | `SubmitInput` | `submit_input` | `session_id: SessionId, text: String, mode: InputMode` | `Result<(), String>` (`Err("Session not found: <id>")`; RIG-016, see §6.9) |
 | 46 | `SendInputWithThinking` | `send_input_with_thinking` | `session_id: SessionId, text: String, thinking: Option<ThinkingConfig>` | `()` |
 | 30 | `SetDefaultModel` | `set_default_model` | `model: String` ("provider/model") | `Result<(), String>` (empty strings ignored) |

@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-10-31T23:58:25.957Z"
+    "lastUpdated": "2026-11-01T00:02:55.992Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -6183,12 +6183,118 @@
       "id": "FSPEC-052",
       "title": "Run each Paseo agent in its own workspace on a multi-workspace fspec daemon",
       "type": "story",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-10-31T23:39:45.065Z",
-      "updatedAt": "2026-10-31T23:39:45.065Z",
+      "updatedAt": "2026-11-01T00:02:55.992Z",
       "description": "One fspec daemon can serve several workspaces (RPC-441..445): create_session_in_workspace (idx 126: workspace, role) runs a session in the named workspace, list_workspaces (idx 124) lists the ones it serves. Replace FSPEC-015's refusal of Paseo directories outside the daemon's start workspace: an agent in another directory gets a session in that workspace; the start workspace keeps create_session_checked. A workspace the daemon refuses fails the open with the daemon's reason.",
       "epic": "provider-plugin",
-      "children": []
+      "children": [],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-10-31T23:59:05.225Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T00:02:43.568Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T00:02:49.913Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T00:02:55.855Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T00:02:55.992Z"
+        }
+      ],
+      "userStory": {
+        "role": "Paseo user with projects in several directories",
+        "action": "open an fspec agent in any of my Paseo workspaces against one fspec daemon",
+        "benefit": "each agent works in its own project without starting a daemon per directory"
+      },
+      "rules": [
+        {
+          "id": 0,
+          "text": "list_workspaces (idx 124) answers Result<Vec<WorkspaceEntry { path, name, start }>, String> with the start workspace first; create_session_in_workspace (idx 126: workspace: String, role: Option<String>) answers Result<SessionId, String> and opens the workspace on the daemon if needed",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:59:05.266Z"
+        },
+        {
+          "id": 1,
+          "text": "session.open resolves its workspace from list_workspaces: the deepest listed workspace holding the Paseo cwd (realpaths, as FSPEC-015 compared them); a cwd no listed workspace holds becomes its own workspace",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:59:05.285Z"
+        },
+        {
+          "id": 2,
+          "text": "An agent in the daemon's start workspace (or a directory inside it) is created with create_session_checked as before; an agent in any other workspace is created with create_session_in_workspace(<workspace path>, role)",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:59:05.304Z"
+        },
+        {
+          "id": 3,
+          "text": "When create_session_in_workspace fails (for example 'workspace path is not a directory: <path>'), the open fails with 'fspec could not create a session in <workspace>: <reason>' and nothing is configured",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:59:05.323Z"
+        },
+        {
+          "id": 4,
+          "text": "Paseo's import list for a cwd lists the sessions of the listed workspace holding it (list_sessions(<workspace path>)); a cwd no listed workspace holds lists nothing, and no workspace is opened just to list it",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:59:05.343Z"
+        }
+      ],
+      "nextRuleId": 5,
+      "examples": [
+        {
+          "id": 0,
+          "text": "Daemon started in /repos/fspec lists [/repos/fspec (start)]; Paseo opens an agent in /repos/fspec-paseo -> create_session_in_workspace('/repos/fspec-paseo', None); the open reaches ready (FSPEC-015 used to refuse it)",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:59:05.362Z"
+        },
+        {
+          "id": 1,
+          "text": "Listed /repos/fspec (start) and /repos/app; agent in /repos/app/web -> create_session_in_workspace('/repos/app', None)",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:59:05.382Z"
+        },
+        {
+          "id": 2,
+          "text": "Agent in /repos/fspec/rust -> create_session_checked(None) as before",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:59:05.400Z"
+        },
+        {
+          "id": 3,
+          "text": "create_session_in_workspace answers Err('workspace path is not a directory: /gone') -> request.failed 'fspec could not create a session in /gone: workspace path is not a directory: /gone'",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:59:05.420Z"
+        },
+        {
+          "id": 4,
+          "text": "Golden: list_workspaces Ok([{/w/a, a, true}, {/w/b, b, false}]); create_session_in_workspace args ('/w/b', Some('role')) and reply Ok('s-9'); list_workspace_work_units args ('/w/b')",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:59:05.439Z"
+        }
+      ],
+      "nextExampleId": 5,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/wire.ts listWorkspaces 124 (WorkspaceEntry rpc-types chrome.rs), listWorkspaceWorkUnits 125, createSessionInWorkspace 126. server/session.ts: workspaceFor(cwd) replaces the FSPEC-015 refusal; open() picks create_session_checked or create_session_in_workspace; list() lists the resolved workspace. fspec side: rpc service_implementation/schedule_loops.rs create_session_in_workspace (opens the workspace through SharedFspecService::workspace, registry RPC-441), sessions/src/default_project.rs create_session_in_workspace_checked (canonicalises, rejects non-directories, needs a default model). TUI parity (board-workspace-dropdown.feature): session creation uses create_session_in_workspace when a non-start workspace is selected. A Paseo cwd inside a listed workspace maps to that workspace rather than opening a nested one.",
+          "deleted": false,
+          "createdAt": "2026-10-31T23:59:05.458Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "attachments": [
+        "spec/attachments/FSPEC-052/ast-research.md"
+      ],
+      "estimate": 3
     },
     "FSPEC-053": {
       "id": "FSPEC-053",
@@ -6227,7 +6333,6 @@
   "states": {
     "backlog": [
       "FSPEC-047",
-      "FSPEC-052",
       "FSPEC-053",
       "FSPEC-054",
       "FSPEC-055"
@@ -6287,7 +6392,8 @@
       "FSPEC-049",
       "FSPEC-050",
       "FSPEC-046",
-      "FSPEC-051"
+      "FSPEC-051",
+      "FSPEC-052"
     ],
     "blocked": []
   },

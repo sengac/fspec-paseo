@@ -30,6 +30,8 @@ function row(id: string, overrides: Partial<SettingsProvider> = {}): SettingsPro
     unreachable: true,
     models: [],
     profiles: [],
+    providerId: id,
+    profileName: null,
     ...overrides,
   };
 }
@@ -49,8 +51,8 @@ const feedRows: SettingsProvider[] = [
       { name: "spark", baseUrl: "http://spark:8000/v1" },
     ],
   }),
-  row("openai:Strata", { displayName: "Strata", configured: true, credentialType: "custom", modelCount: 1 }),
-  row("openai:spark", { displayName: "spark", configured: true, credentialType: "custom", modelCount: 1 }),
+  row("openai:Strata", { displayName: "Strata", providerId: "openai", profileName: "Strata", configured: true, credentialType: "custom", modelCount: 1 }),
+  row("openai:spark", { displayName: "spark", providerId: "openai", profileName: "spark", configured: true, credentialType: "custom", modelCount: 1 }),
   row("gemini", { displayName: "Gemini" }),
 ];
 

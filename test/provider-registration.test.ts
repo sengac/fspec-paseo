@@ -62,6 +62,7 @@ const ANTHROPIC: wire.ProviderInfo = {
   ],
   profileName: null,
   isUnreachable: false,
+  providerId: "anthropic",
 };
 
 const OPENAI_UNREACHABLE: wire.ProviderInfo = {
@@ -70,6 +71,7 @@ const OPENAI_UNREACHABLE: wire.ProviderInfo = {
   models: [model("gpt-5", "GPT-5", true)],
   profileName: null,
   isUnreachable: true,
+  providerId: "openai",
 };
 
 async function connectTo(provider: ProviderRegistration): Promise<{

@@ -4,6 +4,8 @@
  * This test file validates the acceptance criteria defined in the feature file.
  * Scenarios in this test map directly to scenarios in the Gherkin feature.
  */
+import { readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   buildCustomModel,
@@ -12,8 +14,9 @@ import {
   newCustomModelForm,
 } from "../client/custom-model-form.js";
 import { runWrite } from "../client/settings-actions.js";
-import { buildTree } from "../client/settings-model.js";
+import { buildTree, sheetFor } from "../client/settings-model.js";
 import { createSettingsFeed } from "../server/settings.js";
+import * as wire from "../server/wire.js";
 import type { SettingsProvider } from "../shared/settings.js";
 import { FakeDaemon, daemonOptions, tempHome } from "./support/fake-daemon.js";
 
@@ -34,6 +37,8 @@ function row(id: string, overrides: Partial<SettingsProvider> = {}): SettingsPro
     unreachable: false,
     models: [],
     profiles: [],
+    providerId: id,
+    profileName: null,
     ...overrides,
   };
 }
@@ -62,7 +67,7 @@ describe("Feature: Manage fspec custom models from Paseo", () => {
       // @step Given the openai profile "Strata" at "http://10.0.0.5:8080/v1" serves the custom model "qwen3-coder" named "Qwen3 Coder" and the plain model "llama3"
       const rows = [
         row("openai", { displayName: "OpenAI", credentialType: "api_key", profiles: [{ name: "Strata", baseUrl: "http://10.0.0.5:8080/v1" }] }),
-        row("openai:Strata", { displayName: "Strata", models: [QWEN, { id: "llama3", displayName: "llama3", contextWindow: 8192 }] }),
+        row("openai:Strata", { displayName: "Strata", providerId: "openai", profileName: "Strata", models: [QWEN, { id: "llama3", displayName: "llama3", contextWindow: 8192 }] }),
       ];
       // @step When the screen builds the provider tree
       const openai = buildTree(rows).find((provider) => provider.id === "openai")!;
@@ -211,4 +216,134 @@ describe("Feature: Manage fspec custom models from Paseo", () => {
       expect(refreshPaseo).not.toHaveBeenCalled();
     });
   });
+
+  describe("Scenario: ProviderInfo carries its base provider as its last field", () => {
+    it("decodes and re-encodes provider_id", () => {
+      // @step Given the Rust golden vectors for ProviderInfo of the "openai:lab" profile section with provider_id "openai" and of the "anthropic" provider
+      const profile = golden("provider_info_profile");
+      const cloud = golden("provider_info_cloud");
+      // @step When the codec decodes and re-encodes them
+      const decoded = listProviders([profile, cloud]);
+      const encoded = Buffer.from(
+        wire.encodeResponseFrame({ requestId: 0, message: "listProviders", value: decoded }),
+      ).toString("hex");
+      // @step Then the profile section decodes to key "openai:lab", profile "lab" and provider id "openai", the cloud provider to provider id "anthropic"
+      expect(decoded).toEqual([
+        { key: "openai:lab", displayName: "OpenAI: lab", models: [], profileName: "lab", isUnreachable: false, providerId: "openai" },
+        { key: "anthropic", displayName: "Anthropic", models: [], profileName: null, isUnreachable: false, providerId: "anthropic" },
+      ]);
+      // @step And both re-encode to the golden bytes
+      expect(encoded).toBe(LIST_PROVIDERS_HEAD + "0200000000000000" + profile + cloud);
+    });
+  });
+
+  describe("Scenario: Profile sections fold under the provider their provider id names", () => {
+    it("folds by provider id and profile name and writes with the section's provider id", async () => {
+      // @step Given list_providers lists a section keyed "lab-section" with provider id "openai", profile "Lab" and the custom model "qwen3-coder", and OpenAI's settings list the profile "Lab"
+      const { daemon, feed } = setup();
+      daemon.handlers.listProviderCredentials = (): wire.ProviderCredentialInfo[] => [
+        { providerId: "openai", displayName: "OpenAI", configured: true, credentialType: "api_key", modelCount: 0, maskedKey: null, source: null },
+      ];
+      daemon.handlers.listProviders = (): wire.ProviderInfo[] => [
+        {
+          key: "lab-section",
+          displayName: "Lab",
+          models: [{ id: "qwen3-coder", displayName: "Qwen3 Coder", contextWindow: 32768, supportsReasoning: true, supportsVision: false, isCustom: true }],
+          profileName: "Lab",
+          isUnreachable: false,
+          providerId: "openai",
+        },
+      ];
+      daemon.handlers.listProviderSettings = () => ({
+        ok: true,
+        value: [{ providerId: "openai", settings: emptyDefinition(""), profiles: [{ name: "Lab", definition: emptyDefinition("http://lab:8080/v1") }] }],
+      });
+      // @step When the settings list is loaded and the screen builds the provider tree
+      const list = await feed.list({});
+      if (!("providers" in list)) throw new Error(JSON.stringify(list));
+      const openai = buildTree(list.providers).find((provider) => provider.id === "openai")!;
+      // @step Then the OpenAI rows include "📁 Lab → http://lab:8080/v1", "◆ Qwen3 Coder" and "+ Add model to Lab"
+      expect(openai.rows.map((entry) => entry.label)).toEqual([
+        "⚙ Settings",
+        "📁 Lab → http://lab:8080/v1",
+        "◆ Qwen3 Coder",
+        "+ Add model to Lab",
+        "+ Add profile",
+      ]);
+      expect(buildTree(list.providers).some((provider) => provider.id === "lab-section")).toBe(false);
+      // @step And the custom model row and the add row carry provider id "openai", which saving the custom model sends
+      const custom = sheetFor(openai.id, openai.rows[2]!);
+      const add = sheetFor(openai.id, openai.rows[3]!);
+      expect(custom).toMatchObject({ kind: "customModel", providerId: "openai", profile: "Lab" });
+      expect(add).toMatchObject({ kind: "customModel", providerId: "openai", profile: "Lab", model: null });
+      const built = buildCustomModel({ ...newCustomModelForm(), id: "qwen3" });
+      if (!built.ok || add.kind !== "customModel") throw new Error("not a custom model sheet");
+      await feed.saveCustomModel({ providerId: add.providerId, profile: add.profile, originalId: null, definition: built.definition });
+      expect(daemon.sent("addCustomModel")[0]).toMatchObject({ providerId: "openai", profileName: "Lab" });
+    });
+  });
+
+  describe("Scenario: A refused custom model delete is shown and changes nothing", () => {
+    it("returns the daemon's error and does not reload", async () => {
+      // @step Given delete_custom_model answers "Model 'qwen3' not found in profile 'Strata'"
+      const { daemon, feed } = setup();
+      daemon.handlers.deleteCustomModel = () => ({ ok: false, error: "Model 'qwen3' not found in profile 'Strata'" });
+      const { reload, refreshPaseo } = spies();
+      // @step When the user deletes the custom model "qwen3" from "Strata"
+      const outcome = await runWrite({
+        write: () => feed.deleteCustomModel({ providerId: "openai", profile: "Strata", id: "qwen3" }),
+        reload,
+        refreshPaseo,
+      });
+      // @step Then the sheet shows "Model 'qwen3' not found in profile 'Strata'"
+      expect(outcome).toEqual({ ok: false, error: "Model 'qwen3' not found in profile 'Strata'" });
+      // @step And the list was not reloaded
+      expect(reload).not.toHaveBeenCalled();
+      expect(refreshPaseo).not.toHaveBeenCalled();
+    });
+  });
 });
+
+const GOLDEN = new Map(
+  readFileSync(fileURLToPath(new URL("./golden/golden-vectors.txt", import.meta.url)), "utf8")
+    .trim()
+    .split("\n")
+    .map((line) => line.split(" ") as [string, string]),
+);
+
+function golden(name: string): string {
+  const hex = GOLDEN.get(name);
+  if (hex === undefined) throw new Error(`missing golden vector ${name}`);
+  return hex;
+}
+
+/** A list_providers (idx 28) Response header: request id 0, Ok, variant 28. */
+const LIST_PROVIDERS_HEAD = "0000000000000000" + "00000000" + "1c000000";
+
+function listProviders(items: string[]): wire.ProviderInfo[] {
+  const count = Buffer.alloc(8);
+  count.writeBigUInt64LE(BigInt(items.length));
+  const frame = LIST_PROVIDERS_HEAD + count.toString("hex") + items.join("");
+  const decoded = wire.decodeResponseFrame(new Uint8Array(Buffer.from(frame, "hex")));
+  if (!decoded.ok || decoded.method !== "listProviders") throw new Error("not a list_providers reply");
+  return decoded.providers;
+}
+
+function emptyDefinition(baseUrl: string): wire.ProfileDefinition {
+  return {
+    baseUrl,
+    apiKey: "",
+    contextWindow: null,
+    maxOutputTokens: null,
+    compactionThresholdType: null,
+    compactionThresholdValue: null,
+    streaming: null,
+    autoContinue: null,
+    preserveThinking: null,
+    maxImages: null,
+    loopDetectionEnabled: null,
+    loopDetectionWindow: null,
+    loopDetectionMaxRepeats: null,
+    loopDetectionMaxRetries: null,
+  };
+}

@@ -33,6 +33,10 @@ export const settingsProviderSchema = z.object({
   models: z.array(settingsModelSchema),
   /** The provider's named profiles (list_provider_settings); never their keys. */
   profiles: z.array(z.object({ name: z.string(), baseUrl: z.string() })),
+  /** The base provider (ProviderInfo.provider_id, FSPEC-056); equal to id for a provider row. */
+  providerId: z.string(),
+  /** The profile a section row is (ProviderInfo.profile_name); null for a provider row. */
+  profileName: z.string().nullable(),
 });
 
 export const settingsListRpc = defineRpc({

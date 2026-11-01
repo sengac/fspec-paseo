@@ -22,6 +22,7 @@ describe("Feature: Let the daemon derive provider thinking config from the sessi
           models: [{ id: "gpt-6.1-terra", displayName: "GPT-6.1 Terra", contextWindow: 1050000, supportsReasoning: true, supportsVision: false, isCustom: false }],
           profileName: null,
           isUnreachable: false,
+          providerId: "codex",
         },
       ];
       await h.open("paseo-1", { model: "codex/gpt-6.1-terra", thinkingOption: "high" });

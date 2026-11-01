@@ -200,6 +200,9 @@ export function createSettingsFeed(
             unreachable: provider?.isUnreachable ?? !row.configured,
             models: models(provider?.models ?? []),
             profiles: profilesOf.get(row.providerId) ?? [],
+            // A credential row is a base provider, never a profile section.
+            providerId: row.providerId,
+            profileName: null,
           };
         });
         // Providers with models but no credential row (custom servers) still show.
@@ -215,6 +218,8 @@ export function createSettingsFeed(
             unreachable: provider.isUnreachable,
             models: models(provider.models),
             profiles: profilesOf.get(provider.key) ?? [],
+            providerId: provider.providerId,
+            profileName: provider.profileName,
           });
         }
         // Configured first; otherwise the daemon's order (Array#sort is stable).

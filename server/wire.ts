@@ -312,6 +312,12 @@ export interface ProviderInfo {
   models: ModelEntry[];
   profileName: string | null;
   isUnreachable: boolean;
+  /**
+   * The base provider this section belongs to (fspec BUG-325): "openai" for
+   * the "openai:<profile>" section, equal to `key` otherwise. Custom-model
+   * and profile writes name it, never the section key.
+   */
+  providerId: string;
 }
 /** One row of list_provider_credentials (idx 88); the key only ever arrives masked. */
 export interface ProviderCredentialInfo {
@@ -1434,7 +1440,7 @@ function writeModelEntry(w: BincodeWriter, m: ModelEntry): void {
 function writeProviderInfo(w: BincodeWriter, p: ProviderInfo): void {
   w.string(p.key).string(p.displayName);
   writeVec(w, p.models, writeModelEntry);
-  w.option(p.profileName, (x, v) => x.string(v)).bool(p.isUnreachable);
+  w.option(p.profileName, (x, v) => x.string(v)).bool(p.isUnreachable).string(p.providerId);
 }
 
 function readProviderInfo(r: BincodeReader): ProviderInfo {
@@ -1442,8 +1448,9 @@ function readProviderInfo(r: BincodeReader): ProviderInfo {
     key: r.string("ProviderInfo.key"),
     displayName: r.string("ProviderInfo.display_name"),
     models: readVec(r, readModelEntry),
-    profileName: r.skipOption((x) => x.string()),
-    isUnreachable: r.bool(),
+    profileName: r.skipOption((x) => x.string("ProviderInfo.profile_name")),
+    isUnreachable: r.bool("ProviderInfo.is_unreachable"),
+    providerId: r.string("ProviderInfo.provider_id"),
   };
 }
 

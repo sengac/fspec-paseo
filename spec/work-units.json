@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T02:53:12.914Z"
+    "lastUpdated": "2026-11-01T02:57:12.396Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -6757,16 +6757,96 @@
       "id": "FSPEC-056",
       "title": "Decode ProviderInfo's provider_id and name the base provider in custom-model writes",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-11-01T02:49:35.590Z",
-      "updatedAt": "2026-11-01T02:53:12.730Z",
+      "updatedAt": "2026-11-01T02:57:12.396Z",
       "description": "fspec BUG-325 appended provider_id (the base provider) as ProviderInfo's last field, so the plugin's ProviderInfo reader is one field short and every list_providers reply after the first section misdecodes. The settings tree also derives a profile's base provider by splitting the section key at ':' and assumes 'openai' for custom-model writes. Decode provider_id, fold profile sections by provider_id/profile_name, send provider_id in add/update/delete_custom_model, and surface every refused custom-model write (fspec now refuses missing profiles, unknown model ids and non-openai providers).",
       "epic": "provider-settings",
       "children": [],
       "attachments": [
         "spec/attachments/FSPEC-056/root-cause.md",
         "spec/attachments/FSPEC-056/ast-research.md"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T02:53:24.234Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T02:53:59.041Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T02:55:13.466Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T02:57:08.919Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T02:57:12.396Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "ProviderInfo is { key, display_name, models, profile_name, is_unreachable, provider_id } (fspec BUG-325): provider_id, the base provider, is read and written last",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:53:36.364Z"
+        },
+        {
+          "id": 1,
+          "text": "A settings row carries its base provider (providerId) and profile (profileName): from ProviderInfo for list_providers rows, the row's own id and no profile for list_provider_credentials rows",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:53:36.389Z"
+        },
+        {
+          "id": 2,
+          "text": "The provider tree folds a profile section under the provider its providerId names, as the profile its profileName names; section keys are never parsed",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:53:36.407Z"
+        },
+        {
+          "id": 3,
+          "text": "add/update/delete_custom_model send the profile section's providerId; every write the daemon refuses (missing profile, unknown model id, non-openai provider) is shown on the sheet and changes nothing",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:53:36.427Z"
+        }
+      ],
+      "nextRuleId": 4,
+      "examples": [
+        {
+          "id": 0,
+          "text": "ProviderInfo{'openai:lab','OpenAI: lab',[],Some('lab'),false,'openai'} <-> golden provider_info_profile; ProviderInfo{'anthropic','Anthropic',[],None,false,'anthropic'} <-> provider_info_cloud",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:53:36.449Z"
+        },
+        {
+          "id": 1,
+          "text": "A list_providers section keyed 'lab-section' with providerId 'openai' and profileName 'Lab' folds under OpenAI as profile Lab; its custom models show under Lab",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:53:36.469Z"
+        },
+        {
+          "id": 2,
+          "text": "delete_custom_model answers \"Model 'qwen3' not found in profile 'Strata'\" -> the sheet shows it, the list is not reloaded",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:53:36.494Z"
+        }
+      ],
+      "nextExampleId": 3,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/wire.ts ProviderInfo.providerId (read/write last). shared/settings.ts settingsProviderSchema gains providerId and profileName. server/settings.ts list fills them. client/settings-model.ts buildTree folds by providerId/profileName; customModel/addCustomModel rows and the customModel sheet carry the section's providerId, which client/settings-screen.tsx sends.",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:53:36.512Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "estimate": 3
     },
     "FSPEC-057": {
       "id": "FSPEC-057",
@@ -6846,7 +6926,6 @@
   },
   "states": {
     "backlog": [
-      "FSPEC-056",
       "FSPEC-057",
       "FSPEC-058",
       "FSPEC-059",
@@ -6913,7 +6992,8 @@
       "FSPEC-053",
       "FSPEC-054",
       "FSPEC-055",
-      "FSPEC-047"
+      "FSPEC-047",
+      "FSPEC-056"
     ],
     "blocked": []
   },

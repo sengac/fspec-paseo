@@ -44,6 +44,7 @@ export const CATALOG: wire.ProviderInfo[] = [
     ],
     profileName: null,
     isUnreachable: false,
+    providerId: "anthropic",
   },
   {
     key: "openai",
@@ -60,6 +61,7 @@ export const CATALOG: wire.ProviderInfo[] = [
     ],
     profileName: null,
     isUnreachable: false,
+    providerId: "openai",
   },
 ];
 

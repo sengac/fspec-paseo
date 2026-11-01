@@ -385,12 +385,153 @@
           ]
         }
       ]
+    },
+    {
+      "name": "ProviderInfo carries its base provider as its last field",
+      "testMappings": [
+        {
+          "file": "test/custom-models.test.ts",
+          "lines": "220-238",
+          "implMappings": [
+            {
+              "file": "server/wire.ts",
+              "lines": [
+                319,
+                320,
+                321,
+                322,
+                323,
+                324,
+                1441,
+                1442,
+                1443,
+                1444,
+                1445,
+                1446,
+                1447,
+                1448,
+                1449,
+                1450,
+                1451,
+                1452,
+                1453,
+                1454
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Profile sections fold under the provider their provider id names",
+      "testMappings": [
+        {
+          "file": "test/custom-models.test.ts",
+          "lines": "240-284",
+          "implMappings": [
+            {
+              "file": "client/settings-model.ts",
+              "lines": [
+                108,
+                109,
+                110,
+                111,
+                112,
+                113,
+                137,
+                138,
+                139,
+                140,
+                141,
+                142,
+                143,
+                144,
+                157,
+                158,
+                159,
+                160,
+                161,
+                162,
+                163,
+                164,
+                165,
+                166,
+                167,
+                168,
+                169,
+                170,
+                206,
+                207,
+                208
+              ]
+            },
+            {
+              "file": "server/settings.ts",
+              "lines": [
+                204,
+                205,
+                221,
+                222
+              ]
+            },
+            {
+              "file": "shared/settings.ts",
+              "lines": [
+                36,
+                37,
+                38,
+                39
+              ]
+            },
+            {
+              "file": "client/settings-screen.tsx",
+              "lines": [
+                241,
+                250
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A refused custom model delete is shown and changes nothing",
+      "testMappings": [
+        {
+          "file": "test/custom-models.test.ts",
+          "lines": "286-305",
+          "implMappings": [
+            {
+              "file": "server/settings.ts",
+              "lines": [
+                318,
+                319
+              ]
+            },
+            {
+              "file": "client/settings-actions.ts",
+              "lines": [
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 6,
-    "coveredScenarios": 6,
-    "coveragePercent": 100,
+    "coveredScenarios": 9,
+    "coveragePercent": 150,
     "testFiles": [
       "test/custom-models.test.ts"
     ],
@@ -400,8 +541,10 @@
       "client/custom-model-form.ts",
       "shared/settings.ts",
       "client/settings-screen.tsx",
-      "client/custom-model-sheet.tsx"
+      "client/custom-model-sheet.tsx",
+      "server/wire.ts",
+      "client/settings-actions.ts"
     ],
-    "totalLinesCovered": 404
+    "totalLinesCovered": 561
   }
 }

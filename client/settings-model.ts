@@ -15,8 +15,8 @@ export type TreeRow =
   | { kind: "apiKey"; label: string }
   | { kind: "settings"; label: string }
   | { kind: "profile"; name: string; baseUrl: string; label: string }
-  | { kind: "customModel"; profile: string; model: SettingsModel; label: string }
-  | { kind: "addCustomModel"; profile: string; label: string }
+  | { kind: "customModel"; providerId: string; profile: string; model: SettingsModel; label: string }
+  | { kind: "addCustomModel"; providerId: string; profile: string; label: string }
   | { kind: "addProfile"; label: string };
 
 export interface TreeProvider {
@@ -104,10 +104,17 @@ function headerStatus(row: SettingsProvider, profileCount: number): string {
 /** fspec keeps custom models in openai profiles only (profile_sections.rs). */
 export const CUSTOM_MODEL_PROVIDER = "openai";
 
+/** One profile of a provider and the profile section list_providers reports for it, if any. */
+interface ProfileSection {
+  /** The base provider custom-model writes name (ProviderInfo.provider_id). */
+  providerId: string;
+  models: readonly SettingsModel[];
+}
+
 function childRows(
   row: SettingsProvider,
   profiles: ReadonlyArray<{ name: string; baseUrl: string }>,
-  profileModels: ReadonlyMap<string, readonly SettingsModel[]>,
+  sections: ReadonlyMap<string, ProfileSection>,
 ): TreeRow[] {
   const rows: TreeRow[] = [];
   if (row.credentialType === "oauth") {
@@ -124,43 +131,48 @@ function childRows(
   for (const profile of profiles) {
     const target = profile.baseUrl === "" ? "(inherits auth)" : profile.baseUrl;
     rows.push({ kind: "profile", name: profile.name, baseUrl: profile.baseUrl, label: `📁 ${profile.name} → ${target}` });
-    if (row.id !== CUSTOM_MODEL_PROVIDER) continue;
-    // FSPEC-047: the profile's custom models, then a row to add one.
-    for (const model of profileModels.get(profile.name) ?? []) {
-      if (model.isCustom === true) rows.push({ kind: "customModel", profile: profile.name, model, label: `◆ ${model.displayName}` });
+    if (row.providerId !== CUSTOM_MODEL_PROVIDER) continue;
+    // FSPEC-047: the profile's custom models, then a row to add one. A profile
+    // with no section of its own belongs to this provider row's base provider.
+    const section = sections.get(profile.name);
+    const providerId = section?.providerId ?? row.providerId;
+    for (const model of section?.models ?? []) {
+      if (model.isCustom === true) {
+        rows.push({ kind: "customModel", providerId, profile: profile.name, model, label: `◆ ${model.displayName}` });
+      }
     }
-    rows.push({ kind: "addCustomModel", profile: profile.name, label: `+ Add model to ${profile.name}` });
+    rows.push({ kind: "addCustomModel", providerId, profile: profile.name, label: `+ Add model to ${profile.name}` });
   }
   rows.push({ kind: "addProfile", label: "+ Add profile" });
   return rows;
 }
 
 /**
- * Folds '<provider>:<profile>' rows under their provider, orders configured
- * providers first (otherwise the daemon's order) and builds each provider's
- * header and child rows.
+ * Folds each profile section (a row with a profileName) under the provider
+ * row its providerId names (ProviderInfo.provider_id, FSPEC-056), orders
+ * configured providers first (otherwise the daemon's order) and builds each
+ * provider's header and child rows. A section whose provider has no row of
+ * its own stays a provider row.
  */
 export function buildTree(rows: readonly SettingsProvider[]): TreeProvider[] {
-  const ids = new Set(rows.map((row) => row.id));
-  /** parent -> profile name -> the models its '<parent>:<profile>' row lists. */
-  const folded = new Map<string, Map<string, readonly SettingsModel[]>>();
+  const ids = new Set(rows.filter((row) => row.profileName === null).map((row) => row.id));
+  /** base provider -> profile name -> its section. */
+  const folded = new Map<string, Map<string, ProfileSection>>();
   const providers: SettingsProvider[] = [];
   for (const row of rows) {
-    const colon = row.id.indexOf(":");
-    const parent = colon > 0 ? row.id.slice(0, colon) : null;
-    if (parent !== null && ids.has(parent)) {
-      const names = folded.get(parent) ?? new Map<string, readonly SettingsModel[]>();
-      names.set(row.id.slice(colon + 1), row.models);
-      folded.set(parent, names);
+    if (row.profileName !== null && ids.has(row.providerId)) {
+      const names = folded.get(row.providerId) ?? new Map<string, ProfileSection>();
+      names.set(row.profileName, { providerId: row.providerId, models: row.models });
+      folded.set(row.providerId, names);
     } else {
       providers.push(row);
     }
   }
   const tree = providers.map((row): TreeProvider => {
     const profiles = [...row.profiles];
-    const profileModels = folded.get(row.id) ?? new Map<string, readonly SettingsModel[]>();
+    const sections = folded.get(row.id) ?? new Map<string, ProfileSection>();
     // A profile the daemon lists as a provider but not in the settings still shows.
-    for (const name of profileModels.keys()) {
+    for (const name of sections.keys()) {
       if (!profiles.some((profile) => profile.name === name)) profiles.push({ name, baseUrl: "" });
     }
     return {
@@ -171,7 +183,7 @@ export function buildTree(rows: readonly SettingsProvider[]): TreeProvider[] {
       canTest: row.configured,
       canRefresh: row.configured,
       provider: row,
-      rows: childRows(row, profiles, profileModels),
+      rows: childRows(row, profiles, sections),
     };
   });
   // Array#sort is stable, so each group keeps the daemon's order.
@@ -191,9 +203,9 @@ export function sheetFor(providerId: string, row: TreeRow): Sheet {
     case "profile":
       return { kind: "profile", providerId, profile: row.name };
     case "customModel":
-      return { kind: "customModel", providerId, profile: row.profile, model: row.model };
+      return { kind: "customModel", providerId: row.providerId, profile: row.profile, model: row.model };
     case "addCustomModel":
-      return { kind: "customModel", providerId, profile: row.profile, model: null };
+      return { kind: "customModel", providerId: row.providerId, profile: row.profile, model: null };
     case "addProfile":
       return { kind: "profile", providerId, profile: null };
   }

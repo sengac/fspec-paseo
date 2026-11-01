@@ -4,7 +4,8 @@ Source of truth: `rust/rpc-server/src/{envelope,transport,pump,server,bounded_re
 `rust/rpc/src/lib.rs` (trait), `rust/rpc-types/src/*.rs`, `rust/fspec/src/{daemon,client,common}.rs`,
 `rust/fspec-tui/src/transport/websocket.rs`, `rust/fspec/src/common/daemon_registry.rs`. Verified at commit
 `626eee1e`; re-verified at `344d00b4` (method order `rust/rpc/tests/fixtures/wire_order_frozen.txt`, indices
-124–128, Envelope 9, PauseState details/tool_call_id, InputMode, discovery files, bearer auth).
+124–128, Envelope 9, PauseState details/tool_call_id, InputMode, discovery files, bearer auth); re-verified at
+`76cb29f6` (fspec HEAD: `ProviderInfo.provider_id`).
 Wire codec: **bincode 1.3.3 free functions** (`bincode::serialize` / `bincode::deserialize`).
 
 ---
@@ -431,7 +432,7 @@ Variant index = 0-based position in the trait. Full order verified from
 | 45 | `SetSessionRole` | `set_session_role` | `session_id: SessionId, role: Option<String>` | `Result<(), String>` (`None` clears) |
 | 46 | `SendInputWithThinking` | `send_input_with_thinking` | `session_id: SessionId, text: String, thinking: Option<ThinkingConfig>` | `()` |
 | 30 | `SetDefaultModel` | `set_default_model` | `model: String` ("provider/model") | `Result<(), String>` (empty strings ignored) |
-| 31 | `AddCustomModel` | `add_custom_model` | `provider_id: String, profile_name: String, definition: CustomModelDefinition` | `Result<(), String>` (provider id must be `"openai"`; FSPEC-047) |
+| 31 | `AddCustomModel` | `add_custom_model` | `provider_id: String, profile_name: String, definition: CustomModelDefinition` | `Result<(), String>` (`provider_id` is the profile section's `ProviderInfo.provider_id`; fspec refuses a missing profile, an unknown model id or a non-openai provider; FSPEC-047, FSPEC-056) |
 | 32 | `UpdateCustomModel` | `update_custom_model` | `provider_id, profile_name, original_model_id: String, definition` | `Result<(), String>` (replaces the entry with `original_model_id`) |
 | 33 | `DeleteCustomModel` | `delete_custom_model` | `provider_id, profile_name, model_id: String` | `Result<(), String>` |
 | 127 | `GetDefaultModel` | `get_default_model` | — | `Option<String>` ("provider/model"; RPC-440) |
@@ -566,7 +567,8 @@ pub struct SessionInfo {
 
 ```rust
 pub struct ProviderInfo { pub key: String, pub display_name: String,
-  pub models: Vec<ModelEntry>, pub profile_name: Option<String>, pub is_unreachable: bool }
+  pub models: Vec<ModelEntry>, pub profile_name: Option<String>, pub is_unreachable: bool,
+  pub provider_id: String }   // BUG-325: the base provider ("openai" for "openai:<profile>", else = key)
 pub struct ModelEntry { pub id: String, pub display_name: String, pub context_window: u32,
   pub supports_reasoning: bool, pub supports_vision: bool, pub is_custom: bool }
 pub enum ThinkingLevel { Off, Low, Medium, High }   // 0-3, #[default] Off

@@ -238,7 +238,7 @@ export function SettingsScreen({ theme }: PluginSurfaceProps) {
               model={sheet.model}
               save={async (input) => {
                 const outcome = await runWrite({
-                  write: () => rpcRef.current.saveCustomModel({ providerId: open.id, profile: sheet.profile, ...input }),
+                  write: () => rpcRef.current.saveCustomModel({ providerId: sheet.providerId, profile: sheet.profile, ...input }),
                   reload,
                   refreshPaseo,
                 });
@@ -247,7 +247,7 @@ export function SettingsScreen({ theme }: PluginSurfaceProps) {
               }}
               remove={async (id) => {
                 const outcome = await runWrite({
-                  write: () => rpcRef.current.deleteCustomModel({ providerId: open.id, profile: sheet.profile, id }),
+                  write: () => rpcRef.current.deleteCustomModel({ providerId: sheet.providerId, profile: sheet.profile, id }),
                   reload,
                   refreshPaseo,
                 });

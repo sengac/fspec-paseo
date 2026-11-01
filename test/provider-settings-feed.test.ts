@@ -50,7 +50,7 @@ function setup(credentials: wire.ProviderCredentialInfo[] = [openai, anthropic])
   daemon.handlers.getWorkspaceInfo = () => ({ cwd: "/work/app", gitBranch: null });
   daemon.handlers.listProviderCredentials = () => credentials;
   daemon.handlers.listProviders = (): wire.ProviderInfo[] => [
-    { key: "anthropic", displayName: "Anthropic", models: anthropicModels, profileName: null, isUnreachable: false },
+    { key: "anthropic", displayName: "Anthropic", models: anthropicModels, profileName: null, isUnreachable: false, providerId: "anthropic" },
   ];
   daemon.handlers.getProviderCredential = (request) =>
     credentials.find((row) => row.providerId === (request as { providerId: string }).providerId) ?? null;

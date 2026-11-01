@@ -149,6 +149,9 @@ function createConnection(
   });
 
   async function dispatch(input: ProviderInput): Promise<void> {
+    // The first directory this connection serves picks its daemon (FSPEC-054).
+    const cwd = input.type === "session.open" ? input.config.cwd : "cwd" in input ? input.cwd : undefined;
+    if (cwd !== undefined) daemon.preferWorkspace(cwd);
     switch (input.type) {
       case "catalog": {
         const { providers } = await request({ method: "listProviders" });

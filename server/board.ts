@@ -68,6 +68,68 @@ interface Waiter {
  * Paseo has no server-to-UI push, so the panel long-polls `watch`.
  */
 export function createBoardFeed(options: DaemonClientOptions = {}): BoardFeed {
+  /** One board feed per daemon, keyed by its target URL; "" when discovery found none. */
+  const feeds = new Map<string, BoardFeed>();
+  /** The feed a panel directory last resolved to. */
+  const byCwd = new Map<string, BoardFeed>();
+  let closed = false;
+
+  /** The board feed of the daemon serving cwd (FSPEC-054), pinned to that daemon. */
+  async function resolveFeed(cwd: string): Promise<BoardFeed> {
+    const probe = createFspecDaemonClient(options);
+    probe.preferWorkspace(cwd);
+    const url = await probe.resolveTarget().then((target) => target.url, () => "");
+    await probe.close();
+    let feed = feeds.get(url);
+    if (feed === undefined) {
+      // No daemon found: a feed of its own keeps reporting discovery's reason.
+      feed = createDaemonBoardFeed(url === "" ? options : { ...options, connectUrl: url });
+      feeds.set(url, feed);
+    }
+    byCwd.set(cwd, feed);
+    return feed;
+  }
+
+  /**
+   * A directory seen before is answered by its feed at once, so a held watch
+   * keeps its place on that daemon's connection; discovery is re-run in the
+   * background, and a daemon that took over the directory serves the next call.
+   */
+  function via<T>(cwd: string, run: (feed: BoardFeed) => Promise<T>): Promise<T> {
+    const known = byCwd.get(cwd);
+    if (known === undefined) return resolveFeed(cwd).then(run);
+    void resolveFeed(cwd).catch(() => {});
+    return run(known);
+  }
+
+  const unloaded = { state: "unavailable" as const, reason: "the fspec plugin was unloaded" };
+  return {
+    async watch(input) {
+      if (closed) return { ...unloaded, revision: "unloaded" };
+      return via(input.cwd, (feed) => feed.watch(input));
+    },
+    async details(input) {
+      if (closed) return unloaded;
+      return via(input.cwd, (feed) => feed.details(input));
+    },
+    async move(input) {
+      if (closed) return { ok: false, error: unloaded.reason };
+      return via(input.cwd, (feed) => feed.move(input));
+    },
+    async available(input) {
+      if (closed) return { available: false };
+      return via(input.cwd, (feed) => feed.available(input));
+    },
+    async close() {
+      if (closed) return;
+      closed = true;
+      await Promise.all([...feeds.values()].map((feed) => feed.close()));
+    },
+  };
+}
+
+/** The boards of one daemon's served workspaces. */
+function createDaemonBoardFeed(options: DaemonClientOptions): BoardFeed {
   const epoch = Date.now().toString(36);
   let counter = 0;
   const nextRevision = () => `${epoch}:${++counter}`;

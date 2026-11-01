@@ -9,9 +9,10 @@
  *
  * No bincode lives here — every byte is produced/consumed by server/wire.ts.
  */
-import { existsSync, readFileSync, rmSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
 import { homedir } from "node:os";
-import { join } from "node:path";
+import { dirname, join } from "node:path";
+import { within } from "./workspaces.js";
 import {
   decodeEnvelope,
   decodeResponseFrame,
@@ -80,8 +81,11 @@ export interface DaemonClientOptions {
   homeDir?: string;
   /** pid liveness probe (kill(pid,0); EPERM counts as alive). */
   isPidAlive?: (pid: number) => boolean;
-  /** WebSocket transport factory (default: the Node global WebSocket). */
-  openSocket?: (url: string) => SocketLike;
+  /**
+   * WebSocket transport factory (default: the Node global WebSocket). `init`
+   * carries the upgrade headers: Authorization when FSPEC_DAEMON_TOKEN is set.
+   */
+  openSocket?: (url: string, init?: { headers: Record<string, string> }) => SocketLike;
 }
 
 export interface DaemonConnection {
@@ -114,6 +118,11 @@ export interface FspecDaemonClient {
   /** How many times daemon.json was actually read (0 when a URL was explicit). */
   readonly readDaemonJsonCount: number;
   resolveTarget(): Promise<DaemonTarget>;
+  /**
+   * Hints which Paseo directory this client serves, so discovery prefers the
+   * daemon whose workspace holds it (FSPEC-054). The first hint wins.
+   */
+  preferWorkspace(cwd: string): void;
   status(): Promise<DaemonStatus>;
   connect(): Promise<DaemonConnection>;
   onEvent(listener: (event: DaemonClientEvent) => void): () => void;
@@ -156,6 +165,8 @@ function defaultPidAlive(pid: number): boolean {
 interface DaemonJson {
   port: number;
   pid: number;
+  /** The daemon's start workspace (optional in the schema). */
+  workspace?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -184,6 +195,7 @@ export function createFspecDaemonClient(
     { resolve: (r: DecodedResponse) => void; reject: (e: unknown) => void }
   >();
   let nextRequestId = 0;
+  let workspaceHint: string | undefined;
 
   // -- discovery ----------------------------------------------------------
 
@@ -203,8 +215,8 @@ export function createFspecDaemonClient(
     return join(options.homeDir ?? homedir(), ".fspec", "daemon.json");
   }
 
-  function readDaemonJson(path: string): DaemonJson | null {
-    readDaemonJsonCount += 1;
+  function readDaemonJson(path: string, counted = true): DaemonJson | null {
+    if (counted) readDaemonJsonCount += 1;
     let raw: string;
     try {
       raw = readFileSync(path, "utf8");
@@ -226,7 +238,53 @@ export function createFspecDaemonClient(
     if (typeof pid !== "number" || !Number.isInteger(pid) || pid < 1) {
       return null;
     }
-    return { port, pid };
+    const workspace = (parsed as { workspace?: unknown }).workspace;
+    return typeof workspace === "string" ? { port, pid, workspace } : { port, pid };
+  }
+
+  /**
+   * Every local daemon advertised in daemons/<pid>.json beside daemon.json
+   * (fspec RPC-446), live pids only, lowest pid first. Unreadable and dead
+   * entries are skipped; fspec itself prunes them (list_live_daemons).
+   */
+  function liveEntries(): DaemonJson[] {
+    const dir = join(dirname(daemonJsonPath()), "daemons");
+    let names: string[];
+    try {
+      names = readdirSync(dir);
+    } catch {
+      return [];
+    }
+    return names
+      .filter((name) => name.endsWith(".json"))
+      .map((name) => readDaemonJson(join(dir, name), false))
+      .filter((entry): entry is DaemonJson => entry !== null && isPidAlive(entry.pid))
+      .sort((a, b) => a.pid - b.pid);
+  }
+
+  /** A discovered daemon's port, always dialled on loopback (rule 3). */
+  function loopbackTarget(port: number, daemonJson?: string): DaemonTarget {
+    const host = "127.0.0.1";
+    return { url: `ws://${host}:${port}/`, host, port, ...(daemonJson !== undefined ? { daemonJsonPath: daemonJson } : {}) };
+  }
+
+  /**
+   * FSPEC-054: the live entry whose workspace holds the hinted directory
+   * (deepest), else daemon.json's live daemon, else the lowest-pid live entry.
+   */
+  function resolveFromDiscovery(): { target?: DaemonTarget; diagnostic?: string } {
+    const entries = liveEntries();
+    if (workspaceHint !== undefined) {
+      let best: DaemonJson | null = null;
+      for (const entry of entries) {
+        if (entry.workspace === undefined || !within(entry.workspace, workspaceHint)) continue;
+        if (best === null || within(best.workspace!, entry.workspace)) best = entry;
+      }
+      if (best !== null) return { target: loopbackTarget(best.port) };
+    }
+    const pointer = resolveFromDaemonJson();
+    if (pointer.target !== undefined || entries.length === 0) return pointer;
+    return { target: loopbackTarget(entries[0]!.port) };
   }
 
   function resolveFromDaemonJson(): { target?: DaemonTarget; diagnostic?: string } {
@@ -282,7 +340,7 @@ export function createFspecDaemonClient(
       target = resolved;
       return resolved;
     }
-    const found = resolveFromDaemonJson();
+    const found = resolveFromDiscovery();
     if (found.target === undefined) {
       throw new Error(found.diagnostic ?? "no fspec daemon reachable");
     }
@@ -314,6 +372,21 @@ export function createFspecDaemonClient(
       reject(new Error(`fspec daemon connection was lost: ${reason}`));
     }
     outstanding.clear();
+  }
+
+  /** The upgrade headers: a bearer token when FSPEC_DAEMON_TOKEN is set (fspec RPC-447). */
+  function upgradeHeaders(): Record<string, string> {
+    const token = env["FSPEC_DAEMON_TOKEN"]?.trim();
+    return token ? { Authorization: `Bearer ${token}` } : {};
+  }
+
+  function unreachable(resolved: DaemonTarget): Error {
+    const hint = upgradeHeaders()["Authorization"] !== undefined
+      ? "check that FSPEC_DAEMON_TOKEN matches the token the daemon was started with"
+      : "if the daemon was started with FSPEC_DAEMON_TOKEN, set it for the Paseo daemon too";
+    return new Error(
+      `the connection to the fspec daemon at ${resolved.host}:${resolved.port} could not be established — ${hint}`,
+    );
   }
 
   function attachSocket(sock: SocketLike, resolved: DaemonTarget): Promise<void> {
@@ -382,11 +455,7 @@ export function createFspecDaemonClient(
       const onError = () => {
         if (!settled) {
           settled = true;
-          reject(
-            new Error(
-              `the connection to the fspec daemon at ${resolved.host}:${resolved.port} could not be established`,
-            ),
-          );
+          reject(unreachable(resolved));
           return;
         }
         handleDrop("transport error");
@@ -395,11 +464,7 @@ export function createFspecDaemonClient(
         const code = event.code;
         if (!settled) {
           settled = true;
-          reject(
-            new Error(
-              `the connection to the fspec daemon at ${resolved.host}:${resolved.port} could not be established`,
-            ),
-          );
+          reject(unreachable(resolved));
           return;
         }
         handleDrop(
@@ -459,7 +524,7 @@ export function createFspecDaemonClient(
     handshake.workUnitsUpdate = false;
     handshake.sessionSnapshot = false;
     initial = { workUnits: [], sessions: [] };
-    const sock = openSocket(resolved.url);
+    const sock = openSocket(resolved.url, { headers: upgradeHeaders() });
     socket = sock;
     try {
       await attachSocket(sock, resolved);
@@ -572,6 +637,9 @@ export function createFspecDaemonClient(
       return readDaemonJsonCount;
     },
     resolveTarget,
+    preferWorkspace(cwd: string) {
+      workspaceHint ??= cwd;
+    },
     status,
     connect,
     onEvent,
@@ -583,8 +651,11 @@ export function createFspecDaemonClient(
  * Node's WebSocket delivers binary frames as Blob unless told otherwise; the
  * codec needs bytes synchronously, so ask for ArrayBuffer up front.
  */
-function defaultOpenSocket(url: string): SocketLike {
-  const socket = new globalThis.WebSocket(url);
+function defaultOpenSocket(url: string, init?: { headers: Record<string, string> }): SocketLike {
+  // Node's WebSocket (undici) takes upgrade headers in its init object.
+  const Socket = globalThis.WebSocket as unknown as new (url: string, init?: { headers: Record<string, string> }) => WebSocket;
+  const headers = init?.headers ?? {};
+  const socket = Object.keys(headers).length > 0 ? new Socket(url, { headers }) : new Socket(url);
   socket.binaryType = "arraybuffer";
   return socket as unknown as SocketLike;
 }

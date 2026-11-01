@@ -43,6 +43,17 @@ If the pid is dead, the file is **deleted** and the error is
 Missing file → `"no daemon.json found at <path> — start 'fspec daemon' first"`.
 The optional `--pidfile` form is two lines: `pid=<u32>\nport=<u16>\n`.
 
+**Per-daemon entries (RPC-446, BUG-289).** Every local daemon also writes
+`<dir of daemon.json>/daemons/<pid>.json` (same schema, atomic) and removes it on
+shutdown (`rust/fspec/src/common/daemon_registry.rs`). `list_live_daemons` keeps the
+entries whose pid is alive (ordered by pid) and deletes the rest. A daemon claims
+`daemon.json` only when it is missing or names a dead pid (`claim_default_pointer`); on
+shutdown it removes `daemon.json` only if it names itself, then points it at another live
+daemon (`release_default_pointer`). So `daemon.json` names one live daemon, not
+necessarily the last one started. The plugin (FSPEC-054) prefers the live entry whose
+`workspace` holds the Paseo directory (deepest match), then `daemon.json`, then the
+lowest-pid live entry; it ignores dead entries without deleting them.
+
 ### 1.2 WebSocket URL and loopback rule
 
 - Daemon `--bind` must be loopback: host part must be exactly `127.0.0.1`, `::1`, or
@@ -52,6 +63,13 @@ The optional `--pidfile` form is two lines: `pid=<u32>\nport=<u16>\n`.
 - On successful bind the daemon prints the **port** (decimal) to stdout and flushes.
 - Client connects to: `ws://127.0.0.1:<port>` (path `/`) for the standard surface.
 - Explicit `--connect <ws-url>` bypasses daemon.json autodiscovery.
+- **Bearer auth (RPC-447):** a daemon started with env `FSPEC_DAEMON_TOKEN` answers every
+  WebSocket upgrade whose `Authorization` header is not exactly `Bearer <token>` with HTTP
+  401 (`rust/rpc/src/auth_token.rs`, `rpc-server/src/server` `handle_connection`). Clients
+  send the header on the upgrade (`rpc-server/src/client/connect.rs` `ws_connect(url,
+  bearer)`); the plugin sends it when `FSPEC_DAEMON_TOKEN` is set in the Paseo daemon's
+  environment (Node's WebSocket: `new WebSocket(url, { headers })`). A daemon without a
+  token accepts plain clients.
 
 ### 1.3 Protocol path and handshake
 

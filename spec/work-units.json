@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T00:07:23.028Z"
+    "lastUpdated": "2026-11-01T00:12:02.735Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -6417,12 +6417,118 @@
       "id": "FSPEC-054",
       "title": "Find the right local fspec daemon and authenticate to it",
       "type": "story",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-10-31T23:39:45.123Z",
-      "updatedAt": "2026-10-31T23:39:45.123Z",
+      "updatedAt": "2026-11-01T00:12:02.735Z",
       "description": "Every local fspec daemon now advertises itself in daemons/<pid>.json beside daemon.json (RPC-446), and daemon.json names one live daemon, no longer the last one started (BUG-289). Read the live entries, prefer the daemon whose workspace holds the Paseo directory, and fall back to daemon.json. A daemon started with FSPEC_DAEMON_TOKEN requires 'Authorization: Bearer <token>' on every WebSocket upgrade (RPC-447): send it when the plugin sees FSPEC_DAEMON_TOKEN. The loopback-only rule stays.",
       "epic": "provider-plugin",
-      "children": []
+      "children": [],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T00:08:23.953Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T00:08:54.842Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T00:11:56.579Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T00:12:02.599Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T00:12:02.735Z"
+        }
+      ],
+      "userStory": {
+        "role": "Paseo user running more than one fspec daemon, possibly token-protected",
+        "action": "have the plugin find the daemon serving my project and authenticate to it",
+        "benefit": "agents and boards reach the right daemon without FSPEC_DAEMON_URL, and protected daemons accept the plugin"
+      },
+      "rules": [
+        {
+          "id": 0,
+          "text": "Every local daemon advertises itself in daemons/<pid>.json beside daemon.json (/fspec/daemons or ~/.fspec/daemons, daemon.json schema: port, pid, workspace, started_at, version); entries that cannot be read or whose pid is not alive are ignored",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:08:23.993Z"
+        },
+        {
+          "id": 1,
+          "text": "A daemon client is bound to the daemon chosen for the first Paseo directory it serves: the live entry whose workspace holds the directory (deepest match), else the live daemon daemon.json names, else the live entry with the lowest pid; FSPEC_DAEMON_URL still wins over all of them and the availability probe uses the same order without a directory",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:08:24.011Z"
+        },
+        {
+          "id": 2,
+          "text": "The provider connection hints its client with the directory of the first catalog, sessions or session.open input that carries one; the board picks a daemon for each panel directory the same way, one board connection per daemon",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:08:24.030Z"
+        },
+        {
+          "id": 3,
+          "text": "With neither a live daemon.json nor a live entry, discovery reports the same diagnostics as before (missing or stale daemon.json, which is still removed when its pid is dead)",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:08:24.047Z"
+        },
+        {
+          "id": 4,
+          "text": "When FSPEC_DAEMON_TOKEN is set (non-empty) in the Paseo daemon's environment, every WebSocket upgrade carries 'Authorization: Bearer <token>'; without it no Authorization header is sent; a daemon armed with a token answers a missing or wrong bearer with HTTP 401 (fspec RPC-447)",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:08:24.065Z"
+        },
+        {
+          "id": 5,
+          "text": "The loopback-only rule is unchanged: a discovered port is always dialled on 127.0.0.1 and FSPEC_DAEMON_URL must name a loopback host; a failed connect names FSPEC_DAEMON_TOKEN as something to check",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:08:24.084Z"
+        }
+      ],
+      "nextRuleId": 6,
+      "examples": [
+        {
+          "id": 0,
+          "text": "daemon.json names pid 100 (workspace /a, port 4100); daemons/200.json is live with workspace /b, port 4200; an agent opens in /b/web -> the provider connects to ws://127.0.0.1:4200/",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:08:24.103Z"
+        },
+        {
+          "id": 1,
+          "text": "Same files, agent in /c -> ws://127.0.0.1:4100/ (daemon.json)",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:08:24.119Z"
+        },
+        {
+          "id": 2,
+          "text": "No daemon.json; daemons/111.json (dead pid, workspace /p) and daemons/222.json (live, workspace /other) -> directory /p connects to 222's port",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:08:24.137Z"
+        },
+        {
+          "id": 3,
+          "text": "FSPEC_DAEMON_TOKEN=s3cret -> the socket is opened with headers { Authorization: 'Bearer s3cret' }",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:08:24.156Z"
+        }
+      ],
+      "nextExampleId": 4,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/daemon.ts: liveDaemonEntries(dir) reads daemons/*.json (fspec rust/fspec/src/common/daemon_registry.rs list_live_daemons; the plugin ignores dead entries instead of deleting them, leaving that to fspec), resolveTarget picks entry/daemon.json/lowest pid with a workspace hint set by preferWorkspace(cwd) (first one wins, before the first connect); openSocket(url, { headers }) with Authorization from FSPEC_DAEMON_TOKEN (fspec rust/rpc/src/auth_token.rs, rpc-server/src/client/connect.rs); the default transport passes headers to Node's undici WebSocket. server/provider.ts dispatch hints the daemon client. server/board.ts createBoardFeed routes each cwd to a per-daemon board feed pinned with connectUrl. daemon.json now names one live daemon and is never overwritten by a second one (BUG-289), so it is the right fallback.",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:08:24.173Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "attachments": [
+        "spec/attachments/FSPEC-054/ast-research.md"
+      ],
+      "estimate": 5
     },
     "FSPEC-055": {
       "id": "FSPEC-055",
@@ -6439,7 +6545,6 @@
   "states": {
     "backlog": [
       "FSPEC-047",
-      "FSPEC-054",
       "FSPEC-055"
     ],
     "specifying": [],
@@ -6499,7 +6604,8 @@
       "FSPEC-046",
       "FSPEC-051",
       "FSPEC-052",
-      "FSPEC-053"
+      "FSPEC-053",
+      "FSPEC-054"
     ],
     "blocked": []
   },

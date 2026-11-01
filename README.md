@@ -103,14 +103,16 @@ Check that it's up:
 fspec status                 # "fspec daemon: alive", uptime, connected clients…
 ```
 
-On startup the daemon writes its port and pid to `daemon.json`. The plugin finds the daemon by reading that file:
+On startup every daemon writes its own discovery file, `daemons/<pid>.json`, with its port, pid and start workspace. If `daemon.json` doesn't already name another live daemon, it writes that file too, so `daemon.json` always names one live daemon. The plugin reads both:
 
-| Condition                     | daemon.json location                  |
-|-------------------------------|---------------------------------------|
-| `XDG_RUNTIME_DIR` set         | `$XDG_RUNTIME_DIR/fspec/daemon.json`  |
-| otherwise                     | `~/.fspec/daemon.json`                |
+| Condition                     | Location                                                            |
+|-------------------------------|---------------------------------------------------------------------|
+| `XDG_RUNTIME_DIR` set         | `$XDG_RUNTIME_DIR/fspec/daemon.json`, `$XDG_RUNTIME_DIR/fspec/daemons/` |
+| otherwise                     | `~/.fspec/daemon.json`, `~/.fspec/daemons/`                         |
 
-If the pid in `daemon.json` is no longer alive, the plugin deletes the stale file and reports that no daemon is running.
+When you run several daemons, an fspec agent connects to the daemon whose start workspace holds its Paseo directory, using the deepest match. Otherwise it uses the daemon `daemon.json` names, and failing that the live daemon with the lowest pid. Each board panel picks its daemon the same way. Entries whose pid is no longer alive are ignored. If the pid in `daemon.json` is no longer alive, the plugin deletes the stale file, and reports that no daemon is running when it finds no live entry either.
+
+If the daemon was started with `FSPEC_DAEMON_TOKEN` set, it only accepts clients that send that token. Set the same `FSPEC_DAEMON_TOKEN` in the Paseo daemon's environment, and the plugin sends it as `Authorization: Bearer <token>` on every connection.
 
 To run the daemon under launchd or systemd, `fspec daemon --bind 127.0.0.1:<port>` gives you a fixed port and `--pidfile <path>` writes a pidfile. `--bind` only accepts loopback addresses.
 
@@ -196,12 +198,13 @@ If you only want fspec agents, you can turn off the built-in providers under `ag
 
 | Setting | Where | Effect |
 |---|---|---|
-| `FSPEC_DAEMON_URL` | Environment of the **Paseo daemon** | Explicit daemon URL, e.g. `ws://127.0.0.1:41413/`. Skips `daemon.json` discovery entirely. Must be a loopback host (`127.0.0.1`, `::1`, `localhost`). |
-| `XDG_RUNTIME_DIR` | Environment of both daemons | Moves `daemon.json` to `$XDG_RUNTIME_DIR/fspec/`. Paseo and fspec must agree on this. |
+| `FSPEC_DAEMON_URL` | Environment of the **Paseo daemon** | Explicit daemon URL, e.g. `ws://127.0.0.1:41413/`. Skips discovery (`daemon.json` and `daemons/`) entirely. Must be a loopback host (`127.0.0.1`, `::1`, `localhost`). |
+| `FSPEC_DAEMON_TOKEN` | Environment of the **Paseo daemon** | Sent as `Authorization: Bearer <token>` on every connection. Needed when the fspec daemon was started with the same variable. |
+| `XDG_RUNTIME_DIR` | Environment of both daemons | Moves `daemon.json` and `daemons/` to `$XDG_RUNTIME_DIR/fspec/`. Paseo and fspec must agree on this. |
 | `pluginsEnabled` | `~/.paseo/config.json` | Must be `true` for the plugin to load. |
 | fspec model providers | fspec | Determines which models Paseo can pick from. |
 
-The plugin runs inside the Paseo daemon, so it sees the Paseo daemon's environment, not your shell's. If you set `FSPEC_DAEMON_URL`, restart the Paseo daemon after changing it.
+The plugin runs inside the Paseo daemon, so it sees the Paseo daemon's environment, not your shell's. If you set `FSPEC_DAEMON_URL` or `FSPEC_DAEMON_TOKEN`, restart the Paseo daemon after changing it.
 
 ## How it works
 
@@ -215,11 +218,11 @@ One fspec daemon can serve several workspaces (`list_workspaces`). Each fspec ag
 
 Paseo's import list shows the sessions of the served workspace that holds the directory, and nothing for a directory no workspace holds. Listing never opens a workspace.
 
-Only one fspec daemon can be discovered through `daemon.json` at a time. To switch projects, stop the daemon and start it in the other project, or point `FSPEC_DAEMON_URL` at a specific daemon.
+Several local daemons can run at once. Each agent and board panel uses the daemon serving its directory (see [Start the fspec daemon](#2-start-the-fspec-daemon-in-that-project)). `FSPEC_DAEMON_URL` pins every connection to one daemon.
 
 ### Connection lifecycle
 
-- **Availability** (`status()`) only resolves and validates the target, either `FSPEC_DAEMON_URL` or a live `daemon.json`. It never opens a socket.
+- **Availability** (`status()`) only resolves and validates the target, either `FSPEC_DAEMON_URL`, a live `daemon.json` or a live `daemons/` entry. It never opens a socket.
 - **Connections:** each Paseo provider connection opens its own WebSocket to `ws://127.0.0.1:<port>/`, the full surface with server push. It waits for the daemon's two handshake frames (`WorkUnitsUpdate`, then `SessionSnapshot`) and then sends tarpc requests over it. Live output comes from the daemon's pushed stream chunks and session events, not from polling.
 - **Sessions:** `session.open` creates a daemon session, or reattaches to the one saved in Paseo's persistence. It then applies the model and thinking level. Each prompt becomes `send_input`, and each turn is settled exactly once from the daemon's terminal chunk (done, error, or interrupted).
 - **Teardown:** if the daemon goes away (for example it shuts down with close 1001), every open turn fails with a clear reason. When Paseo closes the connection or unloads the plugin, the plugin destroys the daemon sessions it owns and then closes the socket.
@@ -281,7 +284,8 @@ This project is itself built with fspec. Every feature has a work unit and a Ghe
 | `the fspec daemon serves X, not Y` (board) | No workspace the daemon serves holds Y. Open an fspec agent in Y (the daemon then serves it), or start fspec there. |
 | `card details and moves are only available in the fspec daemon's start workspace (X)` | The fspec daemon reads card details and reorders cards in its start workspace X only. |
 | No models in the picker | fspec has no reachable model provider. Fix the provider config or credentials in fspec. |
-| `non-loopback daemon host …` | `FSPEC_DAEMON_URL` points at a non-loopback host. Only loopback is supported, because the daemon has no auth or TLS. |
+| `non-loopback daemon host …` | `FSPEC_DAEMON_URL` points at a non-loopback host. Only loopback is supported. The daemon's bearer token is not a substitute for TLS. |
+| `… could not be established — …FSPEC_DAEMON_TOKEN…` | The daemon is down, or it requires a token the Paseo daemon doesn't send or doesn't match. Set `FSPEC_DAEMON_TOKEN` for the Paseo daemon and restart it. |
 | No fspec board button on phone | No workspace the running daemon serves holds the workspace's directory. |
 | Board shows "Reconnecting: …" | The daemon restarted or went away. The panel recovers once the daemon is back. |
 | Plugin doesn't load at all | Check `pluginsEnabled: true`, `paseo plugin ls`, and `paseo plugin logs fspec-paseo-provider`. |

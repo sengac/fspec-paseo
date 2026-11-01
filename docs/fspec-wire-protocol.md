@@ -6,7 +6,7 @@ Source of truth: `rust/rpc-server/src/{envelope,transport,pump,server,bounded_re
 `626eee1e`; re-verified at `344d00b4` (method order `rust/rpc/tests/fixtures/wire_order_frozen.txt`, indices
 124–128, Envelope 9, PauseState details/tool_call_id, InputMode, discovery files, bearer auth); re-verified at
 `76cb29f6` (fspec HEAD: `ProviderInfo.provider_id`, `send_input` results, workspace-scoped card details and moves,
-explicit daemons/ discovery).
+explicit daemons/ discovery; no implicit default-model writes).
 Wire codec: **bincode 1.3.3 free functions** (`bincode::serialize` / `bincode::deserialize`).
 
 ---
@@ -606,10 +606,14 @@ each `ModelEntry` → a `ProviderModel` (`id` = `provider.key + "/" +
 entry.id`, `label` = `display_name`, `contextWindowMaxTokens` =
 `entry.context_window`, `supports_reasoning` → thinking options). The catalog
 default is `get_default_model` (idx 127) when it names a listed model, else the
-first model (FSPEC-046). `create_session_checked` answers **`Ok("")`** (not `Err`)
-when fspec has no default model (PROV-101 decline,
-`sessions/src/handle_creation.rs`); the plugin calls `set_default_model` first in
-that case, as the TUI does for a model chosen with no session. Thinking
+catalog has no default (FSPEC-046, FSPEC-061). `create_session_checked` answers
+**`Ok("")`** (not `Err`) when fspec has no default model (PROV-101 decline,
+`sessions/src/handle_creation.rs`) and `create_session_in_workspace` errors
+(`default_project.rs`): fspec starts every session on its default model. The plugin
+never calls `set_default_model` on its own (only the providers screen's Default model
+row does); a fresh open with no fspec default fails before anything is created, a
+resumed session keeps its restored model unless one is chosen, and resetting an
+agent's model reads `get_default_model` again. Thinking
 levels are global (`ThinkingLevel`, idx 21 via `get_thinking_level` / set via
 `set_thinking_level` idx 39), not per-model.
 

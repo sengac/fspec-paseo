@@ -106,7 +106,6 @@ interface FspecSession {
   mode: FspecMode;
   thinking: ThinkingLevel;
   models: readonly ProviderModel[];
-  defaultModel: string | undefined;
   turnCounter: number;
   /** The started head of `queue`; null while no turn is running. */
   activeTurnId: string | null;
@@ -283,6 +282,13 @@ export function createSessionRegistry(deps: SessionDeps) {
       thinkingOptions: THINKING_OPTIONS,
       settings: [],
     };
+  }
+
+  /** fspec's default model now, for a reset to the default (FSPEC-061). */
+  async function currentDefaultModel(): Promise<string> {
+    const { model } = await request({ method: "getDefaultModel" });
+    if (model === null) throw new Error("fspec has no default model to reset to — choose a model");
+    return model;
   }
 
   async function applyModel(session: FspecSession, model: string | undefined): Promise<void> {
@@ -914,11 +920,17 @@ export function createSessionRegistry(deps: SessionDeps) {
       const { providers } = await request({ method: "listProviders" });
       const { model: fspecDefault } = await request({ method: "getDefaultModel" });
       const catalog = buildCatalog(providers, fspecDefault);
-      const model = input.config.model ?? saved?.model ?? catalog.defaultModel;
-      // fspec creates sessions with its default model and declines without
-      // one; like the TUI, the model chosen with no default becomes it.
-      if (fspecDefault === null && model !== undefined) {
-        unwrap((await request({ method: "setDefaultModel", model })).result, "set_default_model");
+      // FSPEC-061: a resumed session keeps the model fspec restored unless one
+      // is chosen; a fresh one runs the chosen model, else fspec's default.
+      const model = saved ? input.config.model ?? saved.model : input.config.model ?? fspecDefault ?? undefined;
+      // fspec creates every session on its default model (PROV-101), and the
+      // plugin never sets that default on its own: without one, nothing opens.
+      if (!saved && fspecDefault === null) {
+        throw new Error(
+          input.config.model === undefined
+            ? "fspec has no default model — choose a model for this agent and set fspec's default model under fspec providers"
+            : `fspec has no default model — fspec starts every session on its default model, so set one under fspec providers before opening ${input.config.model}`,
+        );
       }
       // A saved session may have been dropped from daemon memory (close calls
       // destroy_session); resume_session rebuilds it from its manifest.
@@ -945,7 +957,6 @@ export function createSessionRegistry(deps: SessionDeps) {
         mode,
         thinking: DEFAULT_THINKING_OPTION,
         models: catalog.models,
-        defaultModel: catalog.defaultModel,
         turnCounter: 0,
         activeTurnId: null,
         queue: [],
@@ -1153,7 +1164,7 @@ export function createSessionRegistry(deps: SessionDeps) {
     async configure(input: Input<"session.configure">): Promise<void> {
       const session = live(input.sessionId);
       const { model, mode, thinkingOption } = input.changes;
-      if (model !== undefined) await applyModel(session, model ?? session.defaultModel);
+      if (model !== undefined) await applyModel(session, model ?? (await currentDefaultModel()));
       if (mode !== undefined) await applyMode(session, mode === null ? DEFAULT_MODE : fspecMode(mode));
       if (thinkingOption !== undefined) {
         await applyThinking(session, thinkingOption === null ? "off" : thinkingLevel(thinkingOption));

@@ -140,11 +140,12 @@ describe("Feature: Register the fspec provider and build Paseo's model picker", 
 
   describe("Scenario: The model picker catalog maps the daemon's provider catalog", () => {
     it("maps list_providers into one catalog event", async () => {
-      // @step Given the daemon's `list_providers` returns a reachable `anthropic` provider with models `claude-sonnet-4-5` (display_name 'Claude Sonnet 4.5', context_window 200000, supports_reasoning true) and `claude-haiku-4-5` (display_name 'Claude Haiku 4.5', context_window 200000) plus an `openai` provider flagged `is_unreachable`
+      // @step Given the daemon's `list_providers` returns a reachable `anthropic` provider with models `claude-sonnet-4-5` (display_name 'Claude Sonnet 4.5', context_window 200000, supports_reasoning true) and `claude-haiku-4-5` (display_name 'Claude Haiku 4.5', context_window 200000) plus an `openai` provider flagged `is_unreachable`, and fspec's default model is `anthropic/claude-sonnet-4-5`
       const h = home();
       h.writeDaemonEntry();
       const daemon = new FakeDaemon();
       daemon.handlers.listProviders = () => [ANTHROPIC, OPENAI_UNREACHABLE];
+      daemon.handlers.getDefaultModel = () => "anthropic/claude-sonnet-4-5";
       const { connection, events } = await connectTo(createFspecProvider(daemonOptions(h, daemon)));
       // @step When Paseo requests the model catalog with a requestId
       await connection.send({ type: "catalog", requestId: "catalog-1" });

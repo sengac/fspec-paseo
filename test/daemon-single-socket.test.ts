@@ -43,6 +43,8 @@ describe("Feature: Share one daemon socket across concurrent connects", () => {
     it("publishes one assistant row for one chunk", async () => {
       // @step Given Paseo sends the catalog request and session.open on a fresh provider connection without waiting
       const daemon = new FakeDaemon();
+      // fspec creates sessions on its default model (FSPEC-061).
+      daemon.handlers.getDefaultModel = () => "anthropic/claude-sonnet-4";
       const connection = await createFspecProvider(daemonOptions(liveHome(), daemon)).connect({
         versions: [1],
         capabilities: PROVIDER_CAPABILITIES,

@@ -86,29 +86,6 @@
       ]
     },
     {
-      "name": "A default the catalog does not list leaves the first model as the default",
-      "testMappings": [
-        {
-          "file": "test/default-model.test.ts",
-          "lines": "76-85",
-          "implMappings": [
-            {
-              "file": "server/catalog.ts",
-              "lines": [
-                54,
-                55,
-                56,
-                57,
-                58,
-                59,
-                60
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
       "name": "An agent opened without a model follows fspec's default model",
       "testMappings": [
         {
@@ -122,54 +99,6 @@
                 769,
                 770,
                 806
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "With no default model the chosen model becomes fspec's default",
-      "testMappings": [
-        {
-          "file": "test/default-model.test.ts",
-          "lines": "105-121",
-          "implMappings": [
-            {
-              "file": "server/session.ts",
-              "lines": [
-                768,
-                769,
-                770,
-                771,
-                772,
-                773,
-                774,
-                775,
-                776
-              ]
-            }
-          ]
-        }
-      ]
-    },
-    {
-      "name": "A session fspec declines for want of a default model fails the open with the reason",
-      "testMappings": [
-        {
-          "file": "test/default-model.test.ts",
-          "lines": "123-144",
-          "implMappings": [
-            {
-              "file": "server/session.ts",
-              "lines": [
-                155,
-                742,
-                743,
-                744,
-                745,
-                746,
-                747
               ]
             }
           ]
@@ -267,12 +196,147 @@
           ]
         }
       ]
+    },
+    {
+      "name": "A default the catalog does not list leaves the catalog without a default",
+      "testMappings": [
+        {
+          "file": "test/default-model.test.ts",
+          "lines": "87-97",
+          "implMappings": [
+            {
+              "file": "server/catalog.ts",
+              "lines": [
+                49,
+                50,
+                51,
+                52,
+                53,
+                54,
+                55,
+                56,
+                57,
+                58,
+                59,
+                60,
+                61
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "With no default model an agent with a chosen model fails to open",
+      "testMappings": [
+        {
+          "file": "test/default-model.test.ts",
+          "lines": "117-133",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                921,
+                922,
+                923,
+                924,
+                925,
+                926,
+                927,
+                928,
+                929,
+                930,
+                931,
+                932,
+                933,
+                934,
+                935
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "With no default model an agent without a model fails with what to do",
+      "testMappings": [
+        {
+          "file": "test/default-model.test.ts",
+          "lines": "135-151",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                921,
+                922,
+                923,
+                924,
+                925,
+                926,
+                927,
+                928,
+                929,
+                930,
+                931,
+                932,
+                933,
+                934,
+                935
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A resumed session keeps its own model when none is chosen",
+      "testMappings": [
+        {
+          "file": "test/default-model.test.ts",
+          "lines": "153-164",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                921,
+                922,
+                923,
+                924,
+                925
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Resetting an agent's model follows fspec's current default",
+      "testMappings": [
+        {
+          "file": "test/default-model.test.ts",
+          "lines": "166-185",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                287,
+                288,
+                289,
+                290,
+                291,
+                292,
+                1167
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 7,
-    "coveredScenarios": 7,
-    "coveragePercent": 100,
+    "coveredScenarios": 9,
+    "coveragePercent": 129,
     "testFiles": [
       "test/default-model.test.ts"
     ],
@@ -287,6 +351,6 @@
       "client/settings-screen.tsx",
       "index.server.ts"
     ],
-    "totalLinesCovered": 261
+    "totalLinesCovered": 321
   }
 }

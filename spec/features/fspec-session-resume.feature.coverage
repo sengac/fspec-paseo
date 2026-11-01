@@ -5,7 +5,7 @@
       "testMappings": [
         {
           "file": "test/session-resume.test.ts",
-          "lines": "13-35",
+          "lines": "16-39",
           "implMappings": [
             {
               "file": "server/session.ts",
@@ -145,7 +145,7 @@
       "testMappings": [
         {
           "file": "test/session-resume.test.ts",
-          "lines": "58-68",
+          "lines": "66-76",
           "implMappings": [
             {
               "file": "server/session.ts",
@@ -268,7 +268,7 @@
       "testMappings": [
         {
           "file": "test/session-resume.test.ts",
-          "lines": "40-63",
+          "lines": "41-64",
           "implMappings": [
             {
               "file": "server/session.ts",
@@ -298,7 +298,7 @@
       "testMappings": [
         {
           "file": "test/session-resume.test.ts",
-          "lines": "77-98",
+          "lines": "78-99",
           "implMappings": [
             {
               "file": "server/wire.ts",
@@ -325,7 +325,7 @@
       "testMappings": [
         {
           "file": "test/session-resume.test.ts",
-          "lines": "100-118",
+          "lines": "101-119",
           "implMappings": [
             {
               "file": "server/session.ts",

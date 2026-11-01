@@ -21,7 +21,8 @@ describe("Feature: Resume persisted fspec sessions on reopen", () => {
       await h.send({ type: "session.close", requestId: h.next(), sessionId: "paseo-1" });
       const before = h.daemon.requests.length;
       // @step When Paseo reopens it with persistence { version: 1, data: { sessionId: "fspec-sess-42" } }
-      const opened = await h.open("paseo-1", {}, { version: 1, data: { sessionId: "fspec-sess-42" } });
+      // Paseo passes the agent's model; a resumed session keeps its own without one (FSPEC-061).
+      const opened = await h.open("paseo-1", { model: "anthropic/claude-sonnet-4" }, { version: 1, data: { sessionId: "fspec-sess-42" } });
       // @step Then the provider called resume_session("fspec-sess-42") before set_session_model and set_thinking_level
       const methods = h.daemon.requests.slice(before).map((request) => request.method);
       expect(h.daemon.sent("resumeSession")).toEqual([{ method: "resumeSession", sessionId: "fspec-sess-42" }]);

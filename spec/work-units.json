@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:11:36.982Z"
+    "lastUpdated": "2026-11-01T03:14:36.062Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -7208,22 +7208,106 @@
       "id": "FSPEC-061",
       "title": "Open sessions only with an explicit or fspec default model",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-11-01T02:49:35.729Z",
-      "updatedAt": "2026-11-01T02:53:12.876Z",
+      "updatedAt": "2026-11-01T03:14:36.062Z",
       "description": "FSPEC-046 writes fspec's default model (set_default_model) when a fresh session opens on a daemon without one, and the catalog's default falls back to the first listed model, so Paseo silently picks a model and silently changes fspec's configuration. Remove the implicit write and the first-model default: a fresh session uses the chosen model or fspec's default model and fails with a clear message without one; a resumed session keeps its own model unless one is chosen; resetting an agent's model to the default without an fspec default fails clearly.",
       "epic": "provider-plugin",
       "children": [],
       "attachments": [
         "spec/attachments/FSPEC-061/root-cause.md",
         "spec/attachments/FSPEC-061/ast-research.md"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:11:51.861Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:12:30.255Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:13:07.817Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T03:14:21.414Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T03:14:36.062Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "The plugin never writes fspec's default model on its own: set_default_model is sent only from the providers screen's Default model row",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:12:29.865Z"
+        },
+        {
+          "id": 1,
+          "text": "The catalog's defaultModel is fspec's default model when the catalog lists it; otherwise the catalog has no default and no model is marked isDefault",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:12:29.897Z"
+        },
+        {
+          "id": 2,
+          "text": "A fresh session needs fspec's default model (fspec creates every session on it, handle_creation.rs / default_project.rs): without one the open fails before anything is created, telling the user to choose a model and set fspec's default; the session runs the chosen model, else fspec's default",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:12:29.918Z"
+        },
+        {
+          "id": 3,
+          "text": "A resumed session applies the chosen model, else its saved one; with neither it keeps the model fspec restored",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:12:29.937Z"
+        },
+        {
+          "id": 4,
+          "text": "Resetting an agent's model (configure model null) applies fspec's current default model; without one it fails 'fspec has no default model to reset to — choose a model'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:12:29.958Z"
+        }
+      ],
+      "nextRuleId": 5,
+      "examples": [
+        {
+          "id": 0,
+          "text": "fspec default 'gone/old-model', catalog anthropic/claude-sonnet-4 and openai/gpt-5 -> catalog without defaultModel, no isDefault",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:12:29.978Z"
+        },
+        {
+          "id": 1,
+          "text": "No fspec default, open with model openai/gpt-5 -> fails 'fspec has no default model — fspec starts every session on its default model, so set one under fspec providers before opening openai/gpt-5'; no set_default_model, no create_session",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:12:30.000Z"
+        },
+        {
+          "id": 2,
+          "text": "No fspec default, open with no model -> fails 'fspec has no default model — choose a model for this agent and set fspec's default model under fspec providers'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:12:30.020Z"
+        }
+      ],
+      "nextExampleId": 3,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/catalog.ts buildCatalog: defaultModel only when fspec's default is listed. server/session.ts open(): fresh sessions require get_default_model (two messages), no setDefaultModel; resumed sessions apply config.model ?? saved.model only; session.defaultModel removed; configure(model null) reads get_default_model.",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:12:30.042Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "estimate": 3
     }
   },
   "states": {
-    "backlog": [
-      "FSPEC-061"
-    ],
+    "backlog": [],
     "specifying": [],
     "testing": [],
     "implementing": [],
@@ -7289,7 +7373,8 @@
       "FSPEC-057",
       "FSPEC-058",
       "FSPEC-059",
-      "FSPEC-060"
+      "FSPEC-060",
+      "FSPEC-061"
     ],
     "blocked": []
   },

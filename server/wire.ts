@@ -579,6 +579,8 @@ export const FspecMethodIndex = {
   oauthDevicePoll: 100,
   oauthCopilotDeviceStart: 101,
   setThinkingLevel: 39,
+  getSessionRole: 44,
+  setSessionRole: 45,
   sendInputWithThinking: 46,
   pauseConfirm: 77,
   pauseTriple: 78,
@@ -655,6 +657,8 @@ export type FspecServiceRequest =
       modelId: string;
     }
   | { method: "setThinkingLevel"; sessionId: string; level: ThinkingLevel }
+  | { method: "getSessionRole"; sessionId: string }
+  | { method: "setSessionRole"; sessionId: string; role: string | null }
   | {
       method: "sendInputWithThinking";
       sessionId: string;
@@ -758,6 +762,8 @@ export type FspecServiceResponse =
   | { method: "listProviders"; value: ProviderInfo[] }
   | { method: "setSessionModel"; value: Result<void> }
   | { method: "setThinkingLevel"; value: Result<void> }
+  | { method: "getSessionRole"; value: string | null }
+  | { method: "setSessionRole"; value: Result<void> }
   | { method: "sendInputWithThinking"; value: null }
   | { method: "destroySession"; value: Result<void> }
   | { method: "moveWorkUnitUp"; value: Result<void> }
@@ -1826,7 +1832,11 @@ function writeServiceRequest(w: BincodeWriter, message: FspecServiceRequest): vo
     case "compactSession":
     case "getWorkUnitFocus":
     case "getPendingInput":
+    case "getSessionRole":
       w.string(message.sessionId);
+      return;
+    case "setSessionRole":
+      w.string(message.sessionId).option(message.role, (x, v) => x.string(v));
       return;
     case "setContinueState":
       w.string(message.sessionId).bool(message.enabled).u32(message.budget);
@@ -2009,7 +2019,12 @@ function readServiceRequest(r: BincodeReader): FspecServiceRequest {
     case "compactSession":
     case "getWorkUnitFocus":
     case "getPendingInput":
+    case "getSessionRole":
       return { method, sessionId: r.string("SessionId") };
+    case "setSessionRole": {
+      const sessionId = r.string("SessionId");
+      return { method, sessionId, role: r.skipOption((x) => x.string("role")) };
+    }
     case "getWorkUnitDetails":
     case "moveWorkUnitUp":
     case "moveWorkUnitDown":
@@ -2216,6 +2231,9 @@ export type DecodedResponse =
   | { requestId: number; ok: true; method: "listProviders"; providers: ProviderInfo[] }
   | { requestId: number; ok: true; method: "setSessionModel"; result: Result<void> }
   | { requestId: number; ok: true; method: "setThinkingLevel"; result: Result<void> }
+  /** The session's role overlay (RPC-022); a bot's starts with BOT_ROLE_MARKER (FSPEC-055). */
+  | { requestId: number; ok: true; method: "getSessionRole"; role: string | null }
+  | { requestId: number; ok: true; method: "setSessionRole"; result: Result<void> }
   | { requestId: number; ok: true; method: "sendInputWithThinking" }
   | { requestId: number; ok: true; method: "destroySession"; result: Result<void> }
   | { requestId: number; ok: true; method: "moveWorkUnitUp"; result: Result<void> }
@@ -2325,6 +2343,7 @@ export function encodeResponseFrame(input: {
     case "clearHistory":
     case "restoreCheckpointAll":
     case "submitInput":
+    case "setSessionRole":
     case "setDefaultModel":
     case "addCustomModel":
     case "updateCustomModel":
@@ -2408,6 +2427,7 @@ export function encodeResponseFrame(input: {
     case "getActiveSession":
     case "getPendingInput":
     case "getDefaultModel":
+    case "getSessionRole":
       w.option((input.value ?? null) as string | null, (x, id) => x.string(id));
       break;
     case "getSessionStatus":
@@ -2562,7 +2582,10 @@ export function decodeResponseFrame(bytes: Uint8Array): DecodedResponse {
     case "clearHistory":
     case "restoreCheckpointAll":
     case "submitInput":
+    case "setSessionRole":
       return { requestId, ok: true, method, result: readResultVoid(r) };
+    case "getSessionRole":
+      return { requestId, ok: true, method, role: r.skipOption((x) => x.string("role")) };
     case "listCheckpoints":
       return {
         requestId,

@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T00:12:02.735Z"
+    "lastUpdated": "2026-11-01T00:16:02.770Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -6534,18 +6534,123 @@
       "id": "FSPEC-055",
       "title": "Start fspec orchestrator bots from Paseo with a bot mode",
       "type": "story",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-10-31T23:39:45.148Z",
-      "updatedAt": "2026-10-31T23:39:45.148Z",
+      "updatedAt": "2026-11-01T00:16:02.770Z",
       "description": "The fspec TUI's New Bot (TUI-114) creates a session whose role is the orchestrator role from rust/sessions/src/bot.rs ORCHESTRATOR_ROLE (first line '# fspec bot: orchestrator'); a session is a bot iff its role starts with that marker. Expose Paseo provider modes 'agent' (default) and 'bot'; a bot agent's daemon session is created with that role on both creation paths, and a resumed or imported session whose role is a bot role shows as bot mode.",
       "epic": "provider-plugin",
-      "children": []
+      "children": [],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T00:13:00.416Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T00:13:29.736Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T00:15:56.541Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T00:16:02.640Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T00:16:02.770Z"
+        }
+      ],
+      "userStory": {
+        "role": "Paseo user who wants fspec to orchestrate work",
+        "action": "start an fspec orchestrator bot from Paseo by choosing a bot mode",
+        "benefit": "one agent breaks my request into tasks, runs sub-agents on them and reports back, as New Bot does in the fspec TUI"
+      },
+      "rules": [
+        {
+          "id": 0,
+          "text": "The provider offers Paseo modes 'agent' (Agent, the default) and 'bot' (Bot) in its catalog and every session.config",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:13:00.455Z"
+        },
+        {
+          "id": 1,
+          "text": "A new session opened in mode 'bot' is created with fspec's orchestrator role (rust/sessions/src/bot.rs ORCHESTRATOR_ROLE, copied verbatim) on both creation paths: create_session_checked(Some(role)) in the start workspace and create_session_in_workspace(workspace, Some(role)) elsewhere; mode 'agent' or none creates it with no role",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:13:00.474Z"
+        },
+        {
+          "id": 2,
+          "text": "A session is a bot iff its role starts with '# fspec bot: orchestrator'; a resumed or imported session reads its role with get_session_role (idx 44) and its committed mode is 'bot' for a bot role, otherwise 'agent', whatever mode Paseo asked for",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:13:00.492Z"
+        },
+        {
+          "id": 3,
+          "text": "session.configure with mode 'bot' sets the orchestrator role with set_session_role (idx 45); with mode 'agent' it clears a bot role (set_session_role None) and leaves any other role alone",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:13:00.510Z"
+        },
+        {
+          "id": 4,
+          "text": "An unknown mode fails the open or configure with 'invalid fspec mode \"<mode>\" — expected agent or bot'",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:13:00.527Z"
+        },
+        {
+          "id": 5,
+          "text": "The import list marks bot sessions: their description starts with 'Bot · '",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:13:00.544Z"
+        }
+      ],
+      "nextRuleId": 6,
+      "examples": [
+        {
+          "id": 0,
+          "text": "Paseo opens an agent in /work with mode 'bot' -> create_session_checked(Some(ORCHESTRATOR_ROLE)); session.config mode 'bot'",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:13:00.561Z"
+        },
+        {
+          "id": 1,
+          "text": "Paseo opens a bot in /repos/app (not the start workspace) -> create_session_in_workspace('/repos/app', Some(ORCHESTRATOR_ROLE))",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:13:00.579Z"
+        },
+        {
+          "id": 2,
+          "text": "Reopening fspec-sess-42 whose get_session_role is the orchestrator role -> session.config mode 'bot'",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:13:00.597Z"
+        },
+        {
+          "id": 3,
+          "text": "configure { mode: 'agent' } on a bot -> set_session_role(fspec-sess-42, None); session.config mode 'agent'",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:13:00.615Z"
+        }
+      ],
+      "nextExampleId": 4,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/bot.ts: ORCHESTRATOR_ROLE (verbatim from fspec rust/sessions/src/bot.rs, TUI-114), BOT_ROLE_MARKER, isBotRole, FSPEC_MODES. server/wire.ts getSessionRole 44 (SessionId) -> Option<String>, setSessionRole 45 (SessionId, Option<String>) -> Result<(), String>. server/catalog.ts publishes the modes and defaultMode 'agent'; server/session.ts open() passes the role to createDaemonSession, reads the role of a resumed session, configure() maps mode to set_session_role, list() marks bot sessions from SessionInfo.role. TUI parity: New Bot creates the session with the role and no other engine change; the agent bar marks bot sessions from SessionInfo.role. The daemon's role decides a resumed session's mode, so an import with Paseo's default mode never strips a bot's role.",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:13:00.634Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "attachments": [
+        "spec/attachments/FSPEC-055/ast-research.md"
+      ],
+      "estimate": 3
     }
   },
   "states": {
     "backlog": [
-      "FSPEC-047",
-      "FSPEC-055"
+      "FSPEC-047"
     ],
     "specifying": [],
     "testing": [],
@@ -6605,7 +6710,8 @@
       "FSPEC-051",
       "FSPEC-052",
       "FSPEC-053",
-      "FSPEC-054"
+      "FSPEC-054",
+      "FSPEC-055"
     ],
     "blocked": []
   },

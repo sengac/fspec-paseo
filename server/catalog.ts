@@ -9,6 +9,7 @@ import type {
   ProviderModel,
   ProviderThinkingOption,
 } from "@getpaseo/plugin/server/provider";
+import { DEFAULT_MODE, FSPEC_MODES } from "./bot.js";
 import type { ProviderInfo, ThinkingLevel } from "./wire.js";
 
 /**
@@ -73,7 +74,8 @@ export function buildCatalog(providers: readonly ProviderInfo[], fspecDefault: s
   }
   return {
     models,
-    modes: [],
+    modes: FSPEC_MODES,
+    defaultMode: DEFAULT_MODE,
     thinkingOptions: THINKING_OPTIONS,
     ...(defaultModel !== undefined ? { defaultModel } : {}),
     defaultThinkingOption: DEFAULT_THINKING_OPTION,

@@ -425,6 +425,8 @@ Variant index = 0-based position in the trait. Full order verified from
 | 125 | `ListWorkspaceWorkUnits` | `list_workspace_work_units` | `workspace: String` | `Result<Vec<WorkUnitInfo>, String>` (opens the workspace if needed) |
 | 126 | `CreateSessionInWorkspace` | `create_session_in_workspace` | `workspace: String, role: Option<String>` | `Result<SessionId, String>` (opens the workspace; `Err` for a non-directory or no default model; RPC-444) |
 | 128 | `SubmitInput` | `submit_input` | `session_id: SessionId, text: String, mode: InputMode` | `Result<(), String>` (`Err("Session not found: <id>")`; RIG-016, see §6.9) |
+| 44 | `GetSessionRole` | `get_session_role` | `session_id: SessionId` | `Option<String>` (role overlay; a bot's starts with `# fspec bot: orchestrator`, TUI-114) |
+| 45 | `SetSessionRole` | `set_session_role` | `session_id: SessionId, role: Option<String>` | `Result<(), String>` (`None` clears) |
 | 46 | `SendInputWithThinking` | `send_input_with_thinking` | `session_id: SessionId, text: String, thinking: Option<ThinkingConfig>` | `()` |
 | 30 | `SetDefaultModel` | `set_default_model` | `model: String` ("provider/model") | `Result<(), String>` (empty strings ignored) |
 | 127 | `GetDefaultModel` | `get_default_model` | — | `Option<String>` ("provider/model"; RPC-440) |

@@ -112,6 +112,8 @@ export class FakeDaemon {
     };
     this.handlers.createSessionInWorkspace = () => ({ ok: true, value: `fspec-sess-${this.nextSession++}` });
     this.handlers.listWorkspaceWorkUnits = () => ({ ok: true, value: [] });
+    this.handlers.getSessionRole = () => null;
+    this.handlers.setSessionRole = () => ({ ok: true, value: undefined });
     this.handlers.setDefaultModel = () => ({ ok: true, value: undefined });
   }
 

@@ -33,6 +33,7 @@ import {
   type Interaction,
 } from "./interactions.js";
 import { promptText, removeAttachments } from "./attachments.js";
+import { DEFAULT_MODE, FSPEC_MODES, ORCHESTRATOR_ROLE, fspecMode, isBotRole, type FspecMode } from "./bot.js";
 import {
   FSPEC_COMMANDS,
   applyContinue,
@@ -101,6 +102,8 @@ interface FspecSession {
   readonly owned: boolean;
   readonly parentSessionId?: string;
   model: string | undefined;
+  /** 'bot' when the daemon session carries fspec's orchestrator role (FSPEC-055). */
+  mode: FspecMode;
   thinking: ThinkingLevel;
   models: readonly ProviderModel[];
   defaultModel: string | undefined;
@@ -273,9 +276,10 @@ export function createSessionRegistry(deps: SessionDeps) {
   function configState(session: FspecSession): ProviderConfigState {
     return {
       ...(session.model ? { model: session.model } : {}),
+      mode: session.mode,
       thinkingOption: session.thinking,
       models: session.models,
-      modes: [],
+      modes: FSPEC_MODES,
       thinkingOptions: THINKING_OPTIONS,
       settings: [],
     };
@@ -292,6 +296,20 @@ export function createSessionRegistry(deps: SessionDeps) {
     });
     unwrap(result, "set_session_model");
     session.model = model;
+  }
+
+  /**
+   * Bot mode is fspec's orchestrator role (set_session_role, idx 45): 'bot'
+   * sets it, 'agent' clears it — and only it, so another role stays.
+   */
+  async function applyMode(session: FspecSession, mode: FspecMode): Promise<void> {
+    const sessionId = session.daemonSessionId;
+    if (mode === "bot") {
+      unwrap((await request({ method: "setSessionRole", sessionId, role: ORCHESTRATOR_ROLE })).result, "set_session_role");
+    } else if (isBotRole((await request({ method: "getSessionRole", sessionId })).role)) {
+      unwrap((await request({ method: "setSessionRole", sessionId, role: null })).result, "set_session_role");
+    }
+    session.mode = mode;
   }
 
   async function applyThinking(session: FspecSession, level: ThinkingLevel): Promise<void> {
@@ -488,6 +506,7 @@ export function createSessionRegistry(deps: SessionDeps) {
       sessionId: `${parent.sessionId}:sub:${daemonSessionId}`,
       daemonSessionId,
       owned: false,
+      mode: DEFAULT_MODE,
       parentSessionId: parent.sessionId,
       turnCounter: 0,
       activeTurnId: null,
@@ -895,7 +914,17 @@ export function createSessionRegistry(deps: SessionDeps) {
       // destroy_session); resume_session rebuilds it from its manifest.
       const resumeError = saved ? await resume(saved.sessionId) : null;
       const resumed = saved !== undefined && resumeError === null;
-      const daemonSessionId = resumed ? saved.sessionId : await createDaemonSession(workspace, null);
+      // A bot is a session created with fspec's orchestrator role; a resumed
+      // session keeps its own role, which decides its mode.
+      const requested = fspecMode(input.config.mode ?? DEFAULT_MODE);
+      const daemonSessionId = resumed
+        ? saved.sessionId
+        : await createDaemonSession(workspace, requested === "bot" ? ORCHESTRATOR_ROLE : null);
+      const mode: FspecMode = resumed
+        ? isBotRole((await request({ method: "getSessionRole", sessionId: daemonSessionId })).role)
+          ? "bot"
+          : "agent"
+        : requested;
       const epoch = randomUUID().slice(0, 8);
       const session: FspecSession = {
         sessionId: input.sessionId,
@@ -903,6 +932,7 @@ export function createSessionRegistry(deps: SessionDeps) {
         cwd: input.config.cwd,
         owned: true,
         model: undefined,
+        mode,
         thinking: DEFAULT_THINKING_OPTION,
         models: catalog.models,
         defaultModel: catalog.defaultModel,
@@ -1044,7 +1074,7 @@ export function createSessionRegistry(deps: SessionDeps) {
             title: info.name,
             // Paseo re-filters on the title and this preview, so a session
             // found by its prompt text shows that prompt.
-            description: prompts.get(info.id) ?? `${info.messageCount} messages${model}`,
+            description: `${isBotRole(info.role) ? "Bot · " : ""}${prompts.get(info.id) ?? `${info.messageCount} messages${model}`}`,
             ...(info.updatedAtMs !== null ? { updatedAt: new Date(info.updatedAtMs).toISOString() } : {}),
           };
         });
@@ -1123,8 +1153,9 @@ export function createSessionRegistry(deps: SessionDeps) {
 
     async configure(input: Input<"session.configure">): Promise<void> {
       const session = live(input.sessionId);
-      const { model, thinkingOption } = input.changes;
+      const { model, mode, thinkingOption } = input.changes;
       if (model !== undefined) await applyModel(session, model ?? session.defaultModel);
+      if (mode !== undefined) await applyMode(session, mode === null ? DEFAULT_MODE : fspecMode(mode));
       if (thinkingOption !== undefined) {
         await applyThinking(session, thinkingOption === null ? "off" : thinkingLevel(thinkingOption));
       }

@@ -167,8 +167,8 @@ describe("Feature: Register the fspec provider and build Paseo's model picker", 
       ]);
       // @step And no openai models appear in the catalog because the provider is `is_unreachable`
       expect(catalog.models.some((entry) => entry.id.startsWith("openai/"))).toBe(false);
-      // @step And the catalog lists `modes: []`, `thinkingOptions` = off/low/medium/high, `defaultModel` = 'anthropic/claude-sonnet-4-5', and `defaultThinkingOption` = 'off'
-      expect(catalog.modes).toEqual([]);
+      // @step And the catalog lists the agent and bot `modes`, `thinkingOptions` = off/low/medium/high, `defaultModel` = 'anthropic/claude-sonnet-4-5', and `defaultThinkingOption` = 'off'
+      expect(catalog.modes.map((mode) => mode.id)).toEqual(["agent", "bot"]);
       expect(catalog.thinkingOptions).toEqual(THINKING_OPTIONS);
       expect(catalog.defaultModel).toBe("anthropic/claude-sonnet-4-5");
       expect(catalog.defaultThinkingOption).toBe("off");
@@ -212,8 +212,8 @@ describe("Feature: Register the fspec provider and build Paseo's model picker", 
       expect(events.filter((event) => event.type === "catalog")).toHaveLength(1);
       expect(reply.catalog.models).toEqual([]);
       expect(reply.catalog).not.toHaveProperty("defaultModel");
-      // @step And the catalog still lists `modes: []`, the off/low/medium/high `thinkingOptions`, and `defaultThinkingOption` = 'off'
-      expect(reply.catalog.modes).toEqual([]);
+      // @step And the catalog still lists the agent and bot `modes`, the off/low/medium/high `thinkingOptions`, and `defaultThinkingOption` = 'off'
+      expect(reply.catalog.modes.map((mode) => mode.id)).toEqual(["agent", "bot"]);
       expect(reply.catalog.thinkingOptions).toEqual(THINKING_OPTIONS);
       expect(reply.catalog.defaultThinkingOption).toBe("off");
     });

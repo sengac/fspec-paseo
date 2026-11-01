@@ -2,6 +2,7 @@
 @provider
 @core
 @FSPEC-004
+@FSPEC-055
 Feature: Register the fspec provider and build Paseo's model picker
 
   """
@@ -26,7 +27,7 @@ Feature: Register the fspec provider and build Paseo's model picker
   #
   # EXAMPLES:
   #   1. list_providers returns [{key:'anthropic', display_name:'Anthropic', is_unreachable:false, models:[{id:'claude-sonnet-4-5', display_name:'Claude Sonnet 4.5', context_window:200000, supports_reasoning:true}, {id:'claude-haiku-4-5', display_name:'Claude Haiku 4.5', context_window:200000, supports_reasoning:false}]}, {key:'openai', display_name:'OpenAI', is_unreachable:true, models:[...]}] — catalog = models [{id:'anthropic/claude-sonnet-4-5', label:'Claude Sonnet 4.5', contextWindowMaxTokens:200000, isDefault:true}, {id:'anthropic/claude-haiku-4-5', label:'Claude Haiku 4.5', contextWindowMaxTokens:200000}] (openai excluded: is_unreachable), defaultModel='anthropic/claude-sonnet-4-5'
-  #   2. Catalog reply carries exactly one catalog event: {type:'catalog', requestId:<the one Paseo asked with>, catalog:{models:[...], modes:[], thinkingOptions:[{id:'off',label:'Off'},{id:'low',label:'Low'},{id:'medium',label:'Medium'},{id:'high',label:'High'}], defaultModel:'anthropic/claude-sonnet-4-5', defaultThinkingOption:'off'}} — modes stay empty (fspec exposes no Paseo modes)
+  #   2. Catalog reply carries exactly one catalog event: {type:'catalog', requestId:<the one Paseo asked with>, catalog:{models:[...], modes:[], thinkingOptions:[{id:'off',label:'Off'},{id:'low',label:'Low'},{id:'medium',label:'Medium'},{id:'high',label:'High'}], defaultModel:'anthropic/claude-sonnet-4-5', defaultThinkingOption:'off'}} — modes stay empty (fspec exposes no Paseo modes); since FSPEC-055 modes are agent and bot with defaultMode agent
   #   3. No daemon.json exists (~/.fspec/daemon.json missing, no XDG_RUNTIME_DIR override): status() returns {available:false, diagnostic:'no daemon.json found at /Users/me/.fspec/daemon.json — start fspec daemon first'} and a catalog request rejects with the same diagnostic text — Paseo shows the provider greyed out with that message, never a spinner-without-hint
   #
   # ========================================
@@ -59,7 +60,7 @@ Feature: Register the fspec provider and build Paseo's model picker
     When Paseo requests the model catalog with a requestId
     Then it replies with exactly one catalog event carrying the requested requestId and models `{id:'anthropic/claude-sonnet-4-5', label:'Claude Sonnet 4.5', contextWindowMaxTokens:200000, isDefault:true}` and `{id:'anthropic/claude-haiku-4-5', label:'Claude Haiku 4.5', contextWindowMaxTokens:200000}`
     And no openai models appear in the catalog because the provider is `is_unreachable`
-    And the catalog lists `modes: []`, `thinkingOptions` = off/low/medium/high, `defaultModel` = 'anthropic/claude-sonnet-4-5', and `defaultThinkingOption` = 'off'
+    And the catalog lists the agent and bot `modes`, `thinkingOptions` = off/low/medium/high, `defaultModel` = 'anthropic/claude-sonnet-4-5', and `defaultThinkingOption` = 'off'
 
 
   Scenario: A catalog request fails with a diagnostic when no daemon is reachable
@@ -73,7 +74,7 @@ Feature: Register the fspec provider and build Paseo's model picker
     Given a live fspec daemon whose `list_providers` returns only providers flagged `is_unreachable`
     When Paseo requests the model catalog with a requestId
     Then it replies with exactly one catalog event whose `models` list is empty and which carries no `defaultModel`
-    And the catalog still lists `modes: []`, the off/low/medium/high `thinkingOptions`, and `defaultThinkingOption` = 'off'
+    And the catalog still lists the agent and bot `modes`, the off/low/medium/high `thinkingOptions`, and `defaultThinkingOption` = 'off'
 
 
   Scenario: Availability is probe-driven, not polled

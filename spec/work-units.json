@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T00:21:41.006Z"
+    "lastUpdated": "2026-11-01T02:53:12.914Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -6752,10 +6752,107 @@
         "spec/attachments/FSPEC-055/ast-research.md"
       ],
       "estimate": 3
+    },
+    "FSPEC-056": {
+      "id": "FSPEC-056",
+      "title": "Decode ProviderInfo's provider_id and name the base provider in custom-model writes",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-11-01T02:49:35.590Z",
+      "updatedAt": "2026-11-01T02:53:12.730Z",
+      "description": "fspec BUG-325 appended provider_id (the base provider) as ProviderInfo's last field, so the plugin's ProviderInfo reader is one field short and every list_providers reply after the first section misdecodes. The settings tree also derives a profile's base provider by splitting the section key at ':' and assumes 'openai' for custom-model writes. Decode provider_id, fold profile sections by provider_id/profile_name, send provider_id in add/update/delete_custom_model, and surface every refused custom-model write (fspec now refuses missing profiles, unknown model ids and non-openai providers).",
+      "epic": "provider-settings",
+      "children": [],
+      "attachments": [
+        "spec/attachments/FSPEC-056/root-cause.md",
+        "spec/attachments/FSPEC-056/ast-research.md"
+      ]
+    },
+    "FSPEC-057": {
+      "id": "FSPEC-057",
+      "title": "Surface refused input and resume reattached sessions explicitly",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-11-01T02:49:35.641Z",
+      "updatedAt": "2026-11-01T02:53:12.766Z",
+      "description": "fspec BUG-328: send_input (idx 4) and send_input_with_thinking (idx 46) return Result<(), String> and the daemon accepts input only for a session it holds live (no implicit resume inside send_input/submit_input). The plugin decodes no payload for send_input and ignores errors, so a refused prompt waits forever. Decode the Result and fail the turn with the daemon's reason; every path that reattaches to an existing daemon session (resume, import) resumes it with resume_session before input and fails the open when the resume fails instead of silently starting a new session.",
+      "epic": "provider-plugin",
+      "children": [],
+      "attachments": [
+        "spec/attachments/FSPEC-057/root-cause.md",
+        "spec/attachments/FSPEC-057/ast-research.md"
+      ]
+    },
+    "FSPEC-058": {
+      "id": "FSPEC-058",
+      "title": "Card details and reordering act on the board's workspace",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-11-01T02:49:35.666Z",
+      "updatedAt": "2026-11-01T02:53:12.801Z",
+      "description": "fspec RPC-450: get_work_unit_details, move_work_unit_up and move_work_unit_down take (workspace, id); an unknown workspace is an error. The plugin sends (id) only and refuses details and moves outside the daemon's start workspace (FSPEC-053). Send the board panel's served workspace for every board, drop the start-only refusal, and drop the get_workspace_info fallback when list_workspaces fails or is empty.",
+      "epic": "kanban-board",
+      "children": [],
+      "attachments": [
+        "spec/attachments/FSPEC-058/root-cause.md",
+        "spec/attachments/FSPEC-058/ast-research.md"
+      ]
+    },
+    "FSPEC-059": {
+      "id": "FSPEC-059",
+      "title": "Attach approval pauses to their tool call by id only",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-11-01T02:49:35.687Z",
+      "updatedAt": "2026-11-01T02:53:12.839Z",
+      "description": "FSPEC-050 attaches a pause without a tool_call_id to the most recent running tool call, a guess that can attach the approval to the wrong call. Attach by get_pause_state's tool_call_id only; without one the approval is shown unattached. A failed get_pause_state or get_interaction_snapshot read is reported to the user instead of being swallowed.",
+      "epic": "provider-plugin",
+      "children": [],
+      "attachments": [
+        "spec/attachments/FSPEC-059/root-cause.md",
+        "spec/attachments/FSPEC-059/ast-research.md"
+      ]
+    },
+    "FSPEC-060": {
+      "id": "FSPEC-060",
+      "title": "Pick the fspec daemon serving the directory or fail naming the candidates",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-11-01T02:49:35.708Z",
+      "updatedAt": "2026-11-01T02:53:12.914Z",
+      "description": "FSPEC-054 discovery prefers the live daemons/<pid>.json entry whose workspace holds the Paseo directory, then falls back to daemon.json and then to the lowest pid, so a directory no daemon serves silently reaches an arbitrary daemon. Replace the chain with one explicit rule: exactly one live entry must serve the directory (all live entries qualify for a client with no directory); none or several fail the connection with a message naming the candidates. FSPEC_DAEMON_URL / connectUrl stays the explicit override.",
+      "epic": "provider-plugin",
+      "children": [],
+      "attachments": [
+        "spec/attachments/FSPEC-060/design.md",
+        "spec/attachments/FSPEC-060/ast-research.md"
+      ]
+    },
+    "FSPEC-061": {
+      "id": "FSPEC-061",
+      "title": "Open sessions only with an explicit or fspec default model",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-11-01T02:49:35.729Z",
+      "updatedAt": "2026-11-01T02:53:12.876Z",
+      "description": "FSPEC-046 writes fspec's default model (set_default_model) when a fresh session opens on a daemon without one, and the catalog's default falls back to the first listed model, so Paseo silently picks a model and silently changes fspec's configuration. Remove the implicit write and the first-model default: a fresh session uses the chosen model or fspec's default model and fails with a clear message without one; a resumed session keeps its own model unless one is chosen; resetting an agent's model to the default without an fspec default fails clearly.",
+      "epic": "provider-plugin",
+      "children": [],
+      "attachments": [
+        "spec/attachments/FSPEC-061/root-cause.md",
+        "spec/attachments/FSPEC-061/ast-research.md"
+      ]
     }
   },
   "states": {
-    "backlog": [],
+    "backlog": [
+      "FSPEC-056",
+      "FSPEC-057",
+      "FSPEC-058",
+      "FSPEC-059",
+      "FSPEC-060",
+      "FSPEC-061"
+    ],
     "specifying": [],
     "testing": [],
     "implementing": [],
@@ -6821,6 +6918,6 @@
     "blocked": []
   },
   "prefixCounters": {
-    "FSPEC": 55
+    "FSPEC": 61
   }
 }

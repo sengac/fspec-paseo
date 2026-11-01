@@ -45,7 +45,11 @@
         "FSPEC-051",
         "FSPEC-052",
         "FSPEC-054",
-        "FSPEC-055"
+        "FSPEC-055",
+        "FSPEC-057",
+        "FSPEC-059",
+        "FSPEC-060",
+        "FSPEC-061"
       ]
     },
     "kanban-board": {
@@ -61,7 +65,8 @@
         "FSPEC-038",
         "FSPEC-040",
         "FSPEC-048",
-        "FSPEC-053"
+        "FSPEC-053",
+        "FSPEC-058"
       ]
     },
     "provider-settings": {
@@ -76,7 +81,8 @@
         "FSPEC-044",
         "FSPEC-045",
         "FSPEC-046",
-        "FSPEC-047"
+        "FSPEC-047",
+        "FSPEC-056"
       ]
     }
   }

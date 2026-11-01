@@ -210,13 +210,14 @@ export function createSettingsFeed(
             profileName: null,
           };
         });
-        // Providers with models but no credential row (custom servers) still show.
+        // Sections no credential row lists (fspec's profile sections) still show,
+        // with no configuration: fspec reports none for them.
         for (const provider of catalog.values()) {
           rows.push({
             id: provider.key,
             displayName: provider.displayName,
-            configured: !provider.isUnreachable,
-            credentialType: "custom",
+            configured: null,
+            credentialType: null,
             maskedKey: null,
             source: null,
             modelCount: provider.models.length,
@@ -228,7 +229,7 @@ export function createSettingsFeed(
           });
         }
         // Configured first; otherwise the daemon's order (Array#sort is stable).
-        rows.sort((a, b) => Number(b.configured) - Number(a.configured));
+        rows.sort((a, b) => Number(b.configured === true) - Number(a.configured === true));
         return { state: "ready", workspace: workspace.cwd, providers: rows, defaultModel };
       }),
 

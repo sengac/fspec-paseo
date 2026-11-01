@@ -93,7 +93,8 @@ function keySegments(row: SettingsProvider): string {
 
 function headerStatus(row: SettingsProvider, profileCount: number): string {
   let status: string;
-  if (!row.configured) status = "(not configured)";
+  if (row.configured === null) status = "(no credential row in fspec)";
+  else if (!row.configured) status = "(not configured)";
   else if (row.credentialType === "oauth") status = `✓ OAuth [${oauthLabel(row.id)}]`;
   else if (row.credentialType === "custom") status = "✓ custom endpoint";
   else status = keySegments(row);
@@ -180,9 +181,9 @@ export function buildTree(rows: readonly SettingsProvider[]): TreeProvider[] {
       id: row.id,
       displayName: row.displayName,
       status: headerStatus(row, profiles.length),
-      configured: row.configured,
-      canTest: row.configured,
-      canRefresh: row.configured,
+      configured: row.configured === true,
+      canTest: row.configured === true,
+      canRefresh: row.configured === true,
       provider: row,
       rows: childRows(row, profiles, sections),
     };

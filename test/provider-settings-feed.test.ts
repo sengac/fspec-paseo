@@ -325,4 +325,23 @@ describe("Feature: Serve fspec provider settings to Paseo plugin UI", () => {
       expect(byId.get("openai")).toMatchObject({ listing: "unlisted", models: [] });
     });
   });
+
+  describe("Scenario: A provider section with no credential row reports no configuration", () => {
+    it("answers configured and credential type null, listing from the section", async () => {
+      // @step Given the fspec daemon lists no credential row for openai and list_providers has a reachable section "openai:Strata" for profile "Strata" and an unreachable section "openai:spark" for profile "spark"
+      const { daemon, feed } = setup([anthropic]);
+      daemon.handlers.listProviders = (): wire.ProviderInfo[] => [
+        { key: "openai:Strata", displayName: "openai: Strata", models: [model("qwen")], profileName: "Strata", isUnreachable: false, providerId: "openai" },
+        { key: "openai:spark", displayName: "openai: spark", models: [], profileName: "spark", isUnreachable: true, providerId: "openai" },
+      ];
+      // @step When the client calls fspec.settings.list
+      const listed = await feed.list({});
+      if (listed.state !== "ready") throw new Error(listed.reason);
+      const byId = new Map(listed.providers.map((row) => [row.id, row]));
+      // @step Then "openai:Strata" has configured null, credential type null and listing "reachable"
+      expect(byId.get("openai:Strata")).toMatchObject({ configured: null, credentialType: null, listing: "reachable" });
+      // @step And "openai:spark" has configured null, credential type null and listing "unreachable"
+      expect(byId.get("openai:spark")).toMatchObject({ configured: null, credentialType: null, listing: "unreachable" });
+    });
+  });
 });

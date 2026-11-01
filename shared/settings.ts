@@ -24,8 +24,13 @@ export const settingsModelSchema = z.object({
 export const settingsProviderSchema = z.object({
   id: z.string(),
   displayName: z.string(),
-  configured: z.boolean(),
-  credentialType: z.string(),
+  /**
+   * FSPEC-072: list_provider_credentials' configured and credential_type; both
+   * null for a list_providers section no credential row lists (a profile
+   * section), for which fspec reports no configuration.
+   */
+  configured: z.boolean().nullable(),
+  credentialType: z.string().nullable(),
   maskedKey: z.string().nullable(),
   source: z.string().nullable(),
   modelCount: z.number(),

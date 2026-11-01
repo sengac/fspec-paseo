@@ -4,6 +4,7 @@
 @FSPEC-042
 @FSPEC-065
 @FSPEC-069
+@FSPEC-072
 Feature: Serve fspec provider settings to Paseo plugin UI
   """
   RPCs (shared/settings.ts, defineRpc + zod, like shared/board.ts): fspec.settings.list, fspec.settings.save-credentials {providerId, kind: api_key|custom, apiKey?, customEndpoint?, customApiKey?}, fspec.settings.remove-credentials, fspec.settings.test, fspec.settings.refresh-models {providerId | ''}. server/settings.ts createSettingsFeed() owns one FspecDaemonClient (lazy, reconnects after connection-lost), registered in index.server.ts. getCatalogCacheKey on the registration in server/provider.ts: a hash of list_provider_credentials (providerId, configured, credentialType, modelCount) + daemon target; FSPEC-065: a lookup that fails rejects with its reason, which Paseo shows as the provider's error. The client-side paseo.providers.refresh call after writes belongs to FSPEC-043 (the screen).
@@ -114,3 +115,9 @@ Feature: Serve fspec provider settings to Paseo plugin UI
     When the client calls fspec.settings.list
     Then anthropic has listing "reachable"
     And openai has listing "unlisted" and no models
+
+  Scenario: A provider section with no credential row reports no configuration
+    Given the fspec daemon lists no credential row for openai and list_providers has a reachable section "openai:Strata" for profile "Strata" and an unreachable section "openai:spark" for profile "spark"
+    When the client calls fspec.settings.list
+    Then "openai:Strata" has configured null, credential type null and listing "reachable"
+    And "openai:spark" has configured null, credential type null and listing "unreachable"

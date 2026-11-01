@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T04:02:05.058Z"
+    "lastUpdated": "2026-11-01T04:06:45.392Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -8318,6 +8318,106 @@
         "spec/attachments/FSPEC-071/root-cause.md",
         "spec/attachments/FSPEC-071/ast-research.md"
       ]
+    },
+    "FSPEC-072": {
+      "id": "FSPEC-072",
+      "title": "Represent a provider section with no credential row exactly",
+      "type": "bug",
+      "status": "done",
+      "createdAt": "2026-11-01T04:04:46.833Z",
+      "updatedAt": "2026-11-01T04:06:45.392Z",
+      "description": "server/settings.ts:218 sets configured: !provider.isUnreachable for a list_providers section with no list_provider_credentials row, guessing configuration from reachability, and labels it credentialType 'custom'. In fspec every such section is a profile section (build_local_profile_sections / build_inherited_profile_sections); list_provider_credentials reports nothing for it and the fspec TUI provider view lists only credential rows. Represent configured and credentialType as null (fspec reports none). Also transcript.ts:135 invents the error text 'tool failed'.",
+      "epic": "provider-settings",
+      "children": [],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T04:04:55.655Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T04:05:44.307Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T04:06:08.338Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T04:06:45.227Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T04:06:45.392Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "fspec's list_providers adds sections no list_provider_credentials row has only as profile sections (handle_impl_5.rs build_local_profile_sections and build_inherited_profile_sections); list_provider_credentials (handle_impl_7.rs:72-104) maps only list_providers_info entries, and the fspec TUI provider view lists only credential rows",
+          "deleted": false,
+          "createdAt": "2026-11-01T04:04:55.679Z"
+        },
+        {
+          "id": 1,
+          "text": "A settings row with no credential row has configured null and credentialType null: fspec reports no configuration for it, so it is never derived from is_unreachable",
+          "deleted": false,
+          "createdAt": "2026-11-01T04:04:55.700Z"
+        },
+        {
+          "id": 2,
+          "text": "Such a row's header reads '(no credential row in fspec)', it sorts after configured rows and cannot be tested or refreshed",
+          "deleted": false,
+          "createdAt": "2026-11-01T04:04:55.722Z"
+        },
+        {
+          "id": 3,
+          "text": "A failed tool row carries the error text fspec's tool result sent, never invented text",
+          "deleted": false,
+          "createdAt": "2026-11-01T04:04:55.743Z"
+        }
+      ],
+      "nextRuleId": 4,
+      "examples": [
+        {
+          "id": 0,
+          "text": "list_providers has a reachable section openai:Strata (profile Strata, base openai) and no credentials row lists openai -> its row has configured null, credentialType null, listing reachable",
+          "deleted": false,
+          "createdAt": "2026-11-01T04:04:55.765Z"
+        },
+        {
+          "id": 1,
+          "text": "the same section with is_unreachable true -> still configured null, listing unreachable",
+          "deleted": false,
+          "createdAt": "2026-11-01T04:04:55.787Z"
+        },
+        {
+          "id": 2,
+          "text": "a tool result with isError true and content 'exit 1' -> the failed row's error is 'exit 1'",
+          "deleted": false,
+          "createdAt": "2026-11-01T04:04:55.808Z"
+        }
+      ],
+      "nextExampleId": 3,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "shared/settings.ts configured and credentialType become nullable; server/settings.ts list() sets null for section-only rows; client/settings-model.ts headerStatus/buildTree read null; server/transcript.ts ToolState drops 'failed' from status so a failure is error !== null.",
+          "deleted": false,
+          "createdAt": "2026-11-01T04:05:04.364Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "userStory": {
+        "role": "Paseo user managing fspec providers",
+        "action": "see each provider's configuration exactly as fspec reports it",
+        "benefit": "the settings screen never claims a state fspec did not report"
+      },
+      "attachments": [
+        "spec/attachments/FSPEC-072/root-cause.md",
+        "spec/attachments/FSPEC-072/ast-research.md"
+      ],
+      "estimate": 3
     }
   },
   "states": {
@@ -8398,11 +8498,12 @@
       "FSPEC-068",
       "FSPEC-069",
       "FSPEC-070",
-      "FSPEC-071"
+      "FSPEC-071",
+      "FSPEC-072"
     ],
     "blocked": []
   },
   "prefixCounters": {
-    "FSPEC": 71
+    "FSPEC": 72
   }
 }

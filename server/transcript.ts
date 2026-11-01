@@ -38,7 +38,8 @@ interface ToolState {
   input: JsonValue;
   command: string | undefined;
   output: string | undefined;
-  status: "running" | "completed" | "failed" | "canceled";
+  /** A failed tool is a completed one with an error (see toolItem). */
+  status: "running" | "completed" | "canceled";
   error: string | null;
   revertToken?: JsonValue;
 }
@@ -66,7 +67,7 @@ const AGENT_MANAGER = "AgentManager";
 
 function isSpawnOf(state: ToolState, sessionId: string): boolean {
   const input = state.input;
-  if (state.name !== AGENT_MANAGER || state.status !== "completed" || state.output === undefined) return false;
+  if (state.name !== AGENT_MANAGER || state.status !== "completed" || state.error !== null || state.output === undefined) return false;
   if (input === null || typeof input !== "object" || Array.isArray(input) || input["action"] !== "spawn") return false;
   let result: unknown;
   try {
@@ -131,8 +132,9 @@ function toolItem(tool: ToolState): ProviderTimelineItem {
     ...(tool.revertToken !== undefined ? { revertToken: tool.revertToken } : {}),
     ...(workUnitOf(tool) !== undefined ? { metadata: { workUnitId: workUnitOf(tool)! } } : {}),
   };
-  return tool.status === "failed"
-    ? { ...base, status: "failed", error: tool.error ?? "tool failed" }
+  // A tool failed exactly when fspec's tool result sent an error text.
+  return tool.error !== null
+    ? { ...base, status: "failed", error: tool.error }
     : { ...base, status: tool.status, error: null };
 }
 
@@ -226,7 +228,7 @@ export function createTranscript(epoch: string) {
       case "toolResult": {
         const state = tool(chunk.toolResult.toolCallId, null);
         state.output = withoutStderrMarkers(chunk.toolResult.content);
-        state.status = chunk.toolResult.isError ? "failed" : "completed";
+        state.status = "completed";
         state.error = chunk.toolResult.isError ? state.output : null;
         row(toolItem(state));
         break;

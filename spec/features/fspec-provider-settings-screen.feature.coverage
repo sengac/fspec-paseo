@@ -7654,12 +7654,33 @@
           ]
         }
       ]
+    },
+    {
+      "name": "A provider with no credential row says so and sorts after configured providers",
+      "testMappings": [
+        {
+          "file": "test/provider-settings-screen.test.ts",
+          "lines": "390-404",
+          "implMappings": [
+            {
+              "file": "client/settings-model.ts",
+              "lines": [
+                96,
+                184,
+                185,
+                186,
+                192
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 11,
-    "coveredScenarios": 13,
-    "coveragePercent": 118,
+    "coveredScenarios": 14,
+    "coveragePercent": 127,
     "testFiles": [
       "test/provider-settings-screen.test.ts"
     ],
@@ -7672,6 +7693,6 @@
       "client/settings-screen.tsx",
       "client/settings-actions.ts"
     ],
-    "totalLinesCovered": 6527
+    "totalLinesCovered": 7708
   }
 }

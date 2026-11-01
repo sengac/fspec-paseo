@@ -51,8 +51,8 @@ const feedRows: SettingsProvider[] = [
       { name: "spark", baseUrl: "http://spark:8000/v1" },
     ],
   }),
-  row("openai:Strata", { displayName: "Strata", providerId: "openai", profileName: "Strata", configured: true, credentialType: "custom", modelCount: 1, listing: "reachable" }),
-  row("openai:spark", { displayName: "spark", providerId: "openai", profileName: "spark", configured: true, credentialType: "custom", modelCount: 1, listing: "reachable" }),
+  row("openai:Strata", { displayName: "Strata", providerId: "openai", profileName: "Strata", configured: null, credentialType: null, modelCount: 1, listing: "reachable" }),
+  row("openai:spark", { displayName: "spark", providerId: "openai", profileName: "spark", configured: null, credentialType: null, modelCount: 1, listing: "reachable" }),
   row("gemini", { displayName: "Gemini" }),
 ];
 
@@ -384,6 +384,22 @@ describe("Feature: Manage fspec providers from a Paseo settings screen", () => {
       expect(tree.find((p) => p.id === "openai")?.status).toBe("✓ sk-••••abcd · not listed by fspec");
       // @step And the Default model row offers only "anthropic/claude-sonnet-4"
       expect(choice.options.map((option) => option.value)).toEqual(["", "anthropic/claude-sonnet-4"]);
+    });
+  });
+
+  describe("Scenario: A provider with no credential row says so and sorts after configured providers", () => {
+    it("labels the row and keeps Test and Refresh off", () => {
+      // @step Given provider rows "openai:Strata" with configured null, credential type null and profile "Strata", and anthropic configured with OAuth
+      const rows = [
+        row("openai:Strata", { providerId: "openai", profileName: "Strata", configured: null, credentialType: null, listing: "reachable" }),
+        row("anthropic", { displayName: "Anthropic", configured: true, credentialType: "oauth", listing: "reachable" }),
+      ];
+      // @step When the settings screen builds its tree
+      const tree = buildTree(rows);
+      // @step Then the rows are anthropic then "openai:Strata"
+      expect(tree.map((provider) => provider.id)).toEqual(["anthropic", "openai:Strata"]);
+      // @step And the "openai:Strata" header reads "(no credential row in fspec)" and it cannot be tested or refreshed
+      expect(tree[1]).toMatchObject({ status: "(no credential row in fspec)", canTest: false, canRefresh: false });
     });
   });
 });

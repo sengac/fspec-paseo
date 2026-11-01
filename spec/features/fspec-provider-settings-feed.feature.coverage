@@ -1043,12 +1043,48 @@
           ]
         }
       ]
+    },
+    {
+      "name": "A provider section with no credential row reports no configuration",
+      "testMappings": [
+        {
+          "file": "test/provider-settings-feed.test.ts",
+          "lines": "329-346",
+          "implMappings": [
+            {
+              "file": "server/settings.ts",
+              "lines": [
+                214,
+                215,
+                216,
+                217,
+                218,
+                219,
+                220,
+                232
+              ]
+            },
+            {
+              "file": "shared/settings.ts",
+              "lines": [
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 9,
-    "coveredScenarios": 11,
-    "coveragePercent": 122,
+    "coveredScenarios": 12,
+    "coveragePercent": 133,
     "testFiles": [
       "test/provider-settings-feed.test.ts"
     ],
@@ -1058,6 +1094,6 @@
       "index.server.ts",
       "server/provider.ts"
     ],
-    "totalLinesCovered": 2254
+    "totalLinesCovered": 1067
   }
 }

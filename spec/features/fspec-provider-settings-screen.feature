@@ -5,6 +5,7 @@
 @FSPEC-047
 @FSPEC-065
 @FSPEC-069
+@FSPEC-072
 Feature: Manage fspec providers from a Paseo settings screen
   """
   Client layout mirrors the board: client/settings-model.ts (pure: grouping, row descriptions, which actions a row offers, form validation, result text), client/settings-actions.ts (pure orchestration of a write: call the RPC, then on success reload the list and call paseo.providers.refresh({ providers: ['fspec'] }); on failure return the error and do nothing else), client/settings-screen.tsx (thin React Native component using @getpaseo/plugin/client/ui SettingsSection/SettingsCard/SettingsRow/SettingsInput(secureTextEntry)/SettingsAction, Modal for confirm, useToast, useRpc, usePaseo), registerSettings in client/register.ts wired from index.client.tsx. Paseo owns header, Back, scrolling and the phone full-screen push (public-docs/plugins/reference.md 'Settings screens'). Manual check: open on a phone-width window.
@@ -122,3 +123,9 @@ Feature: Manage fspec providers from a Paseo settings screen
     When the settings screen builds its tree and its Default model row
     Then OpenAI's header reads "✓ sk-••••abcd · not listed by fspec"
     And the Default model row offers only "anthropic/claude-sonnet-4"
+
+  Scenario: A provider with no credential row says so and sorts after configured providers
+    Given provider rows "openai:Strata" with configured null, credential type null and profile "Strata", and anthropic configured with OAuth
+    When the settings screen builds its tree
+    Then the rows are anthropic then "openai:Strata"
+    And the "openai:Strata" header reads "(no credential row in fspec)" and it cannot be tested or refreshed

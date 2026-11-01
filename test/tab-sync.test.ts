@@ -85,7 +85,7 @@ describe("Feature: Keep Paseo agents and fspec agent tabs in sync", () => {
       // @step When Paseo opens session "paseo-1"
       const opened = await h.open("paseo-1");
       // @step Then the open still reaches session.ready
-      expect(opened.at(-1)).toMatchObject({ type: "session.ready", sessionId: "paseo-1" });
+      expect(opened).toContainEqual(expect.objectContaining({ type: "session.ready", sessionId: "paseo-1" }));
     });
   });
 });

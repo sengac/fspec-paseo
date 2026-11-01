@@ -67,14 +67,16 @@ describe("Feature: Find fspec sessions in Paseo's import list by their conversat
     });
   });
 
-  describe("Scenario: A failed history search falls back to name matching", () => {
-    it("lists name matches when the search errors", async () => {
-      // @step Given a persisted fspec session "sess-7" named "Refactor terminal" and persistence_search_history fails
-      const history = () => ({ ok: false as const, error: "history unavailable" });
+  describe("Scenario: A failed history search fails the list", () => {
+    it("fails the list with the search error", async () => {
+      // @step Given a persisted fspec session "sess-7" named "Refactor terminal" and persistence_search_history fails with "history unavailable"
+      const h = await harness();
+      h.daemon.handlers.listSessions = () => [REFACTOR];
+      h.daemon.handlers.persistenceSearchHistory = () => ({ ok: false as const, error: "history unavailable" });
       // @step When Paseo lists importable sessions with query "refactor"
-      const { sessions } = await search("refactor", history);
-      // @step Then it listed "sess-7"
-      expect(sessions.map((session) => session.id)).toEqual(["sess-7"]);
+      const reply = await h.send({ type: "sessions", requestId: "s-1", query: "refactor" });
+      // @step Then the list fails with "fspec daemon persistence_search_history failed: history unavailable"
+      expect(reply).toMatchObject({ type: "request.failed", error: { message: "fspec daemon persistence_search_history failed: history unavailable" } });
     });
   });
 

@@ -964,22 +964,35 @@
       "testMappings": [
         {
           "file": "test/session-lifecycle.test.ts",
-          "lines": "298-323",
+          "lines": "298-326",
           "implMappings": [
             {
               "file": "server/session.ts",
               "lines": [
-                1025,
-                1026,
-                1027,
-                1028,
-                1029,
-                1030,
-                1031,
-                1032,
-                1033,
-                1034,
-                1035
+                1433,
+                1434,
+                1435,
+                1436,
+                1437,
+                1438,
+                1439,
+                1440,
+                1441,
+                1442,
+                1443,
+                1444,
+                1445,
+                1446,
+                1447,
+                1448,
+                1449,
+                1450,
+                1451,
+                1452,
+                1453,
+                1454,
+                1455,
+                1456
               ]
             },
             {
@@ -1014,6 +1027,6 @@
       "server/attachments.ts",
       "server/catalog.ts"
     ],
-    "totalLinesCovered": 1108
+    "totalLinesCovered": 1124
   }
 }

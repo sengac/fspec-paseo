@@ -42,7 +42,7 @@ import {
   parseGoal,
 } from "./commands.js";
 import { createTranscript, type Transcript } from "./transcript.js";
-import { logFailure } from "./log.js";
+import { describeError, logFailure } from "./log.js";
 import { servedWorkspaces, servingWorkspace, within } from "./workspaces.js";
 import { parseStreamChunkJson } from "./transcript-json.js";
 import {
@@ -235,6 +235,26 @@ export function createSessionRegistry(deps: SessionDeps) {
   /** Checkpoints already seen ("<work unit>/<name>"); new ones become revert points. */
   const knownCheckpoints = new Set<string>();
   const checkpointKey = (c: { workUnitId: string; name: string }) => `${c.workUnitId}/${c.name}`;
+  let failureCounter = 0;
+
+  /**
+   * A failed background daemon call (FSPEC-067): logged, and shown as a
+   * warning notice while the session is still open.
+   */
+  function report(session: FspecSession, what: string, error: unknown): void {
+    logFailure(`${what} (${session.sessionId})`, error);
+    if (!sessions.has(session.sessionId)) return;
+    emit({
+      type: "session.notice",
+      sessionId: session.sessionId,
+      notice: {
+        id: `${session.epoch}:failure:${++failureCounter}`,
+        severity: "warning",
+        title: what,
+        description: describeError(error),
+      },
+    });
+  }
 
   async function rememberCheckpoints(): Promise<void> {
     const { checkpoints } = await request({ method: "listCheckpoints" });
@@ -575,9 +595,14 @@ export function createSessionRegistry(deps: SessionDeps) {
     emit({ type: "session.closed", sessionId: child.sessionId });
     // A child is never destroyed here, so its active mark is cleared by hand,
     // but only while it still holds it: another client may have moved it.
+    const parent = child.parentSessionId === undefined ? undefined : sessions.get(child.parentSessionId);
     void request({ method: "getActiveSession" })
       .then(({ sessionId }) => (sessionId === child.daemonSessionId ? request({ method: "clearActiveSession" }) : undefined))
-      .catch(() => {});
+      .catch((error: unknown) => {
+        const what = "fspec could not clear the closed sub-agent's active mark";
+        if (parent === undefined) logFailure(`${what} (${child.sessionId})`, error);
+        else report(parent, what, error);
+      });
   }
 
   /** One live todo row per session: the work unit the agent is focused on. */
@@ -594,15 +619,18 @@ export function createSessionRegistry(deps: SessionDeps) {
 
   async function seedFocus(session: FspecSession): Promise<void> {
     const { result } = await request({ method: "getWorkUnitFocus", sessionId: session.daemonSessionId });
+    if (!result.ok) throw new Error(`fspec daemon get_work_unit_focus failed: ${result.error}`);
     // Nothing to show until a work unit is focused; changes arrive as focusChanged.
-    if (result.ok && result.value.context !== null && sessions.has(session.sessionId)) {
+    if (result.value.context !== null && sessions.has(session.sessionId)) {
       publishFocus(session, result.value);
     }
   }
 
   /** Mirrors the fspec TUI: the session being driven shows as live on fspec's board. */
   function markActive(session: FspecSession): void {
-    void request({ method: "setActiveSession", sessionId: session.daemonSessionId }).catch(() => {});
+    void request({ method: "setActiveSession", sessionId: session.daemonSessionId }).catch((error: unknown) =>
+      report(session, "fspec could not mark this session active on its board", error),
+    );
   }
 
   /**
@@ -789,13 +817,20 @@ export function createSessionRegistry(deps: SessionDeps) {
     const open = session.pause;
     if (open === null) return;
     const reply = interactionReply(open.interaction, { behavior: "deny" });
-    await request({
-      method: "replyInteractionChecked",
-      sessionId: session.daemonSessionId,
-      interaction: reply.method,
-      requestId: open.interaction.requestId,
-      arguments: reply.arguments,
-    }).catch(() => {});
+    try {
+      const { result } = await request({
+        method: "replyInteractionChecked",
+        sessionId: session.daemonSessionId,
+        interaction: reply.method,
+        requestId: open.interaction.requestId,
+        arguments: reply.arguments,
+      });
+      unwrap(result, "reply_interaction_checked");
+    } catch (error) {
+      // The daemon still holds the request: it stays shown (FSPEC-067).
+      report(session, "fspec could not deny the request blocking the steer", error);
+      return;
+    }
     if (session.pause?.permissionId === open.permissionId) resolvePause(session);
   }
 
@@ -829,9 +864,10 @@ export function createSessionRegistry(deps: SessionDeps) {
    * fspec's destroy_session neither cascades nor keeps the chain of command,
    * so a closing session's sub-agents are collected before it goes. One that
    * another supervisor still needs is kept, along with its own sub-agents.
-   * Returns them deepest first; a failed lookup ends the walk early.
+   * Returns them deepest first; a failed lookup ends the walk early and is
+   * returned with what was found.
    */
-  async function subordinateTree(daemonSessionId: string): Promise<string[]> {
+  async function subordinateTree(daemonSessionId: string): Promise<{ order: string[]; failure: unknown }> {
     const closing = new Set([daemonSessionId]);
     const order: string[] = [];
     const visit = async (supervisor: string): Promise<void> => {
@@ -845,25 +881,40 @@ export function createSessionRegistry(deps: SessionDeps) {
         order.push(subordinate);
       }
     };
-    await visit(daemonSessionId).catch(() => {});
-    return order;
+    let failure: unknown = null;
+    try {
+      await visit(daemonSessionId);
+    } catch (error) {
+      failure = error;
+    }
+    return { order, failure };
   }
 
-  /** Destroys an owned session's sub-agent tree; failures never block the caller. */
-  async function destroySubordinates(daemonSessionId: string): Promise<void> {
-    for (const subordinate of await subordinateTree(daemonSessionId)) {
-      await request({ method: "destroySession", sessionId: subordinate }).catch(() => {});
+  /**
+   * Destroys an owned session's sub-agent tree. Failures never stop the
+   * caller destroying the session itself; they are returned, one line each.
+   */
+  async function destroySubordinates(daemonSessionId: string): Promise<string[]> {
+    const { order, failure } = await subordinateTree(daemonSessionId);
+    const problems = failure === null ? [] : [`the sub-agent lookup failed: ${describeError(failure)}`];
+    for (const subordinate of order) {
+      try {
+        unwrap((await request({ method: "destroySession", sessionId: subordinate })).result, "destroy_session");
+      } catch (error) {
+        problems.push(`${subordinate}: ${describeError(error)}`);
+      }
     }
+    return problems;
   }
 
   /**
    * Sessions whose typed prompts mention `query`, each with its most recent
-   * matching prompt. A failed search finds nothing, leaving name matches.
+   * matching prompt. A failed search fails the list (FSPEC-067).
    */
   async function matchingPrompts(query: string): Promise<Map<string, string>> {
     const prompts = new Map<string, string>();
-    const { result } = await request({ method: "persistenceSearchHistory", query }).catch(() => ({ result: null }));
-    if (!result?.ok) return prompts;
+    const { result } = await request({ method: "persistenceSearchHistory", query });
+    if (!result.ok) throw new Error(`fspec daemon persistence_search_history failed: ${result.error}`);
     const newestFirst = [...result.value].sort((a, b) => b.timestampIso.localeCompare(a.timestampIso));
     for (const match of newestFirst) {
       if (!prompts.has(match.sessionId)) prompts.set(match.sessionId, promptPreview(match.text, query));
@@ -938,6 +989,9 @@ export function createSessionRegistry(deps: SessionDeps) {
             : `fspec has no default model — fspec starts every session on its default model, so set one under fspec providers before opening ${input.config.model}`,
         );
       }
+      // Checkpoints already made are not this session's revert points; read
+      // before anything is created, so a failure leaves nothing behind (FSPEC-067).
+      await rememberCheckpoints();
       // A saved session may have been dropped from daemon memory (close calls
       // destroy_session); resume_session rebuilds it from its manifest.
       if (saved) await resume(saved.sessionId);
@@ -987,14 +1041,21 @@ export function createSessionRegistry(deps: SessionDeps) {
         );
       } catch (error) {
         if (!resumed) {
-          await request({ method: "destroySession", sessionId: daemonSessionId }).catch(() => {});
+          try {
+            unwrap((await request({ method: "destroySession", sessionId: daemonSessionId })).result, "destroy_session");
+          } catch (cleanup) {
+            // The original failure comes first; the failed cleanup is not hidden either.
+            logFailure(`destroying the half-opened fspec session ${daemonSessionId} failed`, cleanup);
+            throw new Error(
+              `${describeError(error)}; the fspec session ${daemonSessionId} it created could not be destroyed: ${describeError(cleanup)}`,
+            );
+          }
         }
         throw error;
       }
       sessions.set(session.sessionId, session);
       byDaemonId.set(daemonSessionId, session);
       markActive(session);
-      await rememberCheckpoints().catch(() => {});
       emit({
         type: "session.opened",
         requestId: input.requestId,
@@ -1026,7 +1087,7 @@ export function createSessionRegistry(deps: SessionDeps) {
         }
       }
       emit({ type: "session.ready", requestId: input.requestId, sessionId: input.sessionId });
-      void seedFocus(session).catch(() => {});
+      void seedFocus(session).catch((error: unknown) => report(session, "fspec work unit focus could not be read", error));
     },
 
     /**
@@ -1046,7 +1107,9 @@ export function createSessionRegistry(deps: SessionDeps) {
         const { status } = await request({ method: "getSessionStatus", sessionId: session.daemonSessionId });
         const { text } = await request({ method: "getPendingInput", sessionId: session.daemonSessionId });
         answer(status === "idle" && (text === null || text === ""));
-      } catch {
+      } catch (error) {
+        // Keeping the runtime is the only safe answer; Paseo asks again later.
+        logFailure(`fspec could not check whether the runtime can stop (${session.sessionId})`, error);
         answer(false);
       }
     },
@@ -1162,9 +1225,9 @@ export function createSessionRegistry(deps: SessionDeps) {
 
     async interrupt(input: Input<"session.interrupt">): Promise<void> {
       const session = live(input.sessionId);
-      // The stop is accepted here; the daemon's Interrupted chunk settles the turn.
+      // The daemon accepts the stop first (FSPEC-067); its Interrupted chunk settles the turn.
+      await request({ method: "interrupt", sessionId: session.daemonSessionId });
       emit({ type: "request.completed", requestId: input.requestId });
-      await request({ method: "interrupt", sessionId: session.daemonSessionId }).catch(() => {});
     },
 
     async configure(input: Input<"session.configure">): Promise<void> {
@@ -1236,15 +1299,20 @@ export function createSessionRegistry(deps: SessionDeps) {
         sessions.delete(session.sessionId);
         byDaemonId.delete(session.daemonSessionId);
         removeAttachments(attachmentKey(session));
+        let problems: string[] = [];
         if (session.owned) {
-          await destroySubordinates(session.daemonSessionId);
-          const { result } = await request({
-            method: "destroySession",
-            sessionId: session.daemonSessionId,
-          });
-          unwrap(result, "destroy_session");
+          // Sub-agent failures never keep the session itself alive (FSPEC-067).
+          problems = await destroySubordinates(session.daemonSessionId);
+          try {
+            unwrap((await request({ method: "destroySession", sessionId: session.daemonSessionId })).result, "destroy_session");
+          } catch (error) {
+            throw new Error([describeError(error), ...problems.map((problem) => `sub-agent ${problem}`)].join("; "));
+          }
         }
         emit({ type: "session.closed", sessionId: session.sessionId });
+        if (problems.length > 0) {
+          throw new Error(`fspec could not destroy every sub-agent of this session: ${problems.join("; ")}`);
+        }
       }
       emit({ type: "request.completed", requestId: input.requestId });
     },
@@ -1287,7 +1355,9 @@ export function createSessionRegistry(deps: SessionDeps) {
       }
       publish(session, chunk);
       if (chunk.type === "toolResult" && session.transcript.toolName(chunk.toolResult.toolCallId)?.toLowerCase() === "fspec") {
-        void attachCheckpoint(session, chunk.toolResult.toolCallId).catch(() => {});
+        void attachCheckpoint(session, chunk.toolResult.toolCallId).catch((error: unknown) =>
+          report(session, "fspec checkpoints could not be read — this fspec call has no revert point", error),
+        );
       }
       switch (chunk.type) {
         case "done":
@@ -1360,16 +1430,24 @@ export function createSessionRegistry(deps: SessionDeps) {
       emit({ type: "session.closed", sessionId: session.sessionId });
     },
 
-    /** Releases every daemon session and its sub-agents; failures are swallowed. */
+    /**
+     * Releases every daemon session and its sub-agents. Nothing is left to
+     * show a failure on, so each one is logged (FSPEC-067).
+     */
     async closeAll(): Promise<void> {
       for (const session of sessions.values()) removeAttachments(attachmentKey(session));
       const open = [...sessions.values()].filter((session) => session.owned);
       sessions.clear();
       byDaemonId.clear();
-      await Promise.allSettled(
+      await Promise.all(
         open.map(async (session) => {
-          await destroySubordinates(session.daemonSessionId);
-          await request({ method: "destroySession", sessionId: session.daemonSessionId });
+          const id = session.daemonSessionId;
+          for (const problem of await destroySubordinates(id)) logFailure(`fspec could not destroy a sub-agent of ${id}`, problem);
+          try {
+            unwrap((await request({ method: "destroySession", sessionId: id })).result, "destroy_session");
+          } catch (error) {
+            logFailure(`fspec could not destroy session ${id}`, error);
+          }
         }),
       );
     },

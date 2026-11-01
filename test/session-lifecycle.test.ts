@@ -296,7 +296,7 @@ describe("Feature: Drive the fspec session lifecycle from Paseo", () => {
   });
 
   describe("Scenario: Closing the connection releases every open session", () => {
-    it("destroys all sessions, swallows failures, and is idempotent", async () => {
+    it("destroys all sessions, logs failures, and is idempotent", async () => {
       // @step Given the provider has 3 open fspec sessions mapped to daemon ids A, B, and C
       const h = await harness();
       const ids = ["A", "B", "C"];
@@ -309,12 +309,15 @@ describe("Feature: Drive the fspec session lifecycle from Paseo", () => {
         return { ok: true, value: undefined };
       };
       const count = h.events.length;
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
       // @step When the provider connection is closed
       await expect(h.connection.close()).resolves.toBeUndefined();
       // @step Then destroy_session was issued for A, B, and C and the session registry was cleared
       expect(h.daemon.sent("destroySession").map((request) => request.sessionId).sort()).toEqual(["A", "B", "C"]);
       await expect(h.connection.send(h.prompt("paseo-a", "hello"))).rejects.toThrow(/closed/);
-      // @step And close resolved without throwing even when one destroy failed, is idempotent on a second call, and emitted no events after close
+      // @step And close resolved without throwing even when one destroy failed, logged that failure, is idempotent on a second call, and emitted no events after close
+      expect(logged).toHaveBeenCalledWith(expect.stringMatching(/^\[fspec\] fspec could not destroy session B: .*boom/));
+      logged.mockRestore();
       await expect(h.connection.close()).resolves.toBeUndefined();
       expect(h.daemon.sent("destroySession")).toHaveLength(3);
       h.daemon.push("A", { type: "done" });

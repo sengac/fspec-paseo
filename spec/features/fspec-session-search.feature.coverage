@@ -135,51 +135,31 @@
       ]
     },
     {
-      "name": "A failed history search falls back to name matching",
+      "name": "A failed history search fails the list",
       "testMappings": [
         {
           "file": "test/session-search.test.ts",
-          "lines": "70-79",
+          "lines": "70-81",
           "implMappings": [
             {
               "file": "server/session.ts",
               "lines": [
-                136,
-                137,
-                138,
-                139,
-                140,
-                141,
-                142,
-                143,
-                144,
-                145,
-                674,
-                675,
-                676,
-                677,
-                678,
-                679,
-                680,
-                681,
-                682,
-                683,
-                684,
-                850,
-                851,
-                852,
-                853,
-                854,
-                855,
-                856,
-                857,
-                858,
-                859,
-                860,
-                861,
-                862,
-                863,
-                864
+                910,
+                911,
+                912,
+                913,
+                914,
+                915,
+                916,
+                917,
+                918,
+                919,
+                920,
+                921,
+                922,
+                923,
+                924,
+                925
               ]
             }
           ]
@@ -191,7 +171,7 @@
       "testMappings": [
         {
           "file": "test/session-search.test.ts",
-          "lines": "81-90",
+          "lines": "83-92",
           "implMappings": [
             {
               "file": "server/session.ts",
@@ -250,6 +230,6 @@
       "server/session.ts",
       "server/wire.ts"
     ],
-    "totalLinesCovered": 211
+    "totalLinesCovered": 193
   }
 }

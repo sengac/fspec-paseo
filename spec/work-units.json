@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:37:40.103Z"
+    "lastUpdated": "2026-11-01T03:42:14.515Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -7810,16 +7810,138 @@
       "id": "FSPEC-067",
       "title": "Report every failed background daemon call of a session",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-11-01T03:22:19.715Z",
-      "updatedAt": "2026-11-01T03:23:57.181Z",
+      "updatedAt": "2026-11-01T03:42:14.515Z",
       "description": "server/session.ts swallows failures of set_active_session, interrupt, the cleanup destroy of a half-opened session, list_checkpoints, get_work_unit_focus, checkpoint attachment, the steer's deny reply, a child's clear_active_session, sub-agent destroys and the prompt search. Each failure is logged and, where the user is affected, shown as a session notice or fails the request; a failed cleanup never hides the original error.",
       "epic": "provider-plugin",
       "children": [],
       "attachments": [
         "spec/attachments/FSPEC-067/root-cause.md",
         "spec/attachments/FSPEC-067/ast-research.md"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:38:26.704Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:39:00.307Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:40:15.435Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T03:42:07.379Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T03:42:14.515Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "A failed background daemon call of a session is logged '[fspec] <what> (<paseo session>): <reason>' and, while the session is open, shown as a warning session.notice titled <what> with the reason",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:26.741Z"
+        },
+        {
+          "id": 1,
+          "text": "set_active_session (markActive), get_work_unit_focus (an RPC failure or an error result), list_checkpoints after an fspec call and the steer's deny reply (an RPC failure or an error result; the request then stays shown) are reported that way",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:26.766Z"
+        },
+        {
+          "id": 2,
+          "text": "A sub-agent child's get_active_session/clear_active_session failure is reported on its parent",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:26.789Z"
+        },
+        {
+          "id": 3,
+          "text": "session.interrupt sends interrupt before request.completed; a failure answers request.failed",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:26.811Z"
+        },
+        {
+          "id": 4,
+          "text": "list_checkpoints is read before any daemon session is created; a failure fails the open and creates nothing",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:26.832Z"
+        },
+        {
+          "id": 5,
+          "text": "A failed cleanup destroy after a failed open keeps the original error first: '<original>; the fspec session <id> it created could not be destroyed: <reason>'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:26.853Z"
+        },
+        {
+          "id": 6,
+          "text": "Closing a session still destroys and closes it when sub-agent lookups or destroys fail, then answers request.failed 'fspec could not destroy every sub-agent of this session: <id>: <reason>; ...'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:26.875Z"
+        },
+        {
+          "id": 7,
+          "text": "A failed persistence_search_history fails the import list with 'fspec daemon persistence_search_history failed: <reason>'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:26.900Z"
+        },
+        {
+          "id": 8,
+          "text": "can_stop_runtime read failures and connection-close destroy failures are logged; can_stop_runtime still answers false",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:26.921Z"
+        }
+      ],
+      "nextRuleId": 9,
+      "examples": [
+        {
+          "id": 0,
+          "text": "set_active_session rejects 'board busy' on open -> notice 'fspec could not mark this session active on its board' / description containing 'board busy'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:26.945Z"
+        },
+        {
+          "id": 1,
+          "text": "interrupt rejects 'Session not found' -> request.failed with it, no request.completed",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:26.967Z"
+        },
+        {
+          "id": 2,
+          "text": "set_session_model fails 'unknown model' and destroy_session then fails 'busy' -> open fails 'fspec daemon set_session_model failed: unknown model; the fspec session fspec-sess-42 it created could not be destroyed: fspec daemon destroy_session failed: busy'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:26.987Z"
+        },
+        {
+          "id": 3,
+          "text": "sub-9 destroy fails 'busy' -> fspec-sess-42 destroyed, session.closed, request.failed 'fspec could not destroy every sub-agent of this session: sub-9: fspec daemon destroy_session failed: busy'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:27.009Z"
+        },
+        {
+          "id": 4,
+          "text": "persistence_search_history answers Err('history unavailable') -> the list fails 'fspec daemon persistence_search_history failed: history unavailable'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:27.032Z"
+        }
+      ],
+      "nextExampleId": 5,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/session.ts: report(session, what, error) via server/log.ts logFailure + session.notice; subordinateTree returns { order, failure }; destroySubordinates returns failure descriptions; open() reads list_checkpoints first; interrupt awaits before completing. New feature spec/features/fspec-session-failure-reports.feature; fspec-session-search, fspec-subordinate-close, fspec-session-lifecycle and fspec-idle-runtime scenarios updated.",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:38:27.054Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "estimate": 5
     },
     "FSPEC-068": {
       "id": "FSPEC-068",
@@ -7839,7 +7961,6 @@
   },
   "states": {
     "backlog": [
-      "FSPEC-067",
       "FSPEC-068"
     ],
     "specifying": [],
@@ -7913,7 +8034,8 @@
       "FSPEC-063",
       "FSPEC-064",
       "FSPEC-065",
-      "FSPEC-066"
+      "FSPEC-066",
+      "FSPEC-067"
     ],
     "blocked": []
   },

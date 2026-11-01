@@ -2,8 +2,8 @@
 @provider
 @core
 @FSPEC-005
+@FSPEC-067
 Feature: Drive the fspec session lifecycle from Paseo
-
   """
   Session lifecycle lives on top of the FSPEC-003 daemon client (server/daemon.ts connection + RPC transport) and the FSPEC-002 wire codec (server/wire.ts). A per-Paseo-session registry maps Paseo sessionId -> { daemonSessionId, model, thinking, activeTurnId, turnCounter }. Daemon RPCs: create_session_checked (idx 121; the legacy create_session idx 3 until FSPEC-039), send_input (idx 4), interrupt (idx 5), set_session_model (idx 29), set_thinking_level (idx 39), send_input_with_thinking (idx 46), destroy_session (idx 87). Turn settlement is driven by the daemon's terminal stream chunks: Done(13) -> completed, Error(14) -> failed, Interrupted(9)/InterruptedWithReason(30) -> canceled; exactly-once guarded per turnId. Transient timeline rows (FSPEC-006) are terminalized before the terminal turn event. ProviderPersistence is {version:1, data:{sessionId, model?, thinkingOption?}}.
   """
@@ -22,7 +22,7 @@ Feature: Drive the fspec session lifecycle from Paseo
   #   7. session.close calls daemon destroy_session (RPC idx 87) with the mapped daemon SessionId, removes the session from the registry, and emits session.closed followed by request.completed; close of an unknown session is a no-op that still completes the request
   #   8. model and thinking selection are per-session: session.open applies config.model/config.thinkingOption (or catalog defaults), and session.configure applies changes.model via set_session_model and changes.thinkingOption via set_thinking_level for that session only; after applying, the provider publishes the committed session.config and then request.completed
   #   9. any input (prompt, interrupt, configure, close) targeting an unknown or already-closed Paseo sessionId is rejected with a clear 'Unknown session' error — thrown synchronously for prompt (no requestId to answer) or surfaced as request.failed for request-id inputs
-  #   10. connection.close() releases every open session (destroy_session for each mapped daemon session) without throwing — a failing destroy is swallowed, the connection is idempotent (second close is a no-op), and no events are emitted after close
+  #   10. connection.close() releases every open session (destroy_session for each mapped daemon session) without throwing — a failing destroy is logged (FSPEC-067; there is no session left to show it on), the connection is idempotent (second close is a no-op), and no events are emitted after close
   #
   # EXAMPLES:
   #   1. Opening a fresh fspec session (no persistence on the open input) creates a daemon session; the daemon returns id 'fspec-sess-42' and the plugin remembers it, exposing {version:1, data:{sessionId:'fspec-sess-42'}} as the session's persistence. Later reopening (Paseo refresh) with that same persistence reuses the existing daemon session instead of creating a new one.
@@ -37,7 +37,6 @@ Feature: Drive the fspec session lifecycle from Paseo
   #   10. The plugin has 3 open fspec sessions (daemon ids A, B, C). connection.close() destroys ALL of them — destroy_session(A), destroy_session(B), destroy_session(C) are each issued — then clears the registry. It resolves without throwing even if one destroy fails (a failing destroy is swallowed), it is idempotent (a second close() is a no-op), and no provider events are emitted after close() returns.
   #
   # ========================================
-
   Background: User Story
     As a Paseo user
     I want to open, drive, and stop an fspec agent session from Paseo
@@ -105,4 +104,4 @@ Feature: Drive the fspec session lifecycle from Paseo
     Given the provider has 3 open fspec sessions mapped to daemon ids A, B, and C
     When the provider connection is closed
     Then destroy_session was issued for A, B, and C and the session registry was cleared
-    And close resolved without throwing even when one destroy failed, is idempotent on a second call, and emitted no events after close
+    And close resolved without throwing even when one destroy failed, logged that failure, is idempotent on a second call, and emitted no events after close

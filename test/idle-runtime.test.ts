@@ -4,7 +4,7 @@
  * This test file validates the acceptance criteria defined in the feature file.
  * Scenarios in this test map directly to scenarios in the Gherkin feature.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { disposeHarnesses, harness } from "./support/provider-harness.js";
 
 afterEach(disposeHarnesses);
@@ -49,6 +49,7 @@ describe("Feature: Answer Paseo idle-runtime checks for fspec sessions", () => {
       // @step Given an open idle fspec session whose get_session_status fails
       const h = await harness();
       await h.open("paseo-1");
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
       h.daemon.handlers.getSessionStatus = () => {
         throw new Error("boom");
       };
@@ -56,6 +57,9 @@ describe("Feature: Answer Paseo idle-runtime checks for fspec sessions", () => {
       const reply = await h.send(ask("q-4"));
       // @step Then the provider answered canStop false
       expect(reply).toMatchObject({ type: "session.can_stop_runtime", canStop: false });
+      // @step And the plugin log has the failed check
+      expect(logged).toHaveBeenCalledWith(expect.stringMatching(/^\[fspec\] fspec could not check whether the runtime can stop \(paseo-1\): .*boom/));
+      logged.mockRestore();
     });
   });
 });

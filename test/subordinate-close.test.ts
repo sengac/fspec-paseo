@@ -70,8 +70,12 @@ describe("Feature: Close fspec sub-agent sessions when their Paseo parent closes
       const settled = await h.send({ type: "session.close", requestId: "close-1", sessionId: "paseo-1" });
       // @step Then the provider sent destroy_session for "fspec-sess-42" and emitted session.closed for "paseo-1"
       expect(destroyed(h)).toEqual(["sub-9", PARENT]);
-      expect(settled?.type).toBe("request.completed");
       expect(h.ofType("session.closed").map((event) => event.sessionId)).toEqual(["paseo-1"]);
+      // @step And the close answers request.failed "fspec could not destroy every sub-agent of this session: sub-9: fspec daemon destroy_session failed: busy"
+      expect(settled).toMatchObject({
+        type: "request.failed",
+        error: { message: "fspec could not destroy every sub-agent of this session: sub-9: fspec daemon destroy_session failed: busy" },
+      });
     });
   });
 

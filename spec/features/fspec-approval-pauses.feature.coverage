@@ -5,72 +5,30 @@
       "testMappings": [
         {
           "file": "test/approval-pauses.test.ts",
-          "lines": "50-72",
+          "lines": "60-82",
           "implMappings": [
             {
               "file": "server/session.ts",
               "lines": [
-                361,
-                362,
-                363,
-                364,
-                365,
-                366,
-                367,
-                368,
-                369,
-                370,
-                371,
-                372,
-                373,
-                374,
-                375,
-                922,
-                923,
-                924,
-                925,
-                926,
-                927,
-                928,
-                929,
-                930,
-                931,
-                932,
-                933,
-                934,
-                935,
-                936,
-                937,
-                938,
-                939,
-                940,
-                941,
-                942,
-                943,
-                944,
-                945,
-                946,
-                947,
-                948,
-                949,
-                950,
-                951,
-                952,
-                953,
-                954,
-                955,
-                956,
-                957,
-                958,
-                959,
-                960,
-                961,
-                962,
-                963,
-                964,
-                965,
-                966,
-                967
+                448,
+                449,
+                450,
+                451,
+                452,
+                453,
+                454,
+                455,
+                456,
+                457,
+                458,
+                459,
+                460,
+                461,
+                462,
+                463,
+                464,
+                465,
+                466
               ]
             },
             {
@@ -621,26 +579,104 @@
       ]
     },
     {
-      "name": "An approval without a known tool call id uses the running tool call",
+      "name": "An approval without a known tool call id is shown unattached",
       "testMappings": [
         {
           "file": "test/approval-pauses.test.ts",
-          "lines": "173-184",
+          "lines": "183-200",
           "implMappings": [
             {
               "file": "server/session.ts",
               "lines": [
-                439,
-                440,
-                441,
-                442,
-                443,
-                444,
-                445,
-                446,
-                447,
-                448,
-                449
+                463,
+                464,
+                465
+              ]
+            },
+            {
+              "file": "server/interactions.ts",
+              "lines": [
+                120,
+                121,
+                122,
+                123,
+                124,
+                125,
+                126,
+                127,
+                128,
+                129,
+                130
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A pause that cannot be read is reported",
+      "testMappings": [
+        {
+          "file": "test/approval-pauses.test.ts",
+          "lines": "202-218",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                450,
+                451,
+                452,
+                453,
+                468,
+                469,
+                470,
+                471,
+                473,
+                474,
+                475,
+                476,
+                477,
+                478,
+                479,
+                480,
+                481,
+                482,
+                483,
+                484,
+                485,
+                486,
+                1255
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "An unknown pause kind is reported, not read as a confirm",
+      "testMappings": [
+        {
+          "file": "test/approval-pauses.test.ts",
+          "lines": "220-237",
+          "implMappings": [
+            {
+              "file": "server/interactions.ts",
+              "lines": [
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71,
+                72,
+                73,
+                74,
+                75,
+                76,
+                86
               ]
             }
           ]
@@ -650,8 +686,8 @@
   ],
   "stats": {
     "totalScenarios": 6,
-    "coveredScenarios": 8,
-    "coveragePercent": 133,
+    "coveredScenarios": 10,
+    "coveragePercent": 167,
     "testFiles": [
       "test/approval-pauses.test.ts"
     ],
@@ -662,6 +698,6 @@
       "server/provider.ts",
       "server/wire.ts"
     ],
-    "totalLinesCovered": 620
+    "totalLinesCovered": 683
   }
 }

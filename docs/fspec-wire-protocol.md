@@ -618,7 +618,10 @@ details text. `get_interaction_snapshot` returns `Result<String, String>` JSON
 (`sessions/src/background_session/interactions.rs`); it carries the `request_id` every
 answer must quote (`reply_interaction_checked`, idx 120) but **no tool call id**. The plugin
 therefore reads the snapshot for the request and `get_pause_state` only for
-`tool_call_id`, so the Paseo permission is attached to the gated tool call (FSPEC-050).
+`tool_call_id`, so the Paseo permission is attached to the gated tool call (FSPEC-050). Without
+a `tool_call_id` the transcript knows, the permission is shown unattached — never matched to a
+guessed (e.g. running) call; a snapshot or pause state the plugin cannot read, or a pause kind
+other than Confirm/Triple/Continue, is shown as an error notice (FSPEC-059).
 
 ### 6.9 Steer, queue and interrupt — `submit_input` (idx 128, RIG-016)
 

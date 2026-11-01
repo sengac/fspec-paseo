@@ -60,16 +60,30 @@ const text = (value: unknown): string => (typeof value === "string" ? value : ""
  * Parses the snapshot JSON { pause: { request_id, state }, hitl: { request_id, state } }.
  * A pause wins over a HITL question; null when nothing is pending.
  */
+/** The snapshot's pause kind (fspec PauseKind: Confirm, Triple, Continue); any other is an error. */
+function pauseKindOf(kind: string): PauseKind {
+  switch (kind.toLowerCase()) {
+    case "confirm":
+      return "confirm";
+    case "triple":
+      return "triple";
+    case "continue":
+      return "continue";
+    default:
+      throw new Error(`unknown fspec pause kind ${kind}`);
+  }
+}
+
 export function parseInteractionSnapshot(json: string): Interaction | null {
   const snapshot = record(JSON.parse(json)) ?? {};
   const pause = record(snapshot["pause"]);
   const pauseState = record(pause?.["state"]);
   if (pause && pauseState) {
-    const kind = text(pauseState["kind"]).toLowerCase();
+    const kind = text(pauseState["kind"]);
     return {
       kind: "pause",
       requestId: text(pause["request_id"]),
-      pauseKind: kind === "triple" ? "triple" : kind === "continue" ? "continue" : "confirm",
+      pauseKind: pauseKindOf(kind),
       toolName: text(pauseState["tool_name"]),
       message: text(pauseState["message"]),
       details: typeof pauseState["details"] === "string" ? pauseState["details"] : null,
@@ -106,8 +120,9 @@ export function questionHeader(question: HitlQuestion): string {
 
 /**
  * The Paseo permission request for an interaction. `gatedTool` is the tool
- * call the pause holds: named by get_pause_state's tool_call_id when known
- * (then carried as metadata.toolCallId), else the running tool call.
+ * call get_pause_state's tool_call_id names (carried as metadata.toolCallId);
+ * undefined when it names none the transcript knows, and the request then
+ * carries no detail (FSPEC-059).
  */
 export function permissionRequest(
   interaction: Interaction,

@@ -450,7 +450,7 @@ export function createSessionRegistry(deps: SessionDeps) {
   async function openPause(session: FspecSession): Promise<void> {
     const generation = ++session.pauseGeneration;
     const { result } = await request({ method: "getInteractionSnapshot", sessionId: session.daemonSessionId });
-    if (!result.ok) return;
+    if (!result.ok) throw new Error(`fspec daemon get_interaction_snapshot failed: ${result.error}`);
     const parsed = parseInteractionSnapshot(result.value);
     // The snapshot names no tool call: get_pause_state's tool_call_id does (fspec BUG-291).
     const pause = parsed?.kind === "pause" ? await pauseState(session) : null;
@@ -460,17 +460,29 @@ export function createSessionRegistry(deps: SessionDeps) {
     if (!sessions.has(session.sessionId) || session.pause !== null) return;
     const permissionId = `${session.epoch}:${interaction.kind}:${generation}`;
     session.pause = { permissionId, interaction };
+    // FSPEC-059: only the call tool_call_id names; without a known one the approval stands alone.
     const gated = pause?.toolCallId ? session.transcript.toolCall(pause.toolCallId) : undefined;
-    showPermission(session, permissionRequest(interaction, permissionId, gated ?? session.transcript.runningToolCall()));
+    showPermission(session, permissionRequest(interaction, permissionId, gated));
   }
 
-  /** The daemon's PauseState, or null when it has none or cannot be read. */
+  /** The daemon's PauseState; null when the session holds none. */
   async function pauseState(session: FspecSession): Promise<PauseState | null> {
-    try {
-      return (await request({ method: "getPauseState", sessionId: session.daemonSessionId })).pause;
-    } catch {
-      return null;
-    }
+    return (await request({ method: "getPauseState", sessionId: session.daemonSessionId })).pause;
+  }
+
+  /** A pause the provider could not read is shown, never dropped (FSPEC-059). */
+  function pauseUnreadable(session: FspecSession, error: unknown): void {
+    if (!sessions.has(session.sessionId)) return;
+    emit({
+      type: "session.notice",
+      sessionId: session.sessionId,
+      notice: {
+        id: `${session.epoch}:pause-error:${session.pauseGeneration}`,
+        severity: "error",
+        title: "fspec paused this session but the pause could not be read",
+        description: error instanceof Error ? error.message : String(error),
+      },
+    });
   }
 
   /**
@@ -1240,7 +1252,7 @@ export function createSessionRegistry(deps: SessionDeps) {
       if (chunk.type === "sessionStateChange") {
         if (chunk.state === "paused") {
           session.pausedNow = true;
-          void openPause(session).catch(() => {});
+          void openPause(session).catch((error: unknown) => pauseUnreadable(session, error));
         } else {
           resolvePause(session);
         }

@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:02:18.512Z"
+    "lastUpdated": "2026-11-01T03:04:30.265Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -7024,16 +7024,84 @@
       "id": "FSPEC-059",
       "title": "Attach approval pauses to their tool call by id only",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-11-01T02:49:35.687Z",
-      "updatedAt": "2026-11-01T02:53:12.839Z",
+      "updatedAt": "2026-11-01T03:04:30.265Z",
       "description": "FSPEC-050 attaches a pause without a tool_call_id to the most recent running tool call, a guess that can attach the approval to the wrong call. Attach by get_pause_state's tool_call_id only; without one the approval is shown unattached. A failed get_pause_state or get_interaction_snapshot read is reported to the user instead of being swallowed.",
       "epic": "provider-plugin",
       "children": [],
       "attachments": [
         "spec/attachments/FSPEC-059/root-cause.md",
         "spec/attachments/FSPEC-059/ast-research.md"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:02:23.224Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:02:53.855Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:03:26.135Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T03:04:30.143Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T03:04:30.265Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "An approval is attached only to the tool call get_pause_state's tool_call_id names (shell detail and metadata.toolCallId from that call); with no id, or an id the transcript does not know, it is shown unattached: name and description from the snapshot, no detail, no metadata",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:02:53.553Z"
+        },
+        {
+          "id": 1,
+          "text": "A pause the provider cannot read (get_interaction_snapshot or get_pause_state failing, or a pause kind other than Confirm, Triple or Continue) is reported as an error notice 'fspec paused this session but the pause could not be read' naming the reason, never silently dropped",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:02:53.576Z"
+        }
+      ],
+      "nextRuleId": 2,
+      "examples": [
+        {
+          "id": 0,
+          "text": "Bash call-1 running, get_pause_state tool_call_id None -> permission named Bash, no detail, no metadata (was: call-1's detail)",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:02:53.597Z"
+        },
+        {
+          "id": 1,
+          "text": "get_interaction_snapshot answers Err('interaction state unavailable') -> error notice 'fspec paused this session but the pause could not be read' with description 'interaction state unavailable', no permission",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:02:53.615Z"
+        },
+        {
+          "id": 2,
+          "text": "Snapshot pause kind 'Quadruple' -> error notice with description 'unknown fspec pause kind Quadruple'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:02:53.635Z"
+        }
+      ],
+      "nextExampleId": 3,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/session.ts openPause attaches by transcript.toolCall(tool_call_id) only; transcript.runningToolCall removed; pauseState no longer swallows errors; getInteractionSnapshot Err throws; the Paused handler reports openPause failures with session.notice (severity error). server/interactions.ts parseInteractionSnapshot throws on an unknown pause kind.",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:02:53.653Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "estimate": 2
     },
     "FSPEC-060": {
       "id": "FSPEC-060",
@@ -7068,7 +7136,6 @@
   },
   "states": {
     "backlog": [
-      "FSPEC-059",
       "FSPEC-060",
       "FSPEC-061"
     ],
@@ -7135,7 +7202,8 @@
       "FSPEC-047",
       "FSPEC-056",
       "FSPEC-057",
-      "FSPEC-058"
+      "FSPEC-058",
+      "FSPEC-059"
     ],
     "blocked": []
   },

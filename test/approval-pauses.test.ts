@@ -19,18 +19,28 @@ const DETAILS = "An AI coding agent is about to run this shell command";
 const TRIPLE: SnapshotPause = { requestId: "p-1", kind: "Triple", toolName: "Bash", message: MESSAGE, details: DETAILS };
 
 /** An open session whose running turn is paused on Bash call-1. */
-async function paused(pause: SnapshotPause) {
+async function paused(pause: SnapshotPause, toolCallId: string | null = "call-1") {
   const h = await harness();
   await h.open("paseo-1");
   await h.send(h.prompt("paseo-1", "check processes"));
   await h.waitFor("session.turn", (event) => event.state === "started");
   h.daemon.handlers.getInteractionSnapshot = () => interactionSnapshot({ pause });
+  h.daemon.handlers.getPauseState = () => ({ kind: "triple", prompt: `${pause.toolName}: ${pause.message}`, details: null, toolCallId });
   await h.stream(DAEMON, toolCall("call-1", "Bash", { command: "ps -axo pid" }), {
     type: "sessionStateChange",
     state: "paused",
   });
   const request = await h.waitFor("session.permission");
   return { h, request };
+}
+
+/** An open session whose turn is running, nothing paused yet. */
+async function running() {
+  const h = await harness();
+  await h.open("paseo-1");
+  await h.send(h.prompt("paseo-1", "check processes"));
+  await h.waitFor("session.turn", (event) => event.state === "started");
+  return h;
 }
 
 const answer = (permissionId: string, response: { behavior: "allow" | "deny"; selectedActionId?: string }) => ({
@@ -53,7 +63,7 @@ describe("Feature: Surface fspec tool approval pauses as Paseo permission reques
       // @step When the daemon reports SessionStateChange Paused and the interaction snapshot holds a Triple pause with tool_name "Bash", message "RLCD security: P(risk)=0.46 >= promptThreshold 0.45" and details "An AI coding agent is about to run this shell command"
       const { h, request } = await paused(TRIPLE);
       expect(h.daemon.sent("getInteractionSnapshot")).toEqual([{ method: "getInteractionSnapshot", sessionId: DAEMON }]);
-      // @step Then the provider emitted one session.permission with kind tool, name "Bash", a description holding the message and the details, and shell detail "ps -axo pid" from the running tool call
+      // @step Then the provider emitted one session.permission with kind tool, name "Bash", a description holding the message and the details, and shell detail "ps -axo pid" from the tool call get_pause_state names
       expect(h.ofType("session.permission")).toHaveLength(1);
       expect(request.request).toMatchObject({
         kind: "tool",
@@ -170,16 +180,59 @@ describe("Feature: Surface fspec tool approval pauses as Paseo permission reques
     });
   });
 
-  describe("Scenario: An approval without a known tool call id uses the running tool call", () => {
-    it("falls back to the most recent running tool call", async () => {
+  describe("Scenario: An approval without a known tool call id is shown unattached", () => {
+    it("never attaches the approval to a guessed tool call", async () => {
       // @step Given an fspec session whose turn is running Bash tool call "call-1" with command "ps -axo pid"
-      // @step When the daemon reports SessionStateChange Paused and get_pause_state names no tool call
-      const { h, request } = await paused(TRIPLE);
+      // @step When the daemon reports SessionStateChange Paused and get_pause_state names no tool call, and later names the unknown tool call "call-9"
+      const { h, request } = await paused(TRIPLE, null);
       expect(h.daemon.sent("getPauseState")).toHaveLength(1);
-      // @step Then the provider emitted one session.permission with shell detail "ps -axo pid" and no toolCallId metadata
-      expect(h.ofType("session.permission")).toHaveLength(1);
-      expect(request.request.detail).toEqual({ type: "shell", command: "ps -axo pid" });
-      expect(request.request.metadata).toBeUndefined();
+      await h.stream(DAEMON, { type: "sessionStateChange", state: "running" });
+      h.daemon.handlers.getPauseState = () => ({ kind: "triple", prompt: "Bash: risky", details: null, toolCallId: "call-9" });
+      await h.stream(DAEMON, { type: "sessionStateChange", state: "paused" });
+      await vi.waitFor(() => expect(h.ofType("session.permission")).toHaveLength(2));
+      // @step Then each session.permission is named "Bash" with the snapshot's description, no detail and no toolCallId metadata
+      for (const event of [request, h.ofType("session.permission")[1]!]) {
+        expect(event.request).toMatchObject({ name: "Bash", description: `${MESSAGE}\n\n${DETAILS}` });
+        expect(event.request.detail).toBeUndefined();
+        expect(event.request.metadata).toBeUndefined();
+      }
+    });
+  });
+
+  describe("Scenario: A pause that cannot be read is reported", () => {
+    it("emits an error notice instead of dropping the pause", async () => {
+      // @step Given an fspec session whose turn is running
+      const h = await running();
+      // @step When the daemon reports SessionStateChange Paused and get_interaction_snapshot answers "interaction state unavailable"
+      h.daemon.handlers.getInteractionSnapshot = () => ({ ok: false, error: "interaction state unavailable" });
+      await h.stream(DAEMON, { type: "sessionStateChange", state: "paused" });
+      const notice = await h.waitFor("session.notice", (event) => event.notice.severity === "error");
+      // @step Then the provider emitted an error session.notice "fspec paused this session but the pause could not be read" with the description "fspec daemon get_interaction_snapshot failed: interaction state unavailable"
+      expect(notice.notice).toMatchObject({
+        title: "fspec paused this session but the pause could not be read",
+        description: "fspec daemon get_interaction_snapshot failed: interaction state unavailable",
+      });
+      // @step And it emitted no session.permission
+      expect(h.ofType("session.permission")).toEqual([]);
+    });
+  });
+
+  describe("Scenario: An unknown pause kind is reported, not read as a confirm", () => {
+    it("emits an error notice for an unknown kind", async () => {
+      // @step Given an fspec session whose turn is running
+      const h = await running();
+      // @step When the daemon reports SessionStateChange Paused and the interaction snapshot holds a pause of kind "Quadruple"
+      h.daemon.handlers.getInteractionSnapshot = () =>
+        interactionSnapshot({ pause: { ...TRIPLE, kind: "Quadruple" as SnapshotPause["kind"] } });
+      await h.stream(DAEMON, { type: "sessionStateChange", state: "paused" });
+      const notice = await h.waitFor("session.notice", (event) => event.notice.severity === "error");
+      // @step Then the provider emitted an error session.notice "fspec paused this session but the pause could not be read" with the description "unknown fspec pause kind Quadruple"
+      expect(notice.notice).toMatchObject({
+        title: "fspec paused this session but the pause could not be read",
+        description: "unknown fspec pause kind Quadruple",
+      });
+      // @step And it emitted no session.permission
+      expect(h.ofType("session.permission")).toEqual([]);
     });
   });
 

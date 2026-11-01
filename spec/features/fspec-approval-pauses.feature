@@ -3,10 +3,10 @@
 @provider
 @FSPEC-016
 @FSPEC-050
+@FSPEC-059
 Feature: Surface fspec tool approval pauses as Paseo permission requests
-
   """
-  server/wire.ts getPauseState/pauseConfirm/pauseTriple (idx 80/77/78); server/session.ts turns live Paused into session.permission and answers via pause RPCs; provider.ts advertises 'permission' and routes session.permission. FSPEC-050: PauseState is { kind, prompt, details, tool_call_id } since fspec BUG-291; the permission is attached to the tool call named by tool_call_id (transcript.toolCall), falling back to the running tool call.
+  server/wire.ts getPauseState/pauseConfirm/pauseTriple (idx 80/77/78); server/session.ts turns live Paused into session.permission and answers via pause RPCs; provider.ts advertises 'permission' and routes session.permission. FSPEC-050: PauseState is { kind, prompt, details, tool_call_id } since fspec BUG-291; the permission is attached to the tool call named by tool_call_id (transcript.toolCall). FSPEC-059: never to a guessed call — without a known id it is shown unattached; a pause that cannot be read (snapshot or pause state failing, unknown pause kind) is an error notice.
   """
 
   # ========================================
@@ -20,7 +20,8 @@ Feature: Surface fspec tool approval pauses as Paseo permission requests
   #   4. A session.permission answer maps to pause_triple (Approve / ApproveSession / Deny) or pause_confirm (accept true / false); without selectedActionId, allow maps to Approve/accept and deny to Deny/reject
   #   5. Each pause gets exactly one session.permission_resolved: after the answer is applied, or when the pause ends another way (state leaves Paused, the turn ends, the session closes or the daemon connection drops)
   #   6. A session.permission for an unknown session is rejected synchronously with Unknown session; an answer for a pause that already resolved is ignored
-  #   7. FSPEC-050: get_pause_state decodes PauseState { kind, prompt, details, tool_call_id }; the permission takes its name and detail from the tool call tool_call_id names and carries metadata.toolCallId; without a known id it falls back to the most recent running tool call
+  #   7. FSPEC-050: get_pause_state decodes PauseState { kind, prompt, details, tool_call_id }; the permission takes its name and detail from the tool call tool_call_id names and carries metadata.toolCallId; FSPEC-059: without a known id the approval is shown unattached (no detail, no metadata), never matched to a guessed call
+  #   8. FSPEC-059: a pause the provider cannot read (get_interaction_snapshot or get_pause_state failing, or an unknown pause kind) is an error notice 'fspec paused this session but the pause could not be read' naming the reason
   #
   # EXAMPLES:
   #   1. Live: Bash 'ps -axo pid,etime,comm | grep -i system_profiler' -> Paused; get_pause_state = Triple 'Bash: RLCD security: P(risk)=0.46282515 >= promptThreshold 0.45 ...' -> Paseo shows Approve / Approve for session / Deny with the shell command; choosing Approve calls pause_triple(session, Approve) and the tool runs and streams its output
@@ -29,7 +30,6 @@ Feature: Surface fspec tool approval pauses as Paseo permission requests
   #   4. FSPEC-050: Bash call-1 'ps -axo pid' and Read call-2 both running; get_pause_state names tool_call_id 'call-1' -> detail shell 'ps -axo pid', metadata { toolCallId: 'call-1' }
   #
   # ========================================
-
   Background: User Story
     As a Paseo user running an fspec agent
     I want to approve or deny the tool calls fspec pauses on, right in Paseo
@@ -38,21 +38,18 @@ Feature: Surface fspec tool approval pauses as Paseo permission requests
   Scenario: A paused tool call becomes a Paseo permission request
     Given an fspec session whose turn is running Bash tool call "call-1" with command "ps -axo pid"
     When the daemon reports SessionStateChange Paused and the interaction snapshot holds a Triple pause with tool_name "Bash", message "RLCD security: P(risk)=0.46 >= promptThreshold 0.45" and details "An AI coding agent is about to run this shell command"
-    Then the provider emitted one session.permission with kind tool, name "Bash", a description holding the message and the details, and shell detail "ps -axo pid" from the running tool call
+    Then the provider emitted one session.permission with kind tool, name "Bash", a description holding the message and the details, and shell detail "ps -axo pid" from the tool call get_pause_state names
     And its actions are Approve (allow), Approve for session (allow) and Deny (deny)
-
 
   Scenario: Approving a paused tool resumes it
     Given an open permission request for a Triple pause
     When Paseo answers it with selectedActionId "approve_session"
     Then the provider answered the pause with pause_triple ApproveSession through reply_interaction_checked and then emitted session.permission_resolved for that request
 
-
   Scenario: Denying a confirm pause rejects it
     Given an open permission request for a Confirm pause "Allow writing outside the workspace?" with actions accept and deny
     When Paseo answers it with behavior deny
     Then the provider answered the pause with pause_confirm accept false through reply_interaction_checked and emitted session.permission_resolved
-
 
   Scenario: Stopping the turn resolves an open pause
     Given an open permission request for a paused tool call
@@ -60,28 +57,35 @@ Feature: Surface fspec tool approval pauses as Paseo permission requests
     Then the provider emitted session.permission_resolved for the request before the canceled turn event
     And a later answer for that request calls no pause RPC
 
-
   Scenario: Pause RPCs match the daemon's encoding
     Given Rust golden vectors for Option<PauseState> and the pause_confirm and pause_triple arguments
     When the codec encodes and decodes those values
     Then the bytes match the golden vectors exactly
     And the pause state carries the details "rm -rf build" and the tool call id "call-1" as separate fields
 
-
   Scenario: A paused tool call's approval is attached to the call it gates
     Given an fspec session whose turn is running Bash tool call "call-1" with command "ps -axo pid" and then Read tool call "call-2"
     When the daemon reports SessionStateChange Paused and get_pause_state names tool call "call-1"
     Then the provider emitted one session.permission named "Bash" with shell detail "ps -axo pid" and metadata toolCallId "call-1"
 
-
-  Scenario: An approval without a known tool call id uses the running tool call
+  Scenario: An approval without a known tool call id is shown unattached
     Given an fspec session whose turn is running Bash tool call "call-1" with command "ps -axo pid"
-    When the daemon reports SessionStateChange Paused and get_pause_state names no tool call
-    Then the provider emitted one session.permission with shell detail "ps -axo pid" and no toolCallId metadata
+    When the daemon reports SessionStateChange Paused and get_pause_state names no tool call, and later names the unknown tool call "call-9"
+    Then each session.permission is named "Bash" with the snapshot's description, no detail and no toolCallId metadata
 
+  Scenario: A pause that cannot be read is reported
+    Given an fspec session whose turn is running
+    When the daemon reports SessionStateChange Paused and get_interaction_snapshot answers "interaction state unavailable"
+    Then the provider emitted an error session.notice "fspec paused this session but the pause could not be read" with the description "fspec daemon get_interaction_snapshot failed: interaction state unavailable"
+    And it emitted no session.permission
+
+  Scenario: An unknown pause kind is reported, not read as a confirm
+    Given an fspec session whose turn is running
+    When the daemon reports SessionStateChange Paused and the interaction snapshot holds a pause of kind "Quadruple"
+    Then the provider emitted an error session.notice "fspec paused this session but the pause could not be read" with the description "unknown fspec pause kind Quadruple"
+    And it emitted no session.permission
 
   Scenario: A permission answer for an unknown session is rejected
     Given a sessionId the provider never opened
     When Paseo sends a session.permission for it
     Then the input is rejected synchronously with Unknown session
-

@@ -54,7 +54,7 @@ function liveSession(id: string, workUnitId: string | null): wire.SessionInfo {
 
 function setup(units: wire.WorkUnitInfo[] = [], sessions: wire.SessionInfo[] = []) {
   const home = tempHome();
-  home.writeDaemonJson();
+  home.writeDaemonEntry();
   const daemon = new FakeDaemon();
   daemon.handlers.getWorkspaceInfo = () => ({ cwd: "/ws", gitBranch: null });
   daemon.initialWorkUnits = units;

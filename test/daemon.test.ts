@@ -2,7 +2,7 @@
  * Feature: spec/features/fspec-daemon-connection.feature
  *
  * Validates the fspec daemon client (server/daemon.ts): target resolution
- * (explicit connect URL vs daemon.json), loopback-only enforcement before any
+ * (explicit connect URL vs the daemons/<pid>.json entries), loopback-only enforcement before any
  * socket, the connect/handshake (WorkUnitsUpdate + SessionSnapshot),
  * connection-drop handling, and clean idempotent shutdown.
  *
@@ -77,12 +77,12 @@ let xdgDir: string;
 let homeDir: string;
 
 /**
- * `sub` differs by location, exactly as the daemon resolves it:
- * $XDG_RUNTIME_DIR/fspec/daemon.json vs ~/.fspec/daemon.json.
+ * Writes one daemon's discovery entry. `sub` differs by location, exactly as
+ * the daemon resolves it: $XDG_RUNTIME_DIR/fspec/daemons vs ~/.fspec/daemons.
  */
-function writeDaemonJson(dir: string, port: number, pid: number, sub = ".fspec"): string {
-  mkdirSync(join(dir, sub), { recursive: true });
-  const path = join(dir, sub, "daemon.json");
+function writeEntry(dir: string, port: number, pid: number, sub = ".fspec"): string {
+  mkdirSync(join(dir, sub, "daemons"), { recursive: true });
+  const path = join(dir, sub, "daemons", `${pid}.json`);
   writeFileSync(path, JSON.stringify({ port, pid, workspace: root }));
   return path;
 }
@@ -129,18 +129,21 @@ afterEach(() => {
 });
 
 describe("Feature: Discover and connect to the fspec daemon", () => {
-  describe("Scenario: A valid daemon.json yields a connected client", () => {
+  describe("Scenario: A live daemon entry yields a connected client", () => {
     it("resolves the loopback URL and completes the handshake", async () => {
-      // @step Given a valid daemon.json exists at the resolved path with a live pid
-      const path = writeDaemonJson(homeDir, 41413, 4321);
+      // @step Given daemons/4321.json names a live daemon on port 41413 whose workspace holds the client's directory
+      const path = writeEntry(homeDir, 41413, 4321);
       expect(existsSync(path)).toBe(true);
       // @step And provider configuration does not set an explicit connect URL
       const { client, sockets } = clientFor({ pidAlive: true });
+      mkdirSync(join(root, "project"));
+      client.bindDirectory(join(root, "project"));
       // @step When the plugin resolves the daemon target and connects
       const target = await client.resolveTarget();
       await client.connect();
-      // @step Then the resolved target is the loopback WebSocket URL from daemon.json
+      // @step Then the resolved target is the loopback WebSocket URL from that entry
       expect(target.url).toBe("ws://127.0.0.1:41413/");
+      expect(target.entryPath).toBe(path);
       expect(sockets.length).toBe(1);
       // @step And the connection completes the handshake after receiving the initial WorkUnitsUpdate and SessionSnapshot
       expect(client.handshake).toEqual({
@@ -153,10 +156,10 @@ describe("Feature: Discover and connect to the fspec daemon", () => {
     });
   });
 
-  describe("Scenario: Missing daemon.json reports unavailable with an actionable diagnostic", () => {
-    it("reports available:false naming the resolved path and the fix", async () => {
-      // @step Given no daemon.json exists at the resolved path
-      const expected = join(homeDir, ".fspec", "daemon.json");
+  describe("Scenario: No live daemon reports unavailable with an actionable diagnostic", () => {
+    it("reports available:false naming the daemons directory and the fix", async () => {
+      // @step Given the daemons directory holds no entry
+      const expected = join(homeDir, ".fspec", "daemons");
       expect(existsSync(expected)).toBe(false);
       // @step And provider configuration does not set an explicit connect URL
       const { client, sockets } = clientFor({});
@@ -164,28 +167,27 @@ describe("Feature: Discover and connect to the fspec daemon", () => {
       const status = await client.status();
       // @step Then status reports available false
       expect(status.available).toBe(false);
-      // @step And the diagnostic says no daemon.json was found at the resolved path and to start the fspec daemon
-      expect(status.diagnostic).toContain(`no daemon.json found at ${expected}`);
-      expect(status.diagnostic).toContain("start fspec daemon");
+      // @step And the diagnostic says no fspec daemon is running, names the daemons directory and says to start the fspec daemon
+      expect(status.diagnostic).toBe(`no fspec daemon is running — no live entry in ${expected}; start fspec daemon first`);
       expect(sockets.length).toBe(0); // status() opens no socket
       await client.close();
     });
   });
 
-  describe("Scenario: A stale daemon.json is removed and reported", () => {
-    it("deletes the stale file and reports it", async () => {
-      // @step Given a daemon.json exists whose pid is dead
-      const path = writeDaemonJson(homeDir, 41413, 999999);
+  describe("Scenario: A dead daemon's entry counts as no daemon", () => {
+    it("reports no daemon and leaves the entry", async () => {
+      // @step Given daemons/999999.json names a daemon whose pid is dead
+      const path = writeEntry(homeDir, 41413, 999999);
       const { client } = clientFor({ pidAlive: false });
       // @step When Paseo calls the provider's status()
       const status = await client.status();
-      // @step Then the stale daemon.json file is removed from disk
-      expect(existsSync(path)).toBe(false);
-      // @step And status reports available false
-      expect(status.available).toBe(false);
-      // @step And the diagnostic says the stale daemon.json was removed and to start the fspec daemon
-      expect(status.diagnostic).toContain(`stale daemon.json removed at ${path}`);
-      expect(status.diagnostic).toContain("start fspec daemon");
+      // @step Then status reports available false with the no-daemon diagnostic
+      expect(status).toEqual({
+        available: false,
+        diagnostic: `no fspec daemon is running — no live entry in ${join(homeDir, ".fspec", "daemons")}; start fspec daemon first`,
+      });
+      // @step And the entry is left on disk for fspec to prune
+      expect(existsSync(path)).toBe(true);
       await client.close();
     });
   });
@@ -208,11 +210,11 @@ describe("Feature: Discover and connect to the fspec daemon", () => {
     });
   });
 
-  describe("Scenario: The explicit connect URL wins over daemon.json", () => {
-    it("uses the explicit URL and never reads daemon.json", async () => {
-      // @step Given provider configuration sets an explicit connect URL on a different port than daemon.json
-      // @step And a valid daemon.json exists at the resolved path
-      const path = writeDaemonJson(homeDir, 41413, 4321);
+  describe("Scenario: The explicit connect URL wins over discovery", () => {
+    it("uses the explicit URL and never reads the daemons directory", async () => {
+      // @step Given provider configuration sets an explicit connect URL on a different port than the live daemon entry
+      // @step And a live daemon entry exists in the daemons directory
+      const path = writeEntry(homeDir, 41413, 4321);
       const { client, sockets } = clientFor({
         connectUrl: "ws://127.0.0.1:5555",
         pidAlive: true,
@@ -223,27 +225,27 @@ describe("Feature: Discover and connect to the fspec daemon", () => {
       expect(target.url).toBe("ws://127.0.0.1:5555/");
       await client.connect();
       expect(sockets.length).toBe(1);
-      // @step And the daemon.json file is never read
+      // @step And the daemons directory is never read
       expect(existsSync(path)).toBe(true);
-      expect(client.readDaemonJsonCount).toBe(0);
+      expect(client.discoveryReadCount).toBe(0);
       await client.close();
     });
   });
 
-  describe("Scenario: XDG_RUNTIME_DIR wins over the home directory for daemon.json", () => {
-    it("resolves the XDG path and its port", async () => {
-      // @step Given both the XDG_RUNTIME_DIR daemon.json (port 6001) and the home directory daemon.json (port 7001) exist
-      writeDaemonJson(xdgDir, 6001, 4321, "fspec");
-      writeDaemonJson(homeDir, 7001, 4321);
+  describe("Scenario: XDG_RUNTIME_DIR wins over the home directory for daemon entries", () => {
+    it("resolves the XDG entry and its port", async () => {
+      // @step Given both the XDG_RUNTIME_DIR daemons directory (port 6001) and the home directory daemons directory (port 7001) hold a live entry
+      writeEntry(xdgDir, 6001, 4321, "fspec");
+      writeEntry(homeDir, 7001, 4321);
       // @step And XDG_RUNTIME_DIR is set and non-empty
       const { client } = clientFor({
         env: { XDG_RUNTIME_DIR: xdgDir },
         pidAlive: true,
       });
-      // @step When the plugin resolves the daemon.json path
+      // @step When the plugin resolves the daemon target
       const target = await client.resolveTarget();
-      // @step Then the resolved path is under XDG_RUNTIME_DIR
-      expect(target.daemonJsonPath).toBe(join(xdgDir, "fspec", "daemon.json"));
+      // @step Then the resolved entry is under XDG_RUNTIME_DIR
+      expect(target.entryPath).toBe(join(xdgDir, "fspec", "daemons", "4321.json"));
       // @step And the resolved port is 6001
       expect(target.port).toBe(6001);
       await client.close();
@@ -253,7 +255,7 @@ describe("Feature: Discover and connect to the fspec daemon", () => {
   describe("Scenario: A mid-session connection drop is surfaced as connection lost", () => {
     it("transitions to connection-lost and tears down without reconnecting", async () => {
       // @step Given the plugin has an established daemon connection
-      writeDaemonJson(homeDir, 41413, 4321);
+      writeEntry(homeDir, 41413, 4321);
       const { client, sockets } = clientFor({ pidAlive: true });
       const events: string[] = [];
       client.onEvent((event) => events.push(event.type));
@@ -279,7 +281,7 @@ describe("Feature: Discover and connect to the fspec daemon", () => {
   describe("Scenario: Unloading the plugin closes the daemon connection cleanly", () => {
     it("closes the socket and releases all state, idempotently", async () => {
       // @step Given the plugin has an open daemon connection
-      writeDaemonJson(homeDir, 41413, 4321);
+      writeEntry(homeDir, 41413, 4321);
       const { client, sockets } = clientFor({ pidAlive: true });
       const unsubscribe = client.onEvent(() => {});
       await client.connect();
@@ -303,7 +305,7 @@ describe("Feature: Discover and connect to the fspec daemon", () => {
   describe("Scenario: An unreachable daemon fails the connect with a diagnostic", () => {
     it("fails the connect naming the resolved target", async () => {
       // @step Given a valid loopback target was resolved
-      writeDaemonJson(homeDir, 41413, 4321);
+      writeEntry(homeDir, 41413, 4321);
       const { client } = clientFor({ pidAlive: true, refuseConnect: true });
       // @step When the plugin attempts to connect and the connection is refused
       // @step Then connect fails

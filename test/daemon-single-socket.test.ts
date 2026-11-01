@@ -18,7 +18,7 @@ afterEach(() => {
 
 function liveHome() {
   const home = tempHome();
-  home.writeDaemonJson();
+  home.writeDaemonEntry();
   homes.push(home);
   return home;
 }

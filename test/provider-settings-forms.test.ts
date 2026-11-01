@@ -57,7 +57,7 @@ function built(form: ReturnType<typeof settingsForm>) {
 
 function daemonWithStrata() {
   const home = tempHome();
-  home.writeDaemonJson();
+  home.writeDaemonEntry();
   const daemon = new FakeDaemon();
   daemon.handlers.listProviderSettings = () => ({
     ok: true,

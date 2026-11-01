@@ -52,8 +52,9 @@ export function createFspecProvider(
       // Lightweight availability probe: resolve + validate, never a socket.
       return probe.status();
     },
-    async getCatalogCacheKey() {
-      return catalogCacheKey(daemonOptions);
+    async getCatalogCacheKey(request) {
+      // A workspace-scoped lookup is bound to Paseo's cwd (FSPEC-060).
+      return catalogCacheKey(request.scope === "workspace" ? { ...daemonOptions, directory: request.cwd } : daemonOptions);
     },
     async connect(request) {
       if (!request.versions.includes(1)) {
@@ -69,7 +70,9 @@ export function createFspecProvider(
  * Paseo reuses a provider catalog while its cache key is unchanged (FSPEC-042).
  * The key hashes the daemon target and its credential state, so a key added or
  * removed anywhere (Paseo or the fspec TUI) makes Paseo re-fetch the models.
- * One short-lived socket per lookup; no key while the daemon is unreachable.
+ * One short-lived socket per lookup. No key while no single daemon can be
+ * reached: Paseo then shares no catalog, and the catalog request itself
+ * reports the reason.
  */
 async function catalogCacheKey(options: DaemonClientOptions): Promise<string | undefined> {
   const daemon = createFspecDaemonClient(options);
@@ -149,9 +152,9 @@ function createConnection(
   });
 
   async function dispatch(input: ProviderInput): Promise<void> {
-    // The first directory this connection serves picks its daemon (FSPEC-054).
+    // The first directory this connection serves binds its daemon (FSPEC-054, FSPEC-060).
     const cwd = input.type === "session.open" ? input.config.cwd : "cwd" in input ? input.cwd : undefined;
-    if (cwd !== undefined) daemon.preferWorkspace(cwd);
+    if (cwd !== undefined) daemon.bindDirectory(cwd);
     switch (input.type) {
       case "catalog": {
         const { providers } = await request({ method: "listProviders" });

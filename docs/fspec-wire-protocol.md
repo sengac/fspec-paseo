@@ -5,7 +5,8 @@ Source of truth: `rust/rpc-server/src/{envelope,transport,pump,server,bounded_re
 `rust/fspec-tui/src/transport/websocket.rs`, `rust/fspec/src/common/daemon_registry.rs`. Verified at commit
 `626eee1e`; re-verified at `344d00b4` (method order `rust/rpc/tests/fixtures/wire_order_frozen.txt`, indices
 124–128, Envelope 9, PauseState details/tool_call_id, InputMode, discovery files, bearer auth); re-verified at
-`76cb29f6` (fspec HEAD: `ProviderInfo.provider_id`, `send_input` results, workspace-scoped card details and moves).
+`76cb29f6` (fspec HEAD: `ProviderInfo.provider_id`, `send_input` results, workspace-scoped card details and moves,
+explicit daemons/ discovery).
 Wire codec: **bincode 1.3.3 free functions** (`bincode::serialize` / `bincode::deserialize`).
 
 ---
@@ -53,9 +54,23 @@ entries whose pid is alive (ordered by pid) and deletes the rest. A daemon claim
 `daemon.json` only when it is missing or names a dead pid (`claim_default_pointer`); on
 shutdown it removes `daemon.json` only if it names itself, then points it at another live
 daemon (`release_default_pointer`). So `daemon.json` names one live daemon, not
-necessarily the last one started. The plugin (FSPEC-054) prefers the live entry whose
-`workspace` holds the Paseo directory (deepest match), then `daemon.json`, then the
-lowest-pid live entry; it ignores dead entries without deleting them.
+necessarily the last one started.
+
+**Plugin discovery (FSPEC-060).** The plugin reads only the live `daemons/<pid>.json`
+entries, never `daemon.json` (every daemon it can name has an entry). An explicit URL
+(`connectUrl`, `FSPEC_DAEMON_URL`) wins. A client bound to a Paseo directory uses the one
+live entry whose `workspace` holds it; a client bound to none (settings, catalog key
+without a cwd) uses the one live entry. None or several fail naming every live daemon:
+`no fspec daemon serves <dir> — the live daemons are pid <p> in <ws> (port <n>), …; start
+fspec in <dir>, or set FSPEC_DAEMON_URL to choose a daemon`, `<k> fspec daemons serve
+<dir> — …; stop all but one, or set FSPEC_DAEMON_URL to choose one`, `<k> fspec daemons
+are running and this connection serves no directory — …`, and with no live entry `no
+fspec daemon is running — no live entry in <daemons dir>; start fspec daemon first`. The
+workspace registry (`rust/common/src/workspace_registry.rs`, `{data_dir}/workspaces.json`)
+is shared by every daemon of one data directory and records each one's start workspace,
+so it cannot tell daemons apart and is not used. Dead and unparseable entries are not
+daemons; the plugin leaves them for fspec to delete. `status()` is available when at
+least one live entry exists (it chooses none).
 
 ### 1.2 WebSocket URL and loopback rule
 
@@ -65,7 +80,7 @@ lowest-pid live entry; it ignores dead entries without deleting them.
   external binds are out of scope (future card)`.
 - On successful bind the daemon prints the **port** (decimal) to stdout and flushes.
 - Client connects to: `ws://127.0.0.1:<port>` (path `/`) for the standard surface.
-- Explicit `--connect <ws-url>` bypasses daemon.json autodiscovery.
+- Explicit `--connect <ws-url>` bypasses daemon.json autodiscovery (the plugin's `FSPEC_DAEMON_URL` bypasses its daemons/ discovery).
 - **Bearer auth (RPC-447):** a daemon started with env `FSPEC_DAEMON_TOKEN` answers every
   WebSocket upgrade whose `Authorization` header is not exactly `Bearer <token>` with HTTP
   401 (`rust/rpc/src/auth_token.rs`, `rpc-server/src/server` `handle_connection`). Clients

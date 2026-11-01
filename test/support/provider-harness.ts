@@ -67,7 +67,7 @@ export const CATALOG: wire.ProviderInfo[] = [
 
 export async function harness() {
   const home = tempHome();
-  home.writeDaemonJson();
+  home.writeDaemonEntry();
   const daemon = new FakeDaemon();
   daemon.handlers.listProviders = () => CATALOG;
   // fspec's default model: the catalog's first model, like a configured fspec.

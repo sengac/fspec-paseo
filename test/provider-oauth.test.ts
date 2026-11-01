@@ -25,7 +25,7 @@ function deferred<T>() {
 
 function setup() {
   const home = tempHome();
-  home.writeDaemonJson();
+  home.writeDaemonEntry();
   const daemon = new FakeDaemon();
   const feed = createSettingsFeed(daemonOptions(home, daemon), { oauthHoldMs: 30 });
   disposers.push(home.dispose, () => feed.close());

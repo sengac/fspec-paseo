@@ -35,9 +35,9 @@ Feature: Scaffold the fspec Paseo provider plugin project
     And the provider declares no `command`
 
   Scenario: Scaffold reports unavailable with a diagnostic
-    Given no fspec daemon is reachable (the provider is pointed at an empty daemon.json location)
+    Given no fspec daemon is reachable (the provider is pointed at an empty daemons directory)
     When Paseo calls the provider's `status()`
-    Then the provider reports `{ available: false }` with a user-actionable diagnostic naming the missing piece (e.g. 'no fspec daemon reachable' or 'no daemon.json found ... start fspec daemon first')
+    Then the provider reports `{ available: false }` with a user-actionable diagnostic naming the missing piece (e.g. 'no fspec daemon reachable' or 'no fspec daemon is running ... start fspec daemon first')
 
   Scenario: Scaffold registers a provider and closes a connected session cleanly
     Given the scaffold's test harness loads the contribution function

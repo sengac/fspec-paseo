@@ -47,7 +47,7 @@ const QWEN = { id: "qwen3-coder", displayName: "Qwen3 Coder", contextWindow: 327
 
 function setup() {
   const home = tempHome();
-  home.writeDaemonJson();
+  home.writeDaemonEntry();
   const daemon = new FakeDaemon();
   daemon.handlers.addCustomModel = () => ({ ok: true, value: undefined });
   daemon.handlers.updateCustomModel = () => ({ ok: true, value: undefined });

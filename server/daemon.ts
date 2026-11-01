@@ -2,16 +2,17 @@
  * Feature: spec/features/fspec-daemon-connection.feature
  *
  * The fspec daemon client: target resolution (explicit connect URL wins over
- * daemon.json autodiscovery), loopback-only enforcement before any socket,
+ * discovery of the live daemons/<pid>.json entries, FSPEC-060), loopback-only
+ * enforcement before any socket,
  * the WebSocket connect + handshake (WorkUnitsUpdate then SessionSnapshot),
  * request/response RPC over the FSPEC-002 codec, connection-lost handling, and
  * clean idempotent shutdown.
  *
  * No bincode lives here — every byte is produced/consumed by server/wire.ts.
  */
-import { existsSync, readdirSync, readFileSync, rmSync } from "node:fs";
+import { readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
-import { dirname, join } from "node:path";
+import { join } from "node:path";
 import { within } from "./workspaces.js";
 import {
   decodeEnvelope,
@@ -41,8 +42,8 @@ export interface DaemonTarget {
   url: string;
   host: string;
   port: number;
-  /** Present only when the target came from daemon.json autodiscovery. */
-  daemonJsonPath?: string;
+  /** The daemons/<pid>.json entry the target came from; absent for an explicit URL. */
+  entryPath?: string;
 }
 
 /**
@@ -73,11 +74,13 @@ export interface SocketLike {
 }
 
 export interface DaemonClientOptions {
-  /** Explicit connect URL (provider configuration). Wins over daemon.json. */
+  /** Explicit connect URL (provider configuration). Wins over discovery. */
   connectUrl?: string;
+  /** The Paseo directory this client serves (FSPEC-060); see bindDirectory. */
+  directory?: string;
   /** Environment used for FSPEC_DAEMON_URL / XDG_RUNTIME_DIR lookups. */
   env?: Record<string, string | undefined>;
-  /** Override for the home directory used by ~/.fspec/daemon.json. */
+  /** Override for the home directory used by ~/.fspec/daemons. */
   homeDir?: string;
   /** pid liveness probe (kill(pid,0); EPERM counts as alive). */
   isPidAlive?: (pid: number) => boolean;
@@ -115,14 +118,15 @@ export interface FspecDaemonClient {
   readonly outstandingRequests: number;
   readonly activeSockets: number;
   readonly listenerCount: number;
-  /** How many times daemon.json was actually read (0 when a URL was explicit). */
-  readonly readDaemonJsonCount: number;
+  /** How many times the daemons directory was read (0 when a URL was explicit). */
+  readonly discoveryReadCount: number;
   resolveTarget(): Promise<DaemonTarget>;
   /**
-   * Hints which Paseo directory this client serves, so discovery prefers the
-   * daemon whose workspace holds it (FSPEC-054). The first hint wins.
+   * Binds the client to the Paseo directory it serves: discovery then uses
+   * the one live daemon whose workspace holds it (FSPEC-060). The first
+   * directory wins; bind before the first connect.
    */
-  preferWorkspace(cwd: string): void;
+  bindDirectory(cwd: string): void;
   status(): Promise<DaemonStatus>;
   connect(): Promise<DaemonConnection>;
   onEvent(listener: (event: DaemonClientEvent) => void): () => void;
@@ -149,7 +153,7 @@ function nonLoopbackError(host: string): Error {
 }
 
 // ---------------------------------------------------------------------------
-// daemon.json resolution (rules 1, 2) — mirrors common::daemon_json_path
+// Discovery entries (FSPEC-060) — mirrors common::daemons_dir / list_live_daemons
 // ---------------------------------------------------------------------------
 
 function defaultPidAlive(pid: number): boolean {
@@ -162,11 +166,31 @@ function defaultPidAlive(pid: number): boolean {
   }
 }
 
-interface DaemonJson {
+/** One daemons/<pid>.json entry (the daemon.json schema). */
+interface DaemonEntry {
   port: number;
   pid: number;
   /** The daemon's start workspace (optional in the schema). */
   workspace?: string;
+  path: string;
+}
+
+/** Parses an entry; null when it is not an entry fspec would accept (fspec deletes those). */
+function parseEntry(path: string, raw: string): DaemonEntry | null {
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  const { port, pid, workspace } = parsed as { port?: unknown; pid?: unknown; workspace?: unknown };
+  if (typeof port !== "number" || !Number.isInteger(port) || port < 1 || port > 65535) return null;
+  if (typeof pid !== "number" || !Number.isInteger(pid) || pid < 1) return null;
+  return typeof workspace === "string" ? { port, pid, workspace, path } : { port, pid, path };
+}
+
+function describeEntry(entry: DaemonEntry): string {
+  return `pid ${entry.pid} in ${entry.workspace ?? "(no workspace)"} (port ${entry.port})`;
 }
 
 // ---------------------------------------------------------------------------
@@ -183,7 +207,7 @@ export function createFspecDaemonClient(
   let state: DaemonClientState = "idle";
   let socket: SocketLike | null = null;
   let target: DaemonTarget | null = null;
-  let readDaemonJsonCount = 0;
+  let discoveryReadCount = 0;
   let closed = false;
   const handshake = { workUnitsUpdate: false, sessionSnapshot: false };
   let initial: { workUnits: WorkUnitInfo[]; sessions: SessionInfo[] } = { workUnits: [], sessions: [] };
@@ -195,7 +219,7 @@ export function createFspecDaemonClient(
     { resolve: (r: DecodedResponse) => void; reject: (e: unknown) => void }
   >();
   let nextRequestId = 0;
-  let workspaceHint: string | undefined;
+  let directory: string | undefined = options.directory;
 
   // -- discovery ----------------------------------------------------------
 
@@ -205,117 +229,85 @@ export function createFspecDaemonClient(
   }
 
   /**
-   * The single daemon.json path, exactly as the daemon resolves it
-   * (common::daemon_json_path): $XDG_RUNTIME_DIR/fspec/daemon.json when
-   * XDG_RUNTIME_DIR is set and non-empty, otherwise ~/.fspec/daemon.json.
+   * The daemons directory beside daemon.json, exactly as the daemon resolves
+   * it (common::daemons_dir): $XDG_RUNTIME_DIR/fspec/daemons when
+   * XDG_RUNTIME_DIR is set and non-empty, otherwise ~/.fspec/daemons.
    */
-  function daemonJsonPath(): string {
+  function daemonsDir(): string {
     const xdg = env["XDG_RUNTIME_DIR"];
-    if (xdg && xdg.trim() !== "") return join(xdg, "fspec", "daemon.json");
-    return join(options.homeDir ?? homedir(), ".fspec", "daemon.json");
-  }
-
-  function readDaemonJson(path: string, counted = true): DaemonJson | null {
-    if (counted) readDaemonJsonCount += 1;
-    let raw: string;
-    try {
-      raw = readFileSync(path, "utf8");
-    } catch {
-      return null;
-    }
-    let parsed: unknown;
-    try {
-      parsed = JSON.parse(raw);
-    } catch {
-      return null;
-    }
-    const value = parsed as { port?: unknown; pid?: unknown };
-    const port = value.port;
-    const pid = value.pid;
-    if (typeof port !== "number" || !Number.isInteger(port) || port < 1 || port > 65535) {
-      return null;
-    }
-    if (typeof pid !== "number" || !Number.isInteger(pid) || pid < 1) {
-      return null;
-    }
-    const workspace = (parsed as { workspace?: unknown }).workspace;
-    return typeof workspace === "string" ? { port, pid, workspace } : { port, pid };
+    if (xdg && xdg.trim() !== "") return join(xdg, "fspec", "daemons");
+    return join(options.homeDir ?? homedir(), ".fspec", "daemons");
   }
 
   /**
-   * Every local daemon advertised in daemons/<pid>.json beside daemon.json
-   * (fspec RPC-446), live pids only, lowest pid first. Unreadable and dead
-   * entries are skipped; fspec itself prunes them (list_live_daemons).
+   * Every live local daemon (fspec RPC-446), lowest pid first. Entries that
+   * do not parse and entries of dead pids are not daemons; fspec prunes them
+   * (list_live_daemons). A directory or entry that cannot be read for any
+   * reason but absence is an error.
    */
-  function liveEntries(): DaemonJson[] {
-    const dir = join(dirname(daemonJsonPath()), "daemons");
+  function liveEntries(): DaemonEntry[] {
+    const dir = daemonsDir();
+    discoveryReadCount += 1;
     let names: string[];
     try {
       names = readdirSync(dir);
-    } catch {
-      return [];
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === "ENOENT") return [];
+      throw new Error(`cannot read the fspec daemons directory ${dir}: ${(error as Error).message}`);
     }
-    return names
-      .filter((name) => name.endsWith(".json"))
-      .map((name) => readDaemonJson(join(dir, name), false))
-      .filter((entry): entry is DaemonJson => entry !== null && isPidAlive(entry.pid))
-      .sort((a, b) => a.pid - b.pid);
+    const entries: DaemonEntry[] = [];
+    for (const name of names.filter((file) => file.endsWith(".json"))) {
+      const path = join(dir, name);
+      let raw: string;
+      try {
+        raw = readFileSync(path, "utf8");
+      } catch (error) {
+        // Removed between the listing and the read: that daemon just stopped.
+        if ((error as NodeJS.ErrnoException).code === "ENOENT") continue;
+        throw new Error(`cannot read the fspec daemon entry ${path}: ${(error as Error).message}`);
+      }
+      const entry = parseEntry(path, raw);
+      if (entry !== null && isPidAlive(entry.pid)) entries.push(entry);
+    }
+    return entries.sort((a, b) => a.pid - b.pid);
   }
 
   /** A discovered daemon's port, always dialled on loopback (rule 3). */
-  function loopbackTarget(port: number, daemonJson?: string): DaemonTarget {
+  function loopbackTarget(entry: DaemonEntry): DaemonTarget {
     const host = "127.0.0.1";
-    return { url: `ws://${host}:${port}/`, host, port, ...(daemonJson !== undefined ? { daemonJsonPath: daemonJson } : {}) };
+    return { url: `ws://${host}:${entry.port}/`, host, port: entry.port, entryPath: entry.path };
+  }
+
+  function noDaemon(): Error {
+    return new Error(`no fspec daemon is running — no live entry in ${daemonsDir()}; start fspec daemon first`);
   }
 
   /**
-   * FSPEC-054: the live entry whose workspace holds the hinted directory
-   * (deepest), else daemon.json's live daemon, else the lowest-pid live entry.
+   * FSPEC-060: the one live daemon serving the bound directory (its entry's
+   * workspace holds it), or the one live daemon for a client bound to none.
+   * None or several fail, naming every candidate; nothing is guessed.
    */
-  function resolveFromDiscovery(): { target?: DaemonTarget; diagnostic?: string } {
+  function discover(): DaemonTarget {
     const entries = liveEntries();
-    if (workspaceHint !== undefined) {
-      let best: DaemonJson | null = null;
-      for (const entry of entries) {
-        if (entry.workspace === undefined || !within(entry.workspace, workspaceHint)) continue;
-        if (best === null || within(best.workspace!, entry.workspace)) best = entry;
-      }
-      if (best !== null) return { target: loopbackTarget(best.port) };
+    if (entries.length === 0) throw noDaemon();
+    const all = entries.map(describeEntry).join(", ");
+    const dir = directory;
+    if (dir === undefined) {
+      if (entries.length === 1) return loopbackTarget(entries[0]!);
+      throw new Error(
+        `${entries.length} fspec daemons are running and this connection serves no directory — ${all}; set FSPEC_DAEMON_URL to choose one`,
+      );
     }
-    const pointer = resolveFromDaemonJson();
-    if (pointer.target !== undefined || entries.length === 0) return pointer;
-    return { target: loopbackTarget(entries[0]!.port) };
-  }
-
-  function resolveFromDaemonJson(): { target?: DaemonTarget; diagnostic?: string } {
-    const path = daemonJsonPath();
-    if (!existsSync(path)) {
-      return { diagnostic: `no daemon.json found at ${path} — start fspec daemon first` };
+    const serving = entries.filter((entry) => entry.workspace !== undefined && within(entry.workspace, dir));
+    if (serving.length === 1) return loopbackTarget(serving[0]!);
+    if (serving.length === 0) {
+      throw new Error(
+        `no fspec daemon serves ${dir} — the live daemons are ${all}; start fspec in ${dir}, or set FSPEC_DAEMON_URL to choose a daemon`,
+      );
     }
-    const parsed = readDaemonJson(path);
-    if (parsed === null) {
-      return { diagnostic: `no daemon.json found at ${path} — start fspec daemon first` };
-    }
-    if (!isPidAlive(parsed.pid)) {
-      rmSync(path, { force: true });
-      return {
-        diagnostic: `no daemon.json found (stale daemon.json removed at ${path}) — start fspec daemon first`,
-      };
-    }
-    // Rule 3: the port discovered via daemon.json is only ever used against a
-    // loopback host; the daemon itself binds loopback only.
-    const host = "127.0.0.1";
-    if (!isLoopbackHost(host)) {
-      return { diagnostic: nonLoopbackError(host).message };
-    }
-    return {
-      target: {
-        url: `ws://${host}:${parsed.port}/`,
-        host,
-        port: parsed.port,
-        daemonJsonPath: path,
-      },
-    };
+    throw new Error(
+      `${serving.length} fspec daemons serve ${dir} — ${serving.map(describeEntry).join(", ")}; stop all but one, or set FSPEC_DAEMON_URL to choose one`,
+    );
   }
 
   async function resolveTarget(): Promise<DaemonTarget> {
@@ -340,20 +332,22 @@ export function createFspecDaemonClient(
       target = resolved;
       return resolved;
     }
-    const found = resolveFromDiscovery();
-    if (found.target === undefined) {
-      throw new Error(found.diagnostic ?? "no fspec daemon reachable");
-    }
-    target = found.target;
-    return found.target;
+    target = discover();
+    return target;
   }
 
   // -- availability probe (no socket) -------------------------------------
 
+  /**
+   * Available when the explicit URL is valid, when the bound directory's
+   * daemon is found, or, with no directory, when any live daemon exists:
+   * the probe chooses no daemon (FSPEC-060).
+   */
   async function status(): Promise<DaemonStatus> {
     if (closed) return { available: false, diagnostic: "fspec provider connection is closed" };
     try {
-      await resolveTarget();
+      if (explicitUrl() !== undefined || directory !== undefined) await resolveTarget();
+      else if (liveEntries().length === 0) throw noDaemon();
       return { available: true };
     } catch (error) {
       return { available: false, diagnostic: (error as Error).message };
@@ -633,12 +627,12 @@ export function createFspecDaemonClient(
     get listenerCount() {
       return events.size + envelopeListeners.size;
     },
-    get readDaemonJsonCount() {
-      return readDaemonJsonCount;
+    get discoveryReadCount() {
+      return discoveryReadCount;
     },
     resolveTarget,
-    preferWorkspace(cwd: string) {
-      workspaceHint ??= cwd;
+    bindDirectory(cwd: string) {
+      directory ??= cwd;
     },
     status,
     connect,

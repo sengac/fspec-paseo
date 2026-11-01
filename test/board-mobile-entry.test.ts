@@ -107,7 +107,7 @@ describe("Feature: Open the fspec board from the workspace menu on phones", () =
     it("applies the workspace guard", async () => {
       // @step Given the fspec daemon serves "/ws"
       const home = tempHome();
-      home.writeDaemonJson();
+      home.writeDaemonEntry();
       const daemon = new FakeDaemon();
       daemon.handlers.getWorkspaceInfo = () => ({ cwd: "/ws", gitBranch: null });
       const feed = createBoardFeed(daemonOptions(home, daemon));

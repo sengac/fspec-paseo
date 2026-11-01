@@ -102,7 +102,7 @@ Feature: Manage fspec providers from a Paseo settings screen
     Then the header shows "✓ 812 ms" and then "✗ 401 Unauthorized"
 
   Scenario: An unreachable daemon shows the reason and a Retry action
-    Given the feed answers list with state "unavailable" and reason "no daemon.json found at /h/.fspec/daemon.json — start fspec daemon first"
+    Given the feed answers list with state "unavailable" and reason "no fspec daemon is running — no live entry in /h/.fspec/daemons; start fspec daemon first"
     When the screen renders that answer
     Then it shows that reason with a Retry action, not an empty list
 

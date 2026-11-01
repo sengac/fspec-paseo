@@ -90,9 +90,9 @@ Feature: Serve fspec provider settings to Paseo plugin UI
     And each answer carries the two models
 
   Scenario: Every settings RPC reports an unreachable daemon
-    Given no daemon.json exists
+    Given no fspec daemon is running
     When the client calls each fspec.settings RPC
-    Then each answers state "unavailable" with the reason "no daemon.json found at … — start fspec daemon first"
+    Then each answers state "unavailable" with the reason "no fspec daemon is running — no live entry in …; start fspec daemon first"
 
   Scenario: Credential changes made anywhere change the catalog cache key
     Given Paseo has the fspec catalog cache key for the current credentials
@@ -100,6 +100,6 @@ Feature: Serve fspec provider settings to Paseo plugin UI
     Then the fspec provider's next catalog cache key differs, so Paseo re-fetches the catalog and lists OpenAI's models
 
   Scenario: The catalog cache key is absent while the daemon is unreachable
-    Given no daemon.json exists
+    Given no fspec daemon is running
     When Paseo asks the fspec provider for its catalog cache key
     Then it answers no key, so Paseo does not reuse a stale catalog

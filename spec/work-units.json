@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:04:30.265Z"
+    "lastUpdated": "2026-11-01T03:11:36.982Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -7107,16 +7107,102 @@
       "id": "FSPEC-060",
       "title": "Pick the fspec daemon serving the directory or fail naming the candidates",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-11-01T02:49:35.708Z",
-      "updatedAt": "2026-11-01T02:53:12.914Z",
+      "updatedAt": "2026-11-01T03:11:36.982Z",
       "description": "FSPEC-054 discovery prefers the live daemons/<pid>.json entry whose workspace holds the Paseo directory, then falls back to daemon.json and then to the lowest pid, so a directory no daemon serves silently reaches an arbitrary daemon. Replace the chain with one explicit rule: exactly one live entry must serve the directory (all live entries qualify for a client with no directory); none or several fail the connection with a message naming the candidates. FSPEC_DAEMON_URL / connectUrl stays the explicit override.",
       "epic": "provider-plugin",
       "children": [],
       "attachments": [
         "spec/attachments/FSPEC-060/design.md",
         "spec/attachments/FSPEC-060/ast-research.md"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:04:37.166Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:08:25.921Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:08:26.013Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T03:11:25.539Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T03:11:36.982Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "An explicit connect URL (connectUrl option or FSPEC_DAEMON_URL) wins and skips discovery; it must be loopback",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:05:38.169Z"
+        },
+        {
+          "id": 1,
+          "text": "Discovery reads only the live daemons/<pid>.json entries beside daemon.json ($XDG_RUNTIME_DIR/fspec/daemons or ~/.fspec/daemons); daemon.json is never read or removed; unreadable entries and entries of dead pids are not daemons",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:05:38.201Z"
+        },
+        {
+          "id": 2,
+          "text": "A client bound to a Paseo directory uses the one live daemon whose entry workspace holds the directory; a client bound to no directory (settings, catalog key without cwd) uses the one live daemon; no candidate or several candidates fail the connection with a message naming every live daemon (pid, workspace, port) and the way out (start fspec in the directory, stop all but one, or set FSPEC_DAEMON_URL)",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:05:38.225Z"
+        },
+        {
+          "id": 3,
+          "text": "The workspace registry is shared by every daemon using the same fspec data directory and each daemon records its start workspace there, so it cannot tell daemons apart and is not used for discovery",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:05:38.249Z"
+        },
+        {
+          "id": 4,
+          "text": "The provider's status() is available when an explicit URL is valid or at least one live daemon exists (it chooses none); a board panel no daemon serves reports the discovery reason for its directory",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:05:38.273Z"
+        }
+      ],
+      "nextRuleId": 5,
+      "examples": [
+        {
+          "id": 0,
+          "text": "daemons/100.json (/a, 4100) and daemons/200.json (/b, 4200): directory /b/web -> ws://127.0.0.1:4200/; directory /c -> error 'no fspec daemon serves /c — the live daemons are pid 100 in /a (port 4100), pid 200 in /b (port 4200); start fspec in /c, or set FSPEC_DAEMON_URL to choose a daemon'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:05:38.297Z"
+        },
+        {
+          "id": 1,
+          "text": "daemons/100.json (/a) and daemons/300.json (/a/b): directory /a/b/c -> error '2 fspec daemons serve /a/b/c — pid 100 in /a (port 4100), pid 300 in /a/b (port 4300); stop all but one, or set FSPEC_DAEMON_URL to choose one'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:05:38.330Z"
+        },
+        {
+          "id": 2,
+          "text": "Settings feed (no directory) with daemons /a and /b -> unavailable '2 fspec daemons are running and this connection serves no directory — …; set FSPEC_DAEMON_URL to choose one'; with only /a -> connects to /a",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:05:38.354Z"
+        }
+      ],
+      "nextExampleId": 3,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/daemon.ts: resolveTarget = explicit URL, else exactly one qualifying live entry (liveEntries over daemons/*.json); daemon.json resolution and stale-file removal removed; DaemonTarget.entryPath replaces daemonJsonPath, discoveryReadCount replaces readDaemonJsonCount; DaemonClientOptions.directory and bindDirectory(cwd) (first wins) replace preferWorkspace; status() checks availability without choosing. server/board.ts binds each panel directory, a failed discovery keeps a feed bound to that directory. server/provider.ts binds the catalog cache key's cwd. test/support/fake-daemon.ts tempHome writes daemons/4242.json (workspace /).",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:05:38.378Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "estimate": 5
     },
     "FSPEC-061": {
       "id": "FSPEC-061",
@@ -7136,7 +7222,6 @@
   },
   "states": {
     "backlog": [
-      "FSPEC-060",
       "FSPEC-061"
     ],
     "specifying": [],
@@ -7203,7 +7288,8 @@
       "FSPEC-056",
       "FSPEC-057",
       "FSPEC-058",
-      "FSPEC-059"
+      "FSPEC-059",
+      "FSPEC-060"
     ],
     "blocked": []
   },

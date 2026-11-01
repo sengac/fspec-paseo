@@ -66,23 +66,37 @@ interface Waiter {
  * Paseo has no server-to-UI push, so the panel long-polls `watch`.
  */
 export function createBoardFeed(options: DaemonClientOptions = {}): BoardFeed {
-  /** One board feed per daemon, keyed by its target URL; "" when discovery found none. */
+  /**
+   * One board feed per daemon, keyed by its target URL; a directory no single
+   * daemon serves gets a feed of its own, keyed by the directory and bound to
+   * it, which keeps reporting discovery's reason (FSPEC-060).
+   */
   const feeds = new Map<string, BoardFeed>();
   /** The feed a panel directory last resolved to. */
   const byCwd = new Map<string, BoardFeed>();
   let closed = false;
 
-  /** The board feed of the daemon serving cwd (FSPEC-054), pinned to that daemon. */
+  /** The key of the daemon serving cwd, found with a client bound to cwd. */
+  async function feedKey(cwd: string): Promise<{ key: string; options: DaemonClientOptions }> {
+    const probe = createFspecDaemonClient({ ...options, directory: cwd });
+    try {
+      const target = await probe.resolveTarget();
+      return { key: target.url, options: { ...options, connectUrl: target.url } };
+    } catch {
+      // The bound feed connects, fails the same way and answers with the reason.
+      return { key: `unresolved:${cwd}`, options: { ...options, directory: cwd } };
+    } finally {
+      await probe.close();
+    }
+  }
+
+  /** The board feed of the daemon serving cwd (FSPEC-054, FSPEC-060), pinned to that daemon. */
   async function resolveFeed(cwd: string): Promise<BoardFeed> {
-    const probe = createFspecDaemonClient(options);
-    probe.preferWorkspace(cwd);
-    const url = await probe.resolveTarget().then((target) => target.url, () => "");
-    await probe.close();
-    let feed = feeds.get(url);
+    const found = await feedKey(cwd);
+    let feed = feeds.get(found.key);
     if (feed === undefined) {
-      // No daemon found: a feed of its own keeps reporting discovery's reason.
-      feed = createDaemonBoardFeed(url === "" ? options : { ...options, connectUrl: url });
-      feeds.set(url, feed);
+      feed = createDaemonBoardFeed(found.options);
+      feeds.set(found.key, feed);
     }
     byCwd.set(cwd, feed);
     return feed;
@@ -91,12 +105,13 @@ export function createBoardFeed(options: DaemonClientOptions = {}): BoardFeed {
   /**
    * A directory seen before is answered by its feed at once, so a held watch
    * keeps its place on that daemon's connection; discovery is re-run in the
-   * background, and a daemon that took over the directory serves the next call.
+   * background (it never rejects), and a daemon that took over the directory
+   * serves the next call.
    */
   function via<T>(cwd: string, run: (feed: BoardFeed) => Promise<T>): Promise<T> {
     const known = byCwd.get(cwd);
     if (known === undefined) return resolveFeed(cwd).then(run);
-    void resolveFeed(cwd).catch(() => {});
+    void resolveFeed(cwd);
     return run(known);
   }
 

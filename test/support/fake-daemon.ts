@@ -183,16 +183,25 @@ export class FakeDaemon {
   }
 }
 
-/** A temporary home directory, optionally holding a live daemon.json. */
-export function tempHome(): { homeDir: string; daemonJsonPath: string; writeDaemonJson(): void; dispose(): void } {
+/**
+ * A temporary home directory, optionally holding one live daemon's discovery
+ * entry (~/.fspec/daemons/4242.json, FSPEC-060). The entry's workspace is "/"
+ * unless given, so it serves every directory a test opens.
+ */
+export function tempHome(): {
+  homeDir: string;
+  daemonsDir: string;
+  writeDaemonEntry(workspace?: string): void;
+  dispose(): void;
+} {
   const homeDir = mkdtempSync(join(tmpdir(), "fspec-provider-"));
-  const daemonJsonPath = join(homeDir, ".fspec", "daemon.json");
+  const daemonsDir = join(homeDir, ".fspec", "daemons");
   return {
     homeDir,
-    daemonJsonPath,
-    writeDaemonJson() {
-      mkdirSync(join(homeDir, ".fspec"), { recursive: true });
-      writeFileSync(daemonJsonPath, JSON.stringify({ port: 47100, pid: 4242 }));
+    daemonsDir,
+    writeDaemonEntry(workspace = "/") {
+      mkdirSync(daemonsDir, { recursive: true });
+      writeFileSync(join(daemonsDir, "4242.json"), JSON.stringify({ port: 47100, pid: 4242, workspace }));
     },
     dispose() {
       rmSync(homeDir, { recursive: true, force: true });

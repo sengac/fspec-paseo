@@ -105,14 +105,19 @@ Check that it's up:
 fspec status                 # "fspec daemon: alive", uptime, connected clients…
 ```
 
-On startup every daemon writes its own discovery file, `daemons/<pid>.json`, with its port, pid and start workspace. If `daemon.json` doesn't already name another live daemon, it writes that file too, so `daemon.json` always names one live daemon. The plugin reads both:
+On startup every daemon writes its own discovery file, `daemons/<pid>.json`, with its port, pid and start workspace. The plugin reads only those files (never `daemon.json`):
 
-| Condition                     | Location                                                            |
-|-------------------------------|---------------------------------------------------------------------|
-| `XDG_RUNTIME_DIR` set         | `$XDG_RUNTIME_DIR/fspec/daemon.json`, `$XDG_RUNTIME_DIR/fspec/daemons/` |
-| otherwise                     | `~/.fspec/daemon.json`, `~/.fspec/daemons/`                         |
+| Condition                     | Location                          |
+|-------------------------------|-----------------------------------|
+| `XDG_RUNTIME_DIR` set         | `$XDG_RUNTIME_DIR/fspec/daemons/` |
+| otherwise                     | `~/.fspec/daemons/`               |
 
-When you run several daemons, an fspec agent connects to the daemon whose start workspace holds its Paseo directory, using the deepest match. Otherwise it uses the daemon `daemon.json` names, and failing that the live daemon with the lowest pid. Each board panel picks its daemon the same way. Entries whose pid is no longer alive are ignored. If the pid in `daemon.json` is no longer alive, the plugin deletes the stale file, and reports that no daemon is running when it finds no live entry either.
+The rule is explicit, with no fallback:
+
+- An fspec agent and a board panel connect to **the one live daemon whose start workspace holds their Paseo directory**. If none does, or more than one does (two daemons in the same project, or nested projects), the connection fails with a message listing every live daemon (pid, workspace, port).
+- The providers screen (and a catalog lookup without a directory) serves no directory, so it needs **exactly one live daemon**; with several it fails the same way.
+- `FSPEC_DAEMON_URL` (a loopback `ws://` URL) always wins and skips discovery: set it to choose a daemon yourself, for example for a directory outside every daemon's start workspace.
+- Entries whose pid is no longer alive are not daemons; fspec removes them.
 
 If the daemon was started with `FSPEC_DAEMON_TOKEN` set, it only accepts clients that send that token. Set the same `FSPEC_DAEMON_TOKEN` in the Paseo daemon's environment, and the plugin sends it as `Authorization: Bearer <token>` on every connection.
 
@@ -169,7 +174,7 @@ paseo provider models fspec                  # should list fspec's models
 paseo run --provider fspec --cwd ~/projects/my-app "Summarise the backlog"
 ```
 
-In the app, **fspec** should now be listed as an agent provider. If it shows as unavailable, its diagnostic says why, for example `no daemon.json found at ~/.fspec/daemon.json — start fspec daemon first`. See [Troubleshooting](#troubleshooting).
+In the app, **fspec** should now be listed as an agent provider. If it shows as unavailable, its diagnostic says why, for example `no fspec daemon is running — no live entry in ~/.fspec/daemons; start fspec daemon first`. See [Troubleshooting](#troubleshooting).
 
 ### 5. Optional: add an fspec agent profile
 
@@ -200,9 +205,9 @@ If you only want fspec agents, you can turn off the built-in providers under `ag
 
 | Setting | Where | Effect |
 |---|---|---|
-| `FSPEC_DAEMON_URL` | Environment of the **Paseo daemon** | Explicit daemon URL, e.g. `ws://127.0.0.1:41413/`. Skips discovery (`daemon.json` and `daemons/`) entirely. Must be a loopback host (`127.0.0.1`, `::1`, `localhost`). |
+| `FSPEC_DAEMON_URL` | Environment of the **Paseo daemon** | Explicit daemon URL, e.g. `ws://127.0.0.1:41413/`. Skips discovery (`daemons/`) entirely; the way to choose a daemon when several qualify. Must be a loopback host (`127.0.0.1`, `::1`, `localhost`). |
 | `FSPEC_DAEMON_TOKEN` | Environment of the **Paseo daemon** | Sent as `Authorization: Bearer <token>` on every connection. Needed when the fspec daemon was started with the same variable. |
-| `XDG_RUNTIME_DIR` | Environment of both daemons | Moves `daemon.json` and `daemons/` to `$XDG_RUNTIME_DIR/fspec/`. Paseo and fspec must agree on this. |
+| `XDG_RUNTIME_DIR` | Environment of both daemons | Moves `daemons/` (and fspec's `daemon.json`) to `$XDG_RUNTIME_DIR/fspec/`. Paseo and fspec must agree on this. |
 | `pluginsEnabled` | `~/.paseo/config.json` | Must be `true` for the plugin to load. |
 | fspec model providers | fspec | Determines which models Paseo can pick from. |
 
@@ -224,7 +229,7 @@ Several local daemons can run at once. Each agent and board panel uses the daemo
 
 ### Connection lifecycle
 
-- **Availability** (`status()`) only resolves and validates the target, either `FSPEC_DAEMON_URL`, a live `daemon.json` or a live `daemons/` entry. It never opens a socket.
+- **Availability** (`status()`) checks `FSPEC_DAEMON_URL` when set, otherwise that at least one live `daemons/` entry exists; it picks no daemon and never opens a socket.
 - **Connections:** each Paseo provider connection opens its own WebSocket to `ws://127.0.0.1:<port>/`, the full surface with server push. It waits for the daemon's two handshake frames (`WorkUnitsUpdate`, then `SessionSnapshot`) and then sends tarpc requests over it. Live output comes from the daemon's pushed stream chunks and session events, not from polling.
 - **Sessions:** `session.open` creates a daemon session, or reattaches to the one saved in Paseo's persistence. It then applies the model and thinking level. Each prompt becomes `send_input`, and each turn is settled exactly once from the daemon's terminal chunk (done, error, or interrupted).
 - **Teardown:** if the daemon goes away (for example it shuts down with close 1001), every open turn fails with a clear reason. When Paseo closes the connection or unloads the plugin, the plugin destroys the daemon sessions it owns and then closes the socket.
@@ -244,7 +249,7 @@ icon.svg                 Provider icon
 
 server/
   provider.ts            Provider registration, capability negotiation, input dispatch
-  daemon.ts              Daemon discovery (daemons/, daemon.json, FSPEC_DAEMON_URL), loopback rule,
+  daemon.ts              Daemon discovery (daemons/, FSPEC_DAEMON_URL), loopback rule,
                          bearer token, socket, RPC
   session.ts             Paseo session ↔ daemon session: open/resume, prompts, steer/queue, turns, stop,
                          permissions, sub-agents, revert, import list, commands, modes
@@ -285,8 +290,9 @@ This project is itself built with fspec. Every feature has a work unit and a Ghe
 
 | Symptom | Cause / fix |
 |---|---|
-| fspec provider unavailable: `no daemon.json found at …` | No daemon is running. Run `fspec daemon` (or `fspec`) in the project. |
-| `stale daemon.json removed at …` | The daemon died without cleaning up. Start it again. |
+| fspec provider unavailable: `no fspec daemon is running — no live entry in …` | No daemon is running. Run `fspec daemon` (or `fspec`) in the project. |
+| `no fspec daemon serves X — the live daemons are …` | No running daemon's start workspace holds X. Start fspec in X, or set `FSPEC_DAEMON_URL` to the daemon you want. |
+| `N fspec daemons serve X — …` / `N fspec daemons are running and this connection serves no directory — …` | More than one daemon qualifies, and the plugin never picks one for you. Stop all but one, or set `FSPEC_DAEMON_URL`. |
 | `fspec could not create a session in X: …` | The daemon could not open X as a workspace, or could not create the session there. The reason follows the colon. |
 | `the fspec daemon serves X, not Y` (board) | No workspace the daemon serves holds Y. Open an fspec agent in Y (the daemon then serves it), or start fspec there. |
 | `fspec daemon list_workspaces failed: …` | The daemon could not list the workspaces it serves (for example its workspace registry is unreadable). The board and new agents need that list; fix the reason after the colon. |

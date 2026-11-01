@@ -110,7 +110,7 @@ describe("Feature: Manage fspec providers from a Paseo settings screen", () => {
     it("adds profile names and base URLs from list_provider_settings", async () => {
       // @step Given the daemon reports provider settings with openai profiles Strata (http://10.0.0.5:8080/v1, key "lm-secret") and spark (http://spark:8000/v1)
       const home = tempHome();
-      home.writeDaemonJson();
+      home.writeDaemonEntry();
       const daemon = new FakeDaemon();
       daemon.handlers.listProviderCredentials = (): wire.ProviderCredentialInfo[] => [
         {
@@ -293,8 +293,8 @@ describe("Feature: Manage fspec providers from a Paseo settings screen", () => {
 
   describe("Scenario: An unreachable daemon shows the reason and a Retry action", () => {
     it("renders the unavailable state", () => {
-      // @step Given the feed answers list with state "unavailable" and reason "no daemon.json found at /h/.fspec/daemon.json — start fspec daemon first"
-      const reason = "no daemon.json found at /h/.fspec/daemon.json — start fspec daemon first";
+      // @step Given the feed answers list with state "unavailable" and reason "no fspec daemon is running — no live entry in /h/.fspec/daemons; start fspec daemon first"
+      const reason = "no fspec daemon is running — no live entry in /h/.fspec/daemons; start fspec daemon first";
       // @step When the screen renders that answer
       const state = screenState({ state: "unavailable", reason });
       // @step Then it shows that reason with a Retry action, not an empty list

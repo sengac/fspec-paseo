@@ -45,7 +45,7 @@ const anthropicModels = Array.from({ length: 12 }, (_, i) => model(`claude-${i}`
 
 function setup(credentials: wire.ProviderCredentialInfo[] = [openai, anthropic]) {
   const home = tempHome();
-  home.writeDaemonJson();
+  home.writeDaemonEntry();
   const daemon = new FakeDaemon();
   daemon.handlers.getWorkspaceInfo = () => ({ cwd: "/work/app", gitBranch: null });
   daemon.handlers.listProviderCredentials = () => credentials;
@@ -233,7 +233,7 @@ describe("Feature: Serve fspec provider settings to Paseo plugin UI", () => {
 
   describe("Scenario: Every settings RPC reports an unreachable daemon", () => {
     it("answers unavailable with the provider's diagnostic", async () => {
-      // @step Given no daemon.json exists
+      // @step Given no fspec daemon is running
       const home = tempHome();
       const feed = createSettingsFeed({ env: {}, homeDir: home.homeDir });
       disposers.push(home.dispose, () => feed.close());
@@ -245,10 +245,10 @@ describe("Feature: Serve fspec provider settings to Paseo plugin UI", () => {
         await feed.test({ providerId: "openai" }),
         await feed.refreshModels({ providerId: "" }),
       ];
-      // @step Then each answers state "unavailable" with the reason "no daemon.json found at … — start fspec daemon first"
+      // @step Then each answers state "unavailable" with the reason "no fspec daemon is running — no live entry in …; start fspec daemon first"
       for (const answer of answers) {
         expect(answer).toMatchObject({ state: "unavailable" });
-        expect((answer as { reason: string }).reason).toMatch(/^no daemon\.json found at .* — start fspec daemon first$/);
+        expect((answer as { reason: string }).reason).toMatch(/^no fspec daemon is running — no live entry in .*; start fspec daemon first$/);
       }
     });
   });
@@ -257,7 +257,7 @@ describe("Feature: Serve fspec provider settings to Paseo plugin UI", () => {
     it("derives the key from the daemon's credential state", async () => {
       // @step Given Paseo has the fspec catalog cache key for the current credentials
       const home = tempHome();
-      home.writeDaemonJson();
+      home.writeDaemonEntry();
       disposers.push(home.dispose);
       const daemon = new FakeDaemon();
       let rows: wire.ProviderCredentialInfo[] = [anthropic, openai];
@@ -281,7 +281,7 @@ describe("Feature: Serve fspec provider settings to Paseo plugin UI", () => {
 
   describe("Scenario: The catalog cache key is absent while the daemon is unreachable", () => {
     it("answers no key", async () => {
-      // @step Given no daemon.json exists
+      // @step Given no fspec daemon is running
       const home = tempHome();
       disposers.push(home.dispose);
       const provider = createFspecProvider({ env: {}, homeDir: home.homeDir });

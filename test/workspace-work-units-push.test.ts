@@ -40,7 +40,7 @@ function unit(id: string): wire.WorkUnitInfo {
 
 function fakeDaemon() {
   const home = tempHome();
-  home.writeDaemonJson();
+  home.writeDaemonEntry();
   const daemon = new FakeDaemon();
   disposers.push(home.dispose);
   return { home, daemon };

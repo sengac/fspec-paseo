@@ -63,7 +63,7 @@ describe("Feature: Reorder fspec cards and open them in an agent from the Paseo 
     it("calls move_work_unit_up/down behind the workspace guard", async () => {
       // @step Given the fspec daemon serves "/ws"
       const home = tempHome();
-      home.writeDaemonJson();
+      home.writeDaemonEntry();
       const daemon = new FakeDaemon();
       daemon.handlers.getWorkspaceInfo = () => ({ cwd: "/ws", gitBranch: null });
       daemon.handlers.moveWorkUnitUp = (request) =>

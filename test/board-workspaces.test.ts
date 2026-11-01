@@ -52,7 +52,7 @@ function session(id: string, project: string, workUnitId: string): wire.SessionI
 /** A daemon started in /ws that also serves /app. */
 function setup(sessions: wire.SessionInfo[] = []) {
   const home = tempHome();
-  home.writeDaemonJson();
+  home.writeDaemonEntry();
   const daemon = new FakeDaemon();
   daemon.handlers.getWorkspaceInfo = () => ({ cwd: "/ws", gitBranch: null });
   daemon.handlers.listWorkspaces = () => ({

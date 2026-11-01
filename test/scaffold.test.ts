@@ -65,17 +65,17 @@ describe("Feature: Scaffold the fspec Paseo provider plugin project", () => {
 
   describe("Scenario: Scaffold reports unavailable with a diagnostic", () => {
     it("reports unavailable with a user-actionable diagnostic", async () => {
-      // @step Given no fspec daemon is reachable (the provider is pointed at an empty daemon.json location)
+      // @step Given no fspec daemon is reachable (the provider is pointed at an empty daemons directory)
       const emptyHome = mkdtempSync(join(tmpdir(), "fspec-no-daemon-"));
       const provider = createFspecProvider({ env: {}, homeDir: emptyHome });
       // @step When Paseo calls the provider's `status()`
       const status = await provider.status!({});
-      // @step Then the provider reports `{ available: false }` with a user-actionable diagnostic naming the missing piece (e.g. 'no fspec daemon reachable' or 'no daemon.json found ... start fspec daemon first')
+      // @step Then the provider reports `{ available: false }` with a user-actionable diagnostic naming the missing piece (e.g. 'no fspec daemon reachable' or 'no fspec daemon is running ... start fspec daemon first')
       expect(status.available).toBe(false);
       const diagnostic = (status as { diagnostic?: string }).diagnostic ?? "";
       expect(diagnostic.length).toBeGreaterThan(0);
       expect(
-        /no fspec daemon reachable|no daemon\.json found/i.test(diagnostic),
+        /no fspec daemon is running/i.test(diagnostic),
         diagnostic,
       ).toBe(true);
       rmSync(emptyHome, { recursive: true, force: true });

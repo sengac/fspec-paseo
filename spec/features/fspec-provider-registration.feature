@@ -15,7 +15,7 @@ Feature: Register the fspec provider and build Paseo's model picker
   #
   # BUSINESS RULES:
   #   1. The provider descriptor registered by the contribution function has id `fspec` and label `fspec`, declares no `command`, and its availability comes from `status()` (connection-based), per the FSPEC-001 scaffold contract.
-  #   2. status() reflects REAL daemon availability by probing through the FSPEC-003 daemon client: when the daemon is reachable it returns { available: true }; when unreachable it returns { available: false, diagnostic } where the diagnostic names the missing piece (e.g. 'no fspec daemon reachable' / 'no daemon.json found ... start fspec daemon first'), never a bare boolean with no guidance.
+  #   2. status() reflects REAL daemon availability by probing through the FSPEC-003 daemon client: when the daemon is reachable it returns { available: true }; when unreachable it returns { available: false, diagnostic } where the diagnostic names the missing piece (e.g. 'no fspec daemon reachable' / 'no fspec daemon is running ... start fspec daemon first'), never a bare boolean with no guidance.
   #   3. The catalog for a `catalog` input is built from the daemon's `list_providers` RPC (idx 28, returns Vec<ProviderInfo>): each ProviderInfo becomes one group of models; each ModelEntry becomes a ProviderModel with id = `<provider.key>/<entry.id>`, label = entry.display_name, contextWindowMaxTokens = entry.context_window. Model ids map 1:1 into Paseo catalog ids — no renaming or derivation beyond the key/entry.id join.
   #   4. The model picker catalog is built from the daemon's list_providers RPC (FspecMethodIndex 28) via the FSPEC-003 daemon client; the provider's catalog input handler replies with exactly one catalog event carrying the requested requestId
   #   5. Providers flagged `is_unreachable: true` in the daemon's `list_providers` response are excluded from the catalog (their models are not offered as selectable); a provider with zero reachable providers yields an empty model list, not an error.
@@ -44,13 +44,13 @@ Feature: Register the fspec provider and build Paseo's model picker
 
 
   Scenario: status() reports unavailable with a diagnostic when the daemon is down
-    Given no daemon.json exists at the resolved path (no fspec daemon running)
+    Given the daemons directory holds no live entry (no fspec daemon running)
     When Paseo calls the provider's `status()`
-    Then it reports `{ available: false, diagnostic: 'no daemon.json found at /Users/me/.fspec/daemon.json — start fspec daemon first' }` naming the missing file and the fix
+    Then it reports `{ available: false, diagnostic: 'no fspec daemon is running — no live entry in /Users/me/.fspec/daemons; start fspec daemon first' }` naming the daemons directory and the fix
 
 
   Scenario: status() reports available when the daemon is reachable
-    Given a live fspec daemon has written a valid daemon.json (port and pid) whose pid is alive
+    Given a live fspec daemon has written its daemons/<pid>.json entry (port and pid) whose pid is alive
     When Paseo calls the provider's `status()`
     Then it reports `{ available: true }` so Paseo offers fspec sessions
 
@@ -64,9 +64,9 @@ Feature: Register the fspec provider and build Paseo's model picker
 
 
   Scenario: A catalog request fails with a diagnostic when no daemon is reachable
-    Given no daemon.json exists at the resolved path (no fspec daemon running)
+    Given the daemons directory holds no live entry (no fspec daemon running)
     When Paseo requests the model catalog with a requestId
-    Then the catalog input rejects with `request.failed` for that requestId and an error diagnostic naming the missing piece, e.g. 'no daemon.json found at /Users/me/.fspec/daemon.json — start fspec daemon first'
+    Then the catalog input rejects with `request.failed` for that requestId and an error diagnostic naming the missing piece, e.g. 'no fspec daemon is running — no live entry in /Users/me/.fspec/daemons; start fspec daemon first'
     And no catalog event is emitted and no model is invented
 
 
@@ -78,7 +78,7 @@ Feature: Register the fspec provider and build Paseo's model picker
 
 
   Scenario: Availability is probe-driven, not polled
-    Given a live fspec daemon is reachable and a second status() probe later finds no daemon.json (the daemon stopped)
+    Given a live fspec daemon is reachable and a second status() probe later finds no live daemon entry (the daemon stopped)
     When Paseo calls the provider's `status()` at each point in time
     Then each call reflects only the daemon state observed during that probe, reporting `{ available: true }` while reachable and `{ available: false }` with a diagnostic once it is not
     And the provider runs no background timer or polling loop between calls

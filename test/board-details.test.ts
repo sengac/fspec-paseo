@@ -18,7 +18,7 @@ describe("Feature: Show full fspec work unit details from the Paseo board", () =
     it("answers the record from the daemon's JSON envelope", async () => {
       // @step Given the daemon answers get_work_unit_details for "FSPEC-001" with its JSON envelope
       const home = tempHome();
-      home.writeDaemonJson();
+      home.writeDaemonEntry();
       const daemon = new FakeDaemon();
       daemon.handlers.getWorkspaceInfo = () => ({ cwd: "/ws", gitBranch: null });
       const record = { id: "FSPEC-001", title: "Scaffold", status: "done", rules: [] };

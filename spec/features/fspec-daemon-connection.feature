@@ -2,10 +2,10 @@
 @provider
 @core
 @FSPEC-003
+@FSPEC-060
 Feature: Discover and connect to the fspec daemon
-
   """
-  Client lives in server/daemon.ts on top of the FSPEC-002 codec (server/wire.ts + server/bincode.ts): encode/decode Envelope + tarpc request/response. Target resolution: explicit connect URL (provider config / env FSPEC_DAEMON_URL) wins over daemon.json autodiscovery ($XDG_RUNTIME_DIR/fspec/daemon.json else ~/.fspec/daemon.json). Loopback-only (127.0.0.1, ::1, localhost) enforced before any socket. status() is a lightweight probe (resolve + validate, no socket); connect() opens the WebSocket (path /) and completes the handshake (WorkUnitsUpdate + SessionSnapshot) before reporting established.
+  Client lives in server/daemon.ts on top of the FSPEC-002 codec (server/wire.ts + server/bincode.ts): encode/decode Envelope + tarpc request/response. Target resolution: explicit connect URL (provider config / env FSPEC_DAEMON_URL) wins over discovery of the live daemons/<pid>.json entries ($XDG_RUNTIME_DIR/fspec/daemons else ~/.fspec/daemons; FSPEC-060: daemon.json is no longer read, see fspec-daemon-discovery.feature for which entry serves a directory). Loopback-only (127.0.0.1, ::1, localhost) enforced before any socket. status() is a lightweight probe (resolve + validate, no socket); connect() opens the WebSocket (path /) and completes the handshake (WorkUnitsUpdate + SessionSnapshot) before reporting established.
   """
 
   # ========================================
@@ -13,6 +13,7 @@ Feature: Discover and connect to the fspec daemon
   # ========================================
   #
   # BUSINESS RULES:
+  #   0. FSPEC-060 supersedes rules 1, 2 and 9 and examples 1-3 and 6: discovery reads the live daemons/<pid>.json entries (same directory resolution, XDG_RUNTIME_DIR first), never daemon.json; no live entry -> 'no fspec daemon is running — no live entry in <daemons dir>; start fspec daemon first'; dead entries are left for fspec to prune
   #   1. daemon.json autodiscovery resolution order: if env XDG_RUNTIME_DIR is set and non-empty, use $XDG_RUNTIME_DIR/fspec/daemon.json; otherwise ~/.fspec/daemon.json. The daemon writes it atomically after bind; the client shares this exact resolution.
   #   2. daemon.json verification: parse JSON, require `port` (u16) and `pid` (u32); `started_at`/`version`/`workspace` are optional. Probe the pid for liveness (kill(pid,0) on unix, EPERM counts as alive). If the pid is dead, the stale file is DELETED and the error is 'no daemon.json found (stale daemon.json removed at <path>) — start fspec daemon first'. Missing file → 'no daemon.json found at <path> — start fspec daemon first'.
   #   3. Loopback-only: the daemon connection target's host must be exactly 127.0.0.1, ::1, or localhost (bracketed IPv6 allowed). Any other host (e.g. 8.8.8.8, an external hostname) is REJECTED as non-loopback — the plugin never connects to a non-loopback daemon address, because the daemon itself only binds loopback (auth/TLS for external binds is out of scope). This applies to both the explicit connect URL and the port discovered via daemon.json.
@@ -39,33 +40,31 @@ Feature: Discover and connect to the fspec daemon
   #   2. Testability: the daemon client is built on the FSPEC-002 codec public surface (encode/decode Envelope + tarpc request/response from server/wire.ts). It accepts an injectable WebSocket transport (default: Node global WebSocket) so tests can supply a fake/in-memory WS server or stub transport — no real daemon is required to run the suite.
   #
   # ========================================
-
   Background: User Story
     As a the fspec-paseo developer (and the Paseo user who relies on the plugin)
     I want to attach to a running fspec daemon as a client — discovering it via daemon.json or an explicit connect URL, enforcing loopback-only targets, completing the connect/handshake, and shutting down cleanly when Paseo unloads the plugin
     So that the provider can report truthful daemon availability and later stories (catalog, session lifecycle, transcript) have a real connection to build on
 
-  Scenario: A valid daemon.json yields a connected client
-    Given a valid daemon.json exists at the resolved path with a live pid
+  Scenario: A live daemon entry yields a connected client
+    Given daemons/4321.json names a live daemon on port 41413 whose workspace holds the client's directory
     And provider configuration does not set an explicit connect URL
     When the plugin resolves the daemon target and connects
-    Then the resolved target is the loopback WebSocket URL from daemon.json
+    Then the resolved target is the loopback WebSocket URL from that entry
     And the connection completes the handshake after receiving the initial WorkUnitsUpdate and SessionSnapshot
     And the connection is reported established
 
-  Scenario: Missing daemon.json reports unavailable with an actionable diagnostic
-    Given no daemon.json exists at the resolved path
+  Scenario: No live daemon reports unavailable with an actionable diagnostic
+    Given the daemons directory holds no entry
     And provider configuration does not set an explicit connect URL
     When Paseo calls the provider's status()
     Then status reports available false
-    And the diagnostic says no daemon.json was found at the resolved path and to start the fspec daemon
+    And the diagnostic says no fspec daemon is running, names the daemons directory and says to start the fspec daemon
 
-  Scenario: A stale daemon.json is removed and reported
-    Given a daemon.json exists whose pid is dead
+  Scenario: A dead daemon's entry counts as no daemon
+    Given daemons/999999.json names a daemon whose pid is dead
     When Paseo calls the provider's status()
-    Then the stale daemon.json file is removed from disk
-    And status reports available false
-    And the diagnostic says the stale daemon.json was removed and to start the fspec daemon
+    Then status reports available false with the no-daemon diagnostic
+    And the entry is left on disk for fspec to prune
 
   Scenario: A non-loopback connect URL is rejected before any socket opens
     Given provider configuration sets an explicit connect URL pointing at a non-loopback host
@@ -74,18 +73,18 @@ Feature: Discover and connect to the fspec daemon
     And status reports available false
     And the diagnostic names the offending host and says only loopback (127.0.0.1, ::1, or localhost) is allowed
 
-  Scenario: The explicit connect URL wins over daemon.json
-    Given provider configuration sets an explicit connect URL on a different port than daemon.json
-    And a valid daemon.json exists at the resolved path
+  Scenario: The explicit connect URL wins over discovery
+    Given provider configuration sets an explicit connect URL on a different port than the live daemon entry
+    And a live daemon entry exists in the daemons directory
     When the plugin resolves the daemon target
     Then the connection target uses the explicit connect URL's port
-    And the daemon.json file is never read
+    And the daemons directory is never read
 
-  Scenario: XDG_RUNTIME_DIR wins over the home directory for daemon.json
-    Given both the XDG_RUNTIME_DIR daemon.json (port 6001) and the home directory daemon.json (port 7001) exist
+  Scenario: XDG_RUNTIME_DIR wins over the home directory for daemon entries
+    Given both the XDG_RUNTIME_DIR daemons directory (port 6001) and the home directory daemons directory (port 7001) hold a live entry
     And XDG_RUNTIME_DIR is set and non-empty
-    When the plugin resolves the daemon.json path
-    Then the resolved path is under XDG_RUNTIME_DIR
+    When the plugin resolves the daemon target
+    Then the resolved entry is under XDG_RUNTIME_DIR
     And the resolved port is 6001
 
   Scenario: A mid-session connection drop is surfaced as connection lost

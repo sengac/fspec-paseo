@@ -147,7 +147,7 @@ describe("Feature: Follow fspec's default model in Paseo", () => {
     it("lists the default, offers the models and writes the new default", async () => {
       // @step Given fspec's default model is "anthropic/claude-sonnet-4" and the reachable models are "anthropic/claude-sonnet-4" and "openai/gpt-5"
       const home = tempHome();
-      home.writeDaemonJson();
+      home.writeDaemonEntry();
       const daemon = new FakeDaemon();
       daemon.handlers.listProviders = () => CATALOG;
       daemon.handlers.listProviderCredentials = () => [];

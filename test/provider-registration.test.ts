@@ -111,25 +111,25 @@ describe("Feature: Register the fspec provider and build Paseo's model picker", 
   });
 
   describe("Scenario: status() reports unavailable with a diagnostic when the daemon is down", () => {
-    it("names the missing daemon.json and the fix", async () => {
-      // @step Given no daemon.json exists at the resolved path (no fspec daemon running)
+    it("names the empty daemons directory and the fix", async () => {
+      // @step Given the daemons directory holds no live entry (no fspec daemon running)
       const h = home();
       const provider = createFspecProvider({ env: {}, homeDir: h.homeDir });
       // @step When Paseo calls the provider's `status()`
       const status = await provider.status!({});
-      // @step Then it reports `{ available: false, diagnostic: 'no daemon.json found at /Users/me/.fspec/daemon.json — start fspec daemon first' }` naming the missing file and the fix
+      // @step Then it reports `{ available: false, diagnostic: 'no fspec daemon is running — no live entry in /Users/me/.fspec/daemons; start fspec daemon first' }` naming the daemons directory and the fix
       expect(status).toEqual({
         available: false,
-        diagnostic: `no daemon.json found at ${h.daemonJsonPath} — start fspec daemon first`,
+        diagnostic: `no fspec daemon is running — no live entry in ${h.daemonsDir}; start fspec daemon first`,
       });
     });
   });
 
   describe("Scenario: status() reports available when the daemon is reachable", () => {
-    it("reports available for a live daemon.json", async () => {
-      // @step Given a live fspec daemon has written a valid daemon.json (port and pid) whose pid is alive
+    it("reports available for a live daemon entry", async () => {
+      // @step Given a live fspec daemon has written its daemons/<pid>.json entry (port and pid) whose pid is alive
       const h = home();
-      h.writeDaemonJson();
+      h.writeDaemonEntry();
       const provider = createFspecProvider(daemonOptions(h, new FakeDaemon()));
       // @step When Paseo calls the provider's `status()`
       const status = await provider.status!({});
@@ -142,7 +142,7 @@ describe("Feature: Register the fspec provider and build Paseo's model picker", 
     it("maps list_providers into one catalog event", async () => {
       // @step Given the daemon's `list_providers` returns a reachable `anthropic` provider with models `claude-sonnet-4-5` (display_name 'Claude Sonnet 4.5', context_window 200000, supports_reasoning true) and `claude-haiku-4-5` (display_name 'Claude Haiku 4.5', context_window 200000) plus an `openai` provider flagged `is_unreachable`
       const h = home();
-      h.writeDaemonJson();
+      h.writeDaemonEntry();
       const daemon = new FakeDaemon();
       daemon.handlers.listProviders = () => [ANTHROPIC, OPENAI_UNREACHABLE];
       const { connection, events } = await connectTo(createFspecProvider(daemonOptions(h, daemon)));
@@ -178,8 +178,8 @@ describe("Feature: Register the fspec provider and build Paseo's model picker", 
   });
 
   describe("Scenario: A catalog request fails with a diagnostic when no daemon is reachable", () => {
-    it("answers request.failed with the daemon.json diagnostic", async () => {
-      // @step Given no daemon.json exists at the resolved path (no fspec daemon running)
+    it("answers request.failed with the discovery diagnostic", async () => {
+      // @step Given the daemons directory holds no live entry (no fspec daemon running)
       const h = home();
       const { connection, events } = await connectTo(
         createFspecProvider({ env: {}, homeDir: h.homeDir }),
@@ -187,8 +187,8 @@ describe("Feature: Register the fspec provider and build Paseo's model picker", 
       // @step When Paseo requests the model catalog with a requestId
       await connection.send({ type: "catalog", requestId: "catalog-down" });
       const reply = await settled(events, "catalog-down");
-      // @step Then the catalog input rejects with `request.failed` for that requestId and an error diagnostic naming the missing piece, e.g. 'no daemon.json found at /Users/me/.fspec/daemon.json — start fspec daemon first'
-      const diagnostic = `no daemon.json found at ${h.daemonJsonPath} — start fspec daemon first`;
+      // @step Then the catalog input rejects with `request.failed` for that requestId and an error diagnostic naming the missing piece, e.g. 'no fspec daemon is running — no live entry in /Users/me/.fspec/daemons; start fspec daemon first'
+      const diagnostic = `no fspec daemon is running — no live entry in ${h.daemonsDir}; start fspec daemon first`;
       expect(reply).toEqual({
         type: "request.failed",
         requestId: "catalog-down",
@@ -203,7 +203,7 @@ describe("Feature: Register the fspec provider and build Paseo's model picker", 
     it("emits an empty catalog with no defaultModel", async () => {
       // @step Given a live fspec daemon whose `list_providers` returns only providers flagged `is_unreachable`
       const h = home();
-      h.writeDaemonJson();
+      h.writeDaemonEntry();
       const daemon = new FakeDaemon();
       daemon.handlers.listProviders = () => [OPENAI_UNREACHABLE];
       const { connection, events } = await connectTo(createFspecProvider(daemonOptions(h, daemon)));
@@ -223,9 +223,9 @@ describe("Feature: Register the fspec provider and build Paseo's model picker", 
 
   describe("Scenario: Availability is probe-driven, not polled", () => {
     it("reflects each probe and schedules no timers", async () => {
-      // @step Given a live fspec daemon is reachable and a second status() probe later finds no daemon.json (the daemon stopped)
+      // @step Given a live fspec daemon is reachable and a second status() probe later finds no live daemon entry (the daemon stopped)
       const h = home();
-      h.writeDaemonJson();
+      h.writeDaemonEntry();
       vi.useFakeTimers();
       const provider = createFspecProvider(daemonOptions(h, new FakeDaemon()));
       // @step When Paseo calls the provider's `status()` at each point in time
@@ -235,7 +235,7 @@ describe("Feature: Register the fspec provider and build Paseo's model picker", 
       // @step Then each call reflects only the daemon state observed during that probe, reporting `{ available: true }` while reachable and `{ available: false }` with a diagnostic once it is not
       expect(first).toEqual({ available: true });
       expect(second.available).toBe(false);
-      expect((second as { diagnostic: string }).diagnostic).toMatch(/no daemon\.json found/);
+      expect((second as { diagnostic: string }).diagnostic).toMatch(/no fspec daemon is running/);
       // @step And the provider runs no background timer or polling loop between calls
       expect(vi.getTimerCount()).toBe(0);
     });
@@ -245,7 +245,7 @@ describe("Feature: Register the fspec provider and build Paseo's model picker", 
     it("replies with a valid empty catalog, not request.failed", async () => {
       // @step Given the daemon is reachable but its `list_providers` returns only providers flagged `is_unreachable`
       const h = home();
-      h.writeDaemonJson();
+      h.writeDaemonEntry();
       const daemon = new FakeDaemon();
       daemon.handlers.listProviders = () => [OPENAI_UNREACHABLE];
       const { connection, events } = await connectTo(createFspecProvider(daemonOptions(h, daemon)));

@@ -210,6 +210,39 @@ describe("Feature: Discover and connect to the fspec daemon", () => {
     });
   });
 
+  describe("Scenario: An explicit connect URL without a port is rejected", () => {
+    it("names the URL and the missing port", async () => {
+      // @step Given provider configuration sets the explicit connect URL "ws://127.0.0.1/"
+      const { client, sockets } = clientFor({ connectUrl: "ws://127.0.0.1/" });
+      // @step When Paseo calls the provider's status()
+      const status = await client.status();
+      // @step Then status reports available false with "fspec daemon connect URL ws://127.0.0.1/ names no port — the fspec daemon has no default port; use ws://127.0.0.1:<port>/"
+      expect(status).toEqual({
+        available: false,
+        diagnostic: "fspec daemon connect URL ws://127.0.0.1/ names no port — the fspec daemon has no default port; use ws://127.0.0.1:<port>/",
+      });
+      expect(sockets.length).toBe(0);
+      await client.close();
+    });
+  });
+
+  describe("Scenario: An explicit connect URL with another scheme or path is rejected", () => {
+    it("fails naming the URL, and keeps an explicit default port", async () => {
+      // @step Given provider configuration sets the explicit connect URL "wss://127.0.0.1:5555/" or "ws://127.0.0.1:5555/fspec-read-v2"
+      const secure = clientFor({ connectUrl: "wss://127.0.0.1:5555/" });
+      const pathed = clientFor({ connectUrl: "ws://127.0.0.1:5555/fspec-read-v2" });
+      // @step When the plugin resolves the daemon target
+      // @step Then resolving fails naming the URL and no socket is opened
+      await expect(secure.client.resolveTarget()).rejects.toThrow("fspec daemon connect URL wss://127.0.0.1:5555/ must use ws://");
+      await expect(pathed.client.resolveTarget()).rejects.toThrow("fspec daemon connect URL ws://127.0.0.1:5555/fspec-read-v2 must have the path /");
+      expect(secure.sockets.length + pathed.sockets.length).toBe(0);
+      // @step And an explicit "ws://127.0.0.1:80/" resolves to port 80
+      const eighty = clientFor({ connectUrl: "ws://127.0.0.1:80/" });
+      await expect(eighty.client.resolveTarget()).resolves.toMatchObject({ url: "ws://127.0.0.1:80/", port: 80 });
+      await Promise.all([secure.client.close(), pathed.client.close(), eighty.client.close()]);
+    });
+  });
+
   describe("Scenario: The explicit connect URL wins over discovery", () => {
     it("uses the explicit URL and never reads the daemons directory", async () => {
       // @step Given provider configuration sets an explicit connect URL on a different port than the live daemon entry

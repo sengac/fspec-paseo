@@ -205,7 +205,7 @@ If you only want fspec agents, you can turn off the built-in providers under `ag
 
 | Setting | Where | Effect |
 |---|---|---|
-| `FSPEC_DAEMON_URL` | Environment of the **Paseo daemon** | Explicit daemon URL, e.g. `ws://127.0.0.1:41413/`. Skips discovery (`daemons/`) entirely; the way to choose a daemon when several qualify. Must be a loopback host (`127.0.0.1`, `::1`, `localhost`). |
+| `FSPEC_DAEMON_URL` | Environment of the **Paseo daemon** | Explicit daemon URL, e.g. `ws://127.0.0.1:41413/`. Skips discovery (`daemons/`) entirely; the way to choose a daemon when several qualify. Must be `ws://`, a loopback host (`127.0.0.1`, `::1`, `localhost`), an explicit port and the path `/`; anything else fails naming the URL. |
 | `FSPEC_DAEMON_TOKEN` | Environment of the **Paseo daemon** | Sent as `Authorization: Bearer <token>` on every connection. Needed when the fspec daemon was started with the same variable. |
 | `XDG_RUNTIME_DIR` | Environment of both daemons | Moves `daemons/` (and fspec's `daemon.json`) to `$XDG_RUNTIME_DIR/fspec/`. Paseo and fspec must agree on this. |
 | `pluginsEnabled` | `~/.paseo/config.json` | Must be `true` for the plugin to load. |
@@ -267,6 +267,7 @@ server/
   settings.ts, oauth.ts  fspec providers screen feed: credentials, settings, profiles, custom models,
                          default model, OAuth
   bincode.ts, wire.ts    The fspec wire codec
+  log.ts                 The plugin log (stderr → `paseo plugin logs`) for failures nothing else shows
 
 shared/                  RPC schemas shared by server and client (board, settings)
 client/                  Board panel and providers screen UI (React Native) and their pure models
@@ -299,6 +300,8 @@ This project is itself built with fspec. Every feature has a work unit and a Ghe
 | `the fspec daemon serves X, not Y` (board) | No workspace the daemon serves holds Y. Open an fspec agent in Y (the daemon then serves it), or start fspec there. |
 | `fspec daemon list_workspaces failed: …` | The daemon could not list the workspaces it serves (for example its workspace registry is unreadable). The board and new agents need that list; fix the reason after the colon. |
 | No models in the picker | fspec has no reachable model provider. Fix the provider config or credentials in fspec. |
+| `fspec daemon connect URL … names no port` / `… must use ws://` / `… must have the path /` | `FSPEC_DAEMON_URL` is not `ws://<loopback host>:<port>/`. The daemon has no default port; copy it from `~/.fspec/daemons/<pid>.json`. |
+| Sessions fail with `… protocol error: … could not be decoded — …` | The daemon sent a frame this plugin cannot decode, usually because fspec and the plugin are at different protocol revisions. The connection is closed; update the plugin or fspec to matching versions. Details are in `paseo plugin logs fspec-paseo-provider`. |
 | `non-loopback daemon host …` | `FSPEC_DAEMON_URL` points at a non-loopback host. Only loopback is supported. The daemon's bearer token is not a substitute for TLS. |
 | `… could not be established — …FSPEC_DAEMON_TOKEN…` | The daemon is down, or it requires a token the Paseo daemon doesn't send or doesn't match. Set `FSPEC_DAEMON_TOKEN` for the Paseo daemon and restart it. |
 | No fspec board button on phone | No workspace the running daemon serves holds the workspace's directory. |

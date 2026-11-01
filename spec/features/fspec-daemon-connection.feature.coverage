@@ -61,7 +61,7 @@
       "testMappings": [
         {
           "file": "test/daemon.test.ts",
-          "lines": "255-279",
+          "lines": "288-312",
           "implMappings": [
             {
               "file": "server/daemon.ts",
@@ -191,7 +191,7 @@
       "testMappings": [
         {
           "file": "test/daemon.test.ts",
-          "lines": "281-303",
+          "lines": "314-336",
           "implMappings": [
             {
               "file": "server/daemon.ts",
@@ -233,7 +233,7 @@
       "testMappings": [
         {
           "file": "test/daemon.test.ts",
-          "lines": "305-318",
+          "lines": "338-351",
           "implMappings": [
             {
               "file": "server/daemon.ts",
@@ -527,7 +527,7 @@
       "testMappings": [
         {
           "file": "test/daemon.test.ts",
-          "lines": "213-233",
+          "lines": "246-266",
           "implMappings": [
             {
               "file": "server/daemon.ts",
@@ -564,7 +564,7 @@
       "testMappings": [
         {
           "file": "test/daemon.test.ts",
-          "lines": "235-253",
+          "lines": "268-286",
           "implMappings": [
             {
               "file": "server/daemon.ts",
@@ -579,18 +579,116 @@
           ]
         }
       ]
+    },
+    {
+      "name": "An explicit connect URL without a port is rejected",
+      "testMappings": [
+        {
+          "file": "test/daemon.test.ts",
+          "lines": "213-227",
+          "implMappings": [
+            {
+              "file": "server/daemon.ts",
+              "lines": [
+                317,
+                318,
+                319,
+                320,
+                321,
+                322,
+                323,
+                324,
+                325,
+                326,
+                327,
+                328,
+                329,
+                330,
+                331,
+                332,
+                333,
+                334,
+                335,
+                336,
+                337,
+                338,
+                339,
+                340,
+                341,
+                342,
+                343,
+                344,
+                345,
+                346,
+                347,
+                348,
+                349
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "An explicit connect URL with another scheme or path is rejected",
+      "testMappings": [
+        {
+          "file": "test/daemon.test.ts",
+          "lines": "229-244",
+          "implMappings": [
+            {
+              "file": "server/daemon.ts",
+              "lines": [
+                317,
+                318,
+                319,
+                320,
+                321,
+                322,
+                323,
+                324,
+                325,
+                326,
+                327,
+                328,
+                329,
+                330,
+                331,
+                332,
+                333,
+                334,
+                335,
+                336,
+                337,
+                338,
+                339,
+                340,
+                341,
+                342,
+                343,
+                344,
+                345,
+                346,
+                347,
+                348,
+                349
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 9,
-    "coveredScenarios": 9,
-    "coveragePercent": 100,
+    "coveredScenarios": 11,
+    "coveragePercent": 122,
     "testFiles": [
       "test/daemon.test.ts"
     ],
     "implFiles": [
       "server/daemon.ts"
     ],
-    "totalLinesCovered": 630
+    "totalLinesCovered": 712
   }
 }

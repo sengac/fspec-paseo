@@ -135,6 +135,13 @@ Transport notes:
   reason: "going_away"}`. A `Message::Close` from the client tears down the connection.
 - A frame that fails to bincode-decode as an `Envelope` closes the connection (server logs
   `failed to bincode-decode envelope; closing`).
+- The plugin does the same in the other direction (FSPEC-064): a server frame whose
+  `Envelope` or tarpc response frame does not decode is a protocol error. It is logged, the
+  socket is closed (1002) and the connection drops with `protocol error: <the envelope | an
+  rpc response> frame could not be decoded — <decoder message>`: waiting requests reject,
+  open sessions get `session.runtime_failed`, and during the handshake `connect()` fails.
+  Text frames are logged and ignored; a response for a request id nothing waits for is
+  logged.
 
 ---
 

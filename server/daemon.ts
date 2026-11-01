@@ -13,6 +13,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
+import { describeError, logFailure, logWarning } from "./log.js";
 import { within } from "./workspaces.js";
 import {
   decodeEnvelope,
@@ -320,10 +321,23 @@ export function createFspecDaemonClient(
       } catch {
         throw new Error(`invalid fspec daemon connect URL: ${url}`);
       }
+      // FSPEC-064: nothing is defaulted or rewritten — ws://<loopback>:<port>/ only.
+      if (parsed.protocol !== "ws:") {
+        throw new Error(`fspec daemon connect URL ${url} must use ws:// — the fspec daemon serves plain WebSocket on loopback`);
+      }
+      if (parsed.pathname !== "/" || parsed.search !== "" || parsed.hash !== "") {
+        throw new Error(`fspec daemon connect URL ${url} must have the path / — the plugin uses the daemon's full surface`);
+      }
       const host = parsed.hostname;
       if (!isLoopbackHost(host)) throw nonLoopbackError(host);
-      const port =
-        parsed.port !== "" ? Number(parsed.port) : parsed.protocol === "wss:" ? 443 : 80;
+      // URL elides a port equal to the scheme default (:80), so read the authority as written.
+      const authority = url.slice(url.indexOf("//") + 2).split(/[/?#]/)[0] ?? "";
+      if (!/:\d+$/.test(authority)) {
+        throw new Error(
+          `fspec daemon connect URL ${url} names no port — the fspec daemon has no default port; use ws://127.0.0.1:<port>/`,
+        );
+      }
+      const port = parsed.port === "" ? 80 : Number(parsed.port);
       const resolved: DaemonTarget = {
         url: `ws://${host}:${port}/`,
         host,
@@ -395,33 +409,71 @@ export function createFspecDaemonClient(
           resolve();
         }
       };
+      /**
+       * FSPEC-064: a frame the codec cannot decode is a protocol error, as in
+       * fspec's pump (rust/rpc-server/src/pump.rs): the socket is closed and
+       * nothing after it is processed.
+       */
+      let dropped = false;
+      const protocolError = (what: string, error: unknown) => {
+        if (dropped) return;
+        dropped = true;
+        const reason = `protocol error: ${what} could not be decoded — ${describeError(error)}`;
+        logFailure("fspec daemon connection closed", reason);
+        if (!settled) {
+          settled = true;
+          reject(new Error(`fspec daemon ${reason}`));
+        } else {
+          handleDrop(reason, 1002);
+        }
+        try {
+          sock.close(1002, "protocol error");
+        } catch (closeError) {
+          logFailure("closing the fspec daemon socket after a protocol error failed", closeError);
+        }
+      };
       // Blob frames decode asynchronously; later frames queue behind them so
       // the daemon's frame order is preserved.
       let blobQueue: Promise<void> | null = null;
       const onMessage = (event: { data?: unknown }) => {
+        if (dropped) return;
         if (event.data instanceof Blob || blobQueue !== null) {
           const data = event.data;
           const queued: Promise<void> = (blobQueue ?? Promise.resolve())
             .then(async () => {
-              const bytes = data instanceof Blob ? new Uint8Array(await data.arrayBuffer()) : toBytes(data);
-              if (bytes !== null) onFrame(bytes);
+              if (dropped) return;
+              const frame = data instanceof Blob ? { bytes: new Uint8Array(await data.arrayBuffer()) } : toFrame(data);
+              onData(frame);
             })
+            .catch((error: unknown) => protocolError("a Blob frame", error))
             .finally(() => {
               if (blobQueue === queued) blobQueue = null;
             });
           blobQueue = queued;
           return;
         }
-        const bytes = toBytes(event.data);
-        if (bytes === null) return; // text frames are ignored by the daemon too
-        onFrame(bytes);
+        onData(toFrame(event.data));
+      };
+      const onData = (frame: Frame) => {
+        if (dropped) return;
+        if ("text" in frame) {
+          // fspec's pump ignores text frames with a warning; so does the client.
+          logWarning("ignored a text frame from the fspec daemon (its protocol is binary)");
+          return;
+        }
+        if ("unsupported" in frame) {
+          protocolError("the frame", new Error(`unsupported WebSocket message data (${frame.unsupported})`));
+          return;
+        }
+        onFrame(frame.bytes);
       };
       const onFrame = (bytes: Uint8Array) => {
         let envelope: Envelope;
         try {
           envelope = decodeEnvelope(bytes);
-        } catch {
-          return; // a frame we cannot decode never breaks the connection here
+        } catch (error) {
+          protocolError("the envelope frame", error);
+          return;
         }
         if (envelope.kind === "workUnitsUpdate" && !handshake.workUnitsUpdate) {
           handshake.workUnitsUpdate = true;
@@ -432,21 +484,26 @@ export function createFspecDaemonClient(
           initial = { ...initial, sessions: envelope.sessions };
         }
         if (envelope.kind === "rpc") {
+          let response: DecodedResponse;
           try {
-            const response = decodeResponseFrame(envelope.frame);
-            const pending = outstanding.get(response.requestId);
-            if (pending) {
-              outstanding.delete(response.requestId);
-              pending.resolve(response);
-            }
-          } catch {
-            /* ignore undecodable rpc frames */
+            response = decodeResponseFrame(envelope.frame);
+          } catch (error) {
+            protocolError("an rpc response frame", error);
+            return;
+          }
+          const pending = outstanding.get(response.requestId);
+          if (pending) {
+            outstanding.delete(response.requestId);
+            pending.resolve(response);
+          } else {
+            logWarning(`the fspec daemon answered request ${response.requestId}, which nothing is waiting for`);
           }
         }
         for (const listener of envelopeListeners) listener(envelope);
         onOpen();
       };
       const onError = () => {
+        if (dropped) return;
         if (!settled) {
           settled = true;
           reject(unreachable(resolved));
@@ -455,6 +512,7 @@ export function createFspecDaemonClient(
         handleDrop("transport error");
       };
       const onClose = (event: { code?: number }) => {
+        if (dropped) return;
         const code = event.code;
         if (!settled) {
           settled = true;
@@ -654,12 +712,15 @@ function defaultOpenSocket(url: string, init?: { headers: Record<string, string>
   return socket as unknown as SocketLike;
 }
 
-function toBytes(data: unknown): Uint8Array | null {
-  if (data instanceof Uint8Array) return data;
-  if (typeof data === "string") return null; // text frames: ignored
-  if (data instanceof ArrayBuffer) return new Uint8Array(data);
+/** A WebSocket message: binary bytes, a text frame, or data of another kind. */
+type Frame = { bytes: Uint8Array } | { text: true } | { unsupported: string };
+
+function toFrame(data: unknown): Frame {
+  if (data instanceof Uint8Array) return { bytes: data };
+  if (typeof data === "string") return { text: true };
+  if (data instanceof ArrayBuffer) return { bytes: new Uint8Array(data) };
   if (ArrayBuffer.isView(data)) {
-    return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    return { bytes: new Uint8Array(data.buffer, data.byteOffset, data.byteLength) };
   }
-  return null;
+  return { unsupported: data === null ? "null" : typeof data };
 }

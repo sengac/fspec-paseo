@@ -5,7 +5,7 @@
       "testMappings": [
         {
           "file": "test/daemon-binary-frames.test.ts",
-          "lines": "72-90",
+          "lines": "76-94",
           "implMappings": [
             {
               "file": "server/daemon.ts",
@@ -27,7 +27,7 @@
       "testMappings": [
         {
           "file": "test/daemon-binary-frames.test.ts",
-          "lines": "92-114",
+          "lines": "96-118",
           "implMappings": [
             {
               "file": "server/daemon.ts",
@@ -56,18 +56,346 @@
           ]
         }
       ]
+    },
+    {
+      "name": "An undecodable frame drops the connection as a protocol error",
+      "testMappings": [
+        {
+          "file": "test/daemon-binary-frames.test.ts",
+          "lines": "120-148",
+          "implMappings": [
+            {
+              "file": "server/daemon.ts",
+              "lines": [
+                411,
+                412,
+                413,
+                414,
+                415,
+                416,
+                417,
+                418,
+                419,
+                420,
+                421,
+                422,
+                423,
+                424,
+                425,
+                426,
+                427,
+                428,
+                429,
+                430,
+                431,
+                432,
+                433,
+                434,
+                435,
+                436,
+                437,
+                438,
+                439,
+                440,
+                441,
+                442,
+                443,
+                444,
+                445,
+                446,
+                447,
+                448,
+                449,
+                450,
+                451,
+                452,
+                453,
+                454,
+                455,
+                456,
+                457,
+                458,
+                459,
+                460,
+                461,
+                462,
+                463,
+                464,
+                465,
+                466,
+                467,
+                468,
+                469,
+                470,
+                471,
+                472,
+                473,
+                474,
+                475,
+                476,
+                477,
+                478,
+                479,
+                480,
+                481,
+                482,
+                483,
+                484,
+                485,
+                486,
+                487,
+                488,
+                489,
+                490,
+                491,
+                492,
+                493,
+                494,
+                495,
+                496,
+                497,
+                498,
+                499,
+                500,
+                501,
+                502,
+                503,
+                504
+              ]
+            },
+            {
+              "file": "server/log.ts",
+              "lines": [
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "An undecodable rpc response during the handshake fails the connect",
+      "testMappings": [
+        {
+          "file": "test/daemon-binary-frames.test.ts",
+          "lines": "150-178",
+          "implMappings": [
+            {
+              "file": "server/daemon.ts",
+              "lines": [
+                411,
+                412,
+                413,
+                414,
+                415,
+                416,
+                417,
+                418,
+                419,
+                420,
+                421,
+                422,
+                423,
+                424,
+                425,
+                426,
+                427,
+                428,
+                429,
+                430,
+                431,
+                432,
+                433,
+                434,
+                435,
+                436,
+                437,
+                438,
+                439,
+                440,
+                441,
+                442,
+                443,
+                444,
+                445,
+                446,
+                447,
+                448,
+                449,
+                450,
+                451,
+                452,
+                453,
+                454,
+                455,
+                456,
+                457,
+                458,
+                459,
+                460,
+                461,
+                462,
+                463,
+                464,
+                465,
+                466,
+                467,
+                468,
+                469,
+                470,
+                471,
+                472,
+                473,
+                474,
+                475,
+                476,
+                477,
+                478,
+                479,
+                480,
+                481,
+                482,
+                483,
+                484,
+                485,
+                486,
+                487,
+                488,
+                489,
+                490,
+                491,
+                492,
+                493,
+                494,
+                495,
+                496,
+                497,
+                498,
+                499,
+                500,
+                501,
+                502,
+                503,
+                504
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A session sees a protocol error as a lost runtime",
+      "testMappings": [
+        {
+          "file": "test/daemon-binary-frames.test.ts",
+          "lines": "180-192",
+          "implMappings": [
+            {
+              "file": "server/daemon.ts",
+              "lines": [
+                411,
+                412,
+                413,
+                414,
+                415,
+                416,
+                417,
+                418,
+                419,
+                420,
+                421,
+                422,
+                423,
+                424,
+                425,
+                426,
+                427,
+                428,
+                429,
+                430,
+                431,
+                432,
+                433,
+                434,
+                435,
+                436
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Text frames are logged and ignored",
+      "testMappings": [
+        {
+          "file": "test/daemon-binary-frames.test.ts",
+          "lines": "194-210",
+          "implMappings": [
+            {
+              "file": "server/daemon.ts",
+              "lines": [
+                455,
+                456,
+                457,
+                458,
+                459,
+                460,
+                461,
+                462,
+                463,
+                464,
+                465,
+                466,
+                467,
+                468,
+                469,
+                715,
+                716,
+                717,
+                718,
+                719,
+                720,
+                721,
+                722,
+                723,
+                724,
+                725,
+                726
+              ]
+            },
+            {
+              "file": "server/log.ts",
+              "lines": [
+                15,
+                16,
+                17,
+                18
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 2,
-    "coveredScenarios": 2,
-    "coveragePercent": 100,
+    "coveredScenarios": 6,
+    "coveragePercent": 300,
     "testFiles": [
       "test/daemon-binary-frames.test.ts"
     ],
     "implFiles": [
-      "server/daemon.ts"
+      "server/daemon.ts",
+      "server/log.ts"
     ],
-    "totalLinesCovered": 67
+    "totalLinesCovered": 408
   }
 }

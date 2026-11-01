@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:28:37.024Z"
+    "lastUpdated": "2026-11-01T03:31:56.139Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -7501,16 +7501,102 @@
       "id": "FSPEC-064",
       "title": "Fail the daemon connection on undecodable frames and require an explicit daemon URL port",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-11-01T03:22:19.641Z",
-      "updatedAt": "2026-11-01T03:23:57.062Z",
+      "updatedAt": "2026-11-01T03:31:56.139Z",
       "description": "server/daemon.ts ignores a binary frame whose envelope or rpc response frame cannot be decoded, ignores text frames silently, and an explicit connect URL without a port silently dials 80/443 (wss is silently rewritten to ws and the path dropped). An undecodable frame is a protocol error: log it, close the socket and drop the connection with the reason, like the daemon's pump (rust/rpc-server/src/pump.rs:139-145). Text frames are logged and ignored (pump.rs:181-183). An explicit URL must be ws://, name a port and the / path, or the connection fails naming the URL.",
       "epic": "provider-plugin",
       "children": [],
       "attachments": [
         "spec/attachments/FSPEC-064/root-cause.md",
         "spec/attachments/FSPEC-064/ast-research.md"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:29:13.755Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:29:31.458Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:30:35.752Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T03:31:48.326Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T03:31:56.139Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "A binary frame whose Envelope does not decode, or an Rpc envelope whose tarpc response frame does not decode, is a protocol error: it is logged, the socket is closed and the connection drops with reason 'protocol error: <the envelope|an rpc response> frame could not be decoded — <decoder message>' (as fspec's pump closes on an undecodable envelope, rust/rpc-server/src/pump.rs:139-145)",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:29:13.787Z"
+        },
+        {
+          "id": 1,
+          "text": "After a protocol error, outstanding requests reject with the reason, open sessions get session.runtime_failed naming it (the FSPEC-030 lost-connection path) and later frames of that socket are not processed; during the handshake the connect fails with it",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:29:13.808Z"
+        },
+        {
+          "id": 2,
+          "text": "A text frame is logged and ignored, as fspec's pump does (pump.rs:181-183); a frame of any other non-binary type is a protocol error",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:29:13.830Z"
+        },
+        {
+          "id": 3,
+          "text": "An explicit connect URL must be ws://<loopback host>:<port>/ — no port fails '<url> names no port — the fspec daemon has no default port; use ws://127.0.0.1:<port>/'; another scheme or a path other than / fails naming the URL; nothing is defaulted or rewritten",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:29:13.851Z"
+        },
+        {
+          "id": 4,
+          "text": "A response for a request id nobody waits for is logged",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:29:13.873Z"
+        }
+      ],
+      "nextRuleId": 5,
+      "examples": [
+        {
+          "id": 0,
+          "text": "Established connection, the daemon sends the bytes ff ff ff ff -> in-flight list_providers rejects 'fspec daemon connection was lost: protocol error: the envelope frame could not be decoded — ...', the client is connection-lost, the plugin log has the reason",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:29:13.894Z"
+        },
+        {
+          "id": 1,
+          "text": "During the handshake an rpc envelope carries an undecodable response frame -> connect() rejects with the protocol error and the socket is closed",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:29:13.918Z"
+        },
+        {
+          "id": 2,
+          "text": "FSPEC_DAEMON_URL=ws://127.0.0.1/ -> status unavailable 'fspec daemon connect URL ws://127.0.0.1/ names no port — the fspec daemon has no default port; use ws://127.0.0.1:<port>/'; wss://127.0.0.1:5555/ and ws://127.0.0.1:5555/fspec-read-v2 fail naming the URL; ws://127.0.0.1:80/ is port 80",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:29:13.939Z"
+        }
+      ],
+      "nextExampleId": 3,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/daemon.ts attachSocket onMessage/onFrame: a per-socket dropped flag; protocolError() logs (server/log.ts), rejects the handshake or handleDrop(reason), then closes the socket with 1002 without a second connection-lost; toBytes distinguishes text frames; resolveTarget validates scheme, explicit port (read from the raw authority, since URL elides :80) and path.",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:29:13.958Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "estimate": 3
     },
     "FSPEC-065": {
       "id": "FSPEC-065",
@@ -7575,7 +7661,6 @@
   },
   "states": {
     "backlog": [
-      "FSPEC-064",
       "FSPEC-065",
       "FSPEC-066",
       "FSPEC-067",
@@ -7649,7 +7734,8 @@
       "FSPEC-060",
       "FSPEC-061",
       "FSPEC-062",
-      "FSPEC-063"
+      "FSPEC-063",
+      "FSPEC-064"
     ],
     "blocked": []
   },

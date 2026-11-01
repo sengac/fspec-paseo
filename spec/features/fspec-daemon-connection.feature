@@ -3,6 +3,7 @@
 @core
 @FSPEC-003
 @FSPEC-060
+@FSPEC-064
 Feature: Discover and connect to the fspec daemon
   """
   Client lives in server/daemon.ts on top of the FSPEC-002 codec (server/wire.ts + server/bincode.ts): encode/decode Envelope + tarpc request/response. Target resolution: explicit connect URL (provider config / env FSPEC_DAEMON_URL) wins over discovery of the live daemons/<pid>.json entries ($XDG_RUNTIME_DIR/fspec/daemons else ~/.fspec/daemons; FSPEC-060: daemon.json is no longer read, see fspec-daemon-discovery.feature for which entry serves a directory). Loopback-only (127.0.0.1, ::1, localhost) enforced before any socket. status() is a lightweight probe (resolve + validate, no socket); connect() opens the WebSocket (path /) and completes the handshake (WorkUnitsUpdate + SessionSnapshot) before reporting established.
@@ -23,6 +24,7 @@ Feature: Discover and connect to the fspec daemon
   #   7. Connection-drop handling: if the WebSocket is closed by the server or the network mid-session (including a server Close{code:1001, going_away}), the client transitions to a connection-lost state, tears down all in-flight/outstanding request state, and the provider surfaces it as a connection loss (open sessions are torn down). The client does NOT auto-reconnect: it stays down until status()/connect() is called again and re-resolves the target.
   #   8. Clean shutdown: when Paseo unloads the plugin / calls close(), the client closes the WebSocket connection (sends a Close frame / aborts) and releases ALL state — clears open sessions, disconnects event listeners, and cancels any in-flight request tracking. close() is idempotent (a second call is a no-op that does not throw). No sockets, timers, or listener registrations leak after close().
   #   9. Discovery order (status/connect): (1) explicit connect URL from provider configuration (env FSPEC_DAEMON_URL) — if set and non-empty, use it (after loopback validation) and skip daemon.json entirely; (2) otherwise resolve daemon.json (XDG_RUNTIME_DIR first, then ~/.fspec) and verify port+pid; (3) if neither yields a usable loopback target, report unavailable with a diagnostic naming the missing piece.
+  #   11. FSPEC-064: an explicit connect URL must be ws://<loopback host>:<port>/ — no port fails '<url> names no port — the fspec daemon has no default port', another scheme or a path other than / fails naming the URL; nothing is defaulted or rewritten
   #   10. Availability diagnostic: when status() is unavailable, the diagnostic must be user-actionable and name WHAT is wrong, distinguishing at least: (a) no daemon.json found / no daemon running (point to the resolved path and 'start fspec daemon'), (b) stale daemon.json removed (stale file at <path>), (c) the explicit connect URL is not a loopback address (name the offending host), (d) the daemon was found but the connection attempt failed (e.g. connect refused on 127.0.0.1:<port>). An available:false status ALWAYS carries a non-empty diagnostic.
   #
   # EXAMPLES:
@@ -72,6 +74,17 @@ Feature: Discover and connect to the fspec daemon
     Then the target is rejected as non-loopback before any socket is opened
     And status reports available false
     And the diagnostic names the offending host and says only loopback (127.0.0.1, ::1, or localhost) is allowed
+
+  Scenario: An explicit connect URL without a port is rejected
+    Given provider configuration sets the explicit connect URL "ws://127.0.0.1/"
+    When Paseo calls the provider's status()
+    Then status reports available false with "fspec daemon connect URL ws://127.0.0.1/ names no port — the fspec daemon has no default port; use ws://127.0.0.1:<port>/"
+
+  Scenario: An explicit connect URL with another scheme or path is rejected
+    Given provider configuration sets the explicit connect URL "wss://127.0.0.1:5555/" or "ws://127.0.0.1:5555/fspec-read-v2"
+    When the plugin resolves the daemon target
+    Then resolving fails naming the URL and no socket is opened
+    And an explicit "ws://127.0.0.1:80/" resolves to port 80
 
   Scenario: The explicit connect URL wins over discovery
     Given provider configuration sets an explicit connect URL on a different port than the live daemon entry

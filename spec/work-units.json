@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:52:15.423Z"
+    "lastUpdated": "2026-11-01T03:54:48.796Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -8174,6 +8174,80 @@
         "spec/attachments/FSPEC-069/ast-research.md"
       ],
       "estimate": 2
+    },
+    "FSPEC-070": {
+      "id": "FSPEC-070",
+      "title": "Show a tool result whose call this session never saw as an unmatched result",
+      "type": "bug",
+      "status": "done",
+      "createdAt": "2026-11-01T03:53:07.223Z",
+      "updatedAt": "2026-11-01T03:54:48.796Z",
+      "description": "server/transcript.ts:212 names a tool result with no earlier ToolCall or ToolProgress 'tool'. That is legitimate in fspec's stream: a Paseo session subscribes to a daemon session's live broadcast (background_session/transcript.rs subscribe_to_stream) with no backlog, so a session reopened without history replay while a tool runs, or a sub-agent adopted on its first pushed chunk (session.ts adoptUnknown), receives the ToolResult of a call emitted before it listened. Show it as an unmatched result carrying its tool_call_id instead of a guessed name.",
+      "epic": "provider-plugin",
+      "children": [],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:53:07.265Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:54:00.431Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:54:16.367Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T03:54:37.050Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T03:54:48.796Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "fspec pushes every session's StreamChunks over a tokio broadcast (background_session/output.rs:81-85, rpc/src/shared_broadcasts.rs:13-18) with no backlog, so a listener sees only chunks sent after it connected; a ToolResult whose ToolCall was sent earlier is legitimate, not a protocol inconsistency",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:53:33.892Z"
+        },
+        {
+          "id": 1,
+          "text": "A tool result with no earlier ToolCall or ToolProgress in the session's transcript is a tool_call item named 'unmatched tool result' whose detail is plain text labelled 'unmatched tool result · <tool_call_id>' with the result content; no tool name is guessed",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:53:33.929Z"
+        },
+        {
+          "id": 2,
+          "text": "A ToolProgress names its tool (tool_name), so a result after progress keeps that name",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:53:33.949Z"
+        }
+      ],
+      "nextRuleId": 3,
+      "examples": [
+        {
+          "id": 0,
+          "text": "Paseo reopens a running session without history replay; the first chunk is ToolResult {tool_call_id 'call-9', content 'ok'} -> tool_call 'unmatched tool result', label 'unmatched tool result · call-9', text 'ok', status completed",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:53:33.971Z"
+        },
+        {
+          "id": 1,
+          "text": "ToolProgress {call-4, Bash, 'a'} then ToolResult {call-4, 'done'} -> one tool_call named Bash",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:53:33.995Z"
+        }
+      ],
+      "nextExampleId": 2,
+      "attachments": [
+        "spec/attachments/FSPEC-070/root-cause.md",
+        "spec/attachments/FSPEC-070/ast-research.md"
+      ],
+      "estimate": 2
     }
   },
   "states": {
@@ -8252,11 +8326,12 @@
       "FSPEC-066",
       "FSPEC-067",
       "FSPEC-068",
-      "FSPEC-069"
+      "FSPEC-069",
+      "FSPEC-070"
     ],
     "blocked": []
   },
   "prefixCounters": {
-    "FSPEC": 69
+    "FSPEC": 70
   }
 }

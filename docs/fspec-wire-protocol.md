@@ -526,6 +526,13 @@ completed/failed, `UserNotification`(8)→ notification, `Error`(14)→ error,
 `InterruptedWithReason`(30) are turn terminals; an interrupt is followed by a
 `Done` and its `queued_inputs` stay parked in the daemon (§6.9).
 
+**A `ToolResult` without its call** (FSPEC-070) is legitimate: fspec sends live chunks on
+a tokio broadcast with no backlog (`rust/sessions/src/background_session/output.rs`,
+`rust/rpc/src/shared_broadcasts.rs`), so a listener that joined mid-tool (a reopen without
+history replay, a sub-agent adopted on a later chunk) sees the result only. It renders as a
+`tool_call` named `unmatched tool result` with plain-text detail
+`unmatched tool result · <tool_call_id>`; no tool name is guessed.
+
 **Replayed transcript entries** (`get_transcript_page`) are the same chunks as serde JSON:
 externally tagged, a unit variant as a bare string (`"Done"`), every other variant a
 one-key object whose body carries every field (no `skip_serializing_if`, `Option`s are

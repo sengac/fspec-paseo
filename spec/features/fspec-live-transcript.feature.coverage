@@ -1460,12 +1460,80 @@
           ]
         }
       ]
+    },
+    {
+      "name": "A tool result whose call this session never saw shows as unmatched",
+      "testMappings": [
+        {
+          "file": "test/live-transcript.test.ts",
+          "lines": "460-472",
+          "implMappings": [
+            {
+              "file": "server/transcript.ts",
+              "lines": [
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                46,
+                47,
+                112,
+                113,
+                114,
+                115,
+                116,
+                117,
+                118,
+                119,
+                120,
+                121,
+                122,
+                123,
+                124,
+                125,
+                126,
+                127,
+                128,
+                129,
+                130,
+                131,
+                132,
+                133,
+                134,
+                135,
+                136,
+                137,
+                138,
+                139,
+                140,
+                152,
+                153,
+                226,
+                227,
+                228,
+                229,
+                230,
+                231,
+                232,
+                233,
+                298,
+                299,
+                300,
+                301
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 11,
-    "coveredScenarios": 13,
-    "coveragePercent": 118,
+    "coveredScenarios": 14,
+    "coveragePercent": 127,
     "testFiles": [
       "test/live-transcript.test.ts"
     ],
@@ -1476,6 +1544,6 @@
       "server/wire.ts",
       "server/json-fields.ts"
     ],
-    "totalLinesCovered": 1603
+    "totalLinesCovered": 1668
   }
 }

@@ -456,4 +456,18 @@ describe("Feature: Stream the live fspec transcript into Paseo's timeline", () =
       expect(golden("stream-chunk-json.txt").trim().split("\n").map(parseStreamChunkJson)).toHaveLength(9);
     });
   });
+
+  describe("Scenario: A tool result whose call this session never saw shows as unmatched", () => {
+    it("publishes the result under its tool_call_id without a guessed name", async () => {
+      // @step Given an open fspec session that started listening after the daemon sent the ToolCall for "call-9"
+      const h = await activeTurn();
+      // @step When the daemon pushes ToolResult with tool_call_id "call-9" and content "ok"
+      await h.stream(DAEMON, toolResult("call-9", "ok"));
+      // @step Then a completed tool_call item named "unmatched tool result" is published
+      const item = h.items("tool_call").at(-1);
+      expect(item).toMatchObject({ id: "tool:call-9", callId: "call-9", name: "unmatched tool result", status: "completed" });
+      // @step And its plain text detail is labelled "unmatched tool result · call-9" with text "ok"
+      expect(item?.detail).toEqual({ type: "plain_text", label: "unmatched tool result · call-9", text: "ok" });
+    });
+  });
 });

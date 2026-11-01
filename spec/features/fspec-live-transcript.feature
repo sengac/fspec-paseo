@@ -3,6 +3,7 @@
 @provider
 @FSPEC-006
 @FSPEC-068
+@FSPEC-070
 Feature: Stream the live fspec transcript into Paseo's timeline
   """
   server/transcript.ts is a per-session fold from StreamChunk to timeline snapshots and usage, called by the FSPEC-005 registry for live Envelope::Event chunks and for replayed transcript entries. Terminal chunks first terminalize transient rows through the fold, then FSPEC-005 settles the turn. Replay adds get_transcript_page (idx 117) to server/wire.ts (TranscriptCursor/Page/Fragment/Error bincode shapes from rpc-types/src/transcript.rs) and parses the assembled JSON StreamChunks (serde externally tagged) in server/transcript-json.ts.
@@ -27,6 +28,7 @@ Feature: Stream the live fspec transcript into Paseo's timeline
   #   12. Replay pages with get_transcript_page(session_id, cursor, snapshot_end, max_bytes 65536): first call cursor None + snapshot_end None, then the returned snapshot_end and next_cursor until complete; a TranscriptError does not fail the open — it publishes a warning session.notice and the session still becomes ready
   #   13. Item ids never collide with rows Paseo already stored: tool items use 'tool:<daemon tool call id>'; every other item is '<epoch>:<n>:<kind>' where epoch is unique per session.open (so a reopened session never reuses an earlier open's ids) and n is a per-open counter of rendered items; snapshots of one item always reuse its id
   #   14. FSPEC-068: a transcript entry is a bare unit-variant string or a one-key object whose body is an object; every field of the variant (rust/rpc-types/src/stream_chunk.rs, chunk_support.rs) must be present with its serde type, Options null or that type, NotificationSeverity Info|Warning|Error, InterruptionReason user|loopDetector; anything else fails the replay with 'transcript entry <Variant>.<field> is not <type>', reported as the history warning
+  #   15. FSPEC-070: fspec pushes chunks over a tokio broadcast with no backlog (rust/sessions/src/background_session/output.rs, rust/rpc/src/shared_broadcasts.rs), so a session reopened without replay mid-tool or a sub-agent adopted on a later chunk legitimately receives a ToolResult whose ToolCall it never saw. That result is a tool_call named 'unmatched tool result' with plain-text detail 'unmatched tool result · <tool_call_id>' and the result content; no name is guessed. ToolProgress carries tool_name, so a result after progress keeps that name.
   #
   # EXAMPLES:
   #   1. ToolProgress {toolCallId:'call-1', outputChunk:'a.txt\n'} re-publishes tool:call-1 with detail.output 'a.txt\n'; ToolResult {toolCallId:'call-1', content:'a.txt\nb.txt\n', isError:false} re-publishes it completed with output 'a.txt\nb.txt\n'; a ToolCall named 'Read' with input '{"path":"x"}' renders detail {type:'unknown', input:{path:'x'}, output:null}
@@ -140,3 +142,9 @@ Feature: Stream the live fspec transcript into Paseo's timeline
     When the codec decodes them
     Then each fails naming the variant and field that is wrong
     And the golden StreamChunk JSON lines still decode
+
+  Scenario: A tool result whose call this session never saw shows as unmatched
+    Given an open fspec session that started listening after the daemon sent the ToolCall for "call-9"
+    When the daemon pushes ToolResult with tool_call_id "call-9" and content "ok"
+    Then a completed tool_call item named "unmatched tool result" is published
+    And its plain text detail is labelled "unmatched tool result · call-9" with text "ok"

@@ -29,7 +29,12 @@ interface Segment {
 interface ToolState {
   id: string;
   callId: string;
-  name: string;
+  /**
+   * fspec's tool name, or null for a result whose ToolCall this session never
+   * saw: fspec's chunk broadcast has no backlog, so a listener that joined
+   * mid-tool gets only the result (FSPEC-070).
+   */
+  name: string | null;
   input: JsonValue;
   command: string | undefined;
   output: string | undefined;
@@ -37,6 +42,9 @@ interface ToolState {
   error: string | null;
   revertToken?: JsonValue;
 }
+
+/** The item name of a result whose call this session never saw (FSPEC-070). */
+const UNMATCHED_RESULT = "unmatched tool result";
 
 /** fspec marks stderr lines in tool output with this sentinel (rust/tools/src/bash_output.rs). */
 const STDERR_MARKER = "⚠stderr⚠";
@@ -83,7 +91,7 @@ function shellCommand(input: JsonValue): string | undefined {
  * "fspec <command> <args>" with its output instead of a raw JSON dump.
  */
 function fspecDetail(tool: ToolState): ProviderToolCallDetail | undefined {
-  if (tool.name.toLowerCase() !== "fspec") return undefined;
+  if (tool.name?.toLowerCase() !== "fspec") return undefined;
   const input = tool.input;
   if (input === null || typeof input !== "object" || Array.isArray(input)) return undefined;
   const { command, work_unit_id: workUnit, ...args } = input;
@@ -101,8 +109,15 @@ function workUnitOf(tool: ToolState): string | undefined {
   return typeof workUnit === "string" ? workUnit : undefined;
 }
 
+function unmatchedDetail(tool: ToolState): ProviderToolCallDetail | undefined {
+  if (tool.name !== null) return undefined;
+  const label = `${UNMATCHED_RESULT} · ${tool.callId}`;
+  return { type: "plain_text", label, ...(tool.output !== undefined ? { text: tool.output } : {}) };
+}
+
 function toolItem(tool: ToolState): ProviderTimelineItem {
   const detail: ProviderToolCallDetail =
+    unmatchedDetail(tool) ??
     fspecDetail(tool) ??
     (tool.command !== undefined
       ? { type: "shell", command: tool.command, ...(tool.output !== undefined ? { output: tool.output } : {}) }
@@ -111,7 +126,7 @@ function toolItem(tool: ToolState): ProviderTimelineItem {
     type: "tool_call" as const,
     id: tool.id,
     callId: tool.callId,
-    name: tool.name,
+    name: tool.name ?? UNMATCHED_RESULT,
     detail,
     ...(tool.revertToken !== undefined ? { revertToken: tool.revertToken } : {}),
     ...(workUnitOf(tool) !== undefined ? { metadata: { workUnitId: workUnitOf(tool)! } } : {}),
@@ -134,7 +149,7 @@ export function createTranscript(epoch: string) {
 
   const mint = (kind: string) => `${epoch}:${++counter}:${kind}`;
 
-  function tool(callId: string, name: string): ToolState {
+  function tool(callId: string, name: string | null): ToolState {
     let state = tools.get(callId);
     if (!state) {
       counter += 1;
@@ -209,7 +224,7 @@ export function createTranscript(epoch: string) {
         break;
       }
       case "toolResult": {
-        const state = tool(chunk.toolResult.toolCallId, "tool");
+        const state = tool(chunk.toolResult.toolCallId, null);
         state.output = withoutStderrMarkers(chunk.toolResult.content);
         state.status = chunk.toolResult.isError ? "failed" : "completed";
         state.error = chunk.toolResult.isError ? state.output : null;
@@ -280,9 +295,9 @@ export function createTranscript(epoch: string) {
   return {
     fold,
     terminalize,
-    /** The tool's name, or undefined for an unknown call id. */
+    /** The tool's name, or undefined for an unknown call id or an unmatched result. */
     toolName(callId: string): string | undefined {
-      return tools.get(callId)?.name;
+      return tools.get(callId)?.name ?? undefined;
     },
     /** Marks a tool call as a revert point and returns its re-rendered item. */
     setRevertToken(callId: string, token: JsonValue): ProviderTimelineItem | undefined {

@@ -31,3 +31,6 @@ logs/
 
 # fspec local caches (code index graph)
 .fspec/
+
+# fspec writes empty coverage lock files while linking coverage (runtime only).
+spec/features/**/*.feature.coverage.lock

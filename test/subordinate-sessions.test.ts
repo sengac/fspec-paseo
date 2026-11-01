@@ -23,7 +23,10 @@ async function withChild() {
   await h.stream(
     PARENT,
     toolCall("call-9", "AgentManager", { action: "spawn", role: "Reviewer" }),
-    toolResult("call-9", '{"status":"spawned","session_id":"sub-9"}'),
+    // fspec's AgentManagerResult::Spawned, serde_json::to_string_pretty.
+    toolResult("call-9", '{\n  "session_id": "sub-9"\n}'),
+    toolCall("call-10", "AgentManager", { action: "get_status", session_id: "sub-9" }),
+    toolResult("call-10", '{\n  "session_id": "sub-9",\n  "status": "idle"\n}'),
   );
   await h.stream("sub-9", text("working"));
   const opened = await h.waitFor("session.opened", (event) => event.sessionId === CHILD);
@@ -33,7 +36,8 @@ async function withChild() {
 describe("Feature: Show fspec subordinate agents as Paseo child sessions", () => {
   describe("Scenario: A spawned sub-agent opens as a Paseo child session", () => {
     it("opens the child under the parent and replays buffered output", async () => {
-      // @step Given Paseo session "paseo-1" mapped to daemon session "fspec-sess-42" whose AgentManager tool call "call-9" returned a result mentioning "sub-9"
+      // @step Given Paseo session "paseo-1" mapped to daemon session "fspec-sess-42" whose AgentManager spawn call "call-9" returned session_id "sub-9"
+      // @step And a later AgentManager get_status call "call-10" whose result mentions "sub-9"
       // @step When the daemon streams a Text chunk "working" for daemon session "sub-9" whose supervisor is "fspec-sess-42"
       const { h, opened } = await withChild();
       // @step Then the provider emitted session.opened for "paseo-1:sub:sub-9" with parentSessionId "paseo-1", restoration parent and toolCallId "call-9", followed by session.config
@@ -65,6 +69,47 @@ describe("Feature: Show fspec subordinate agents as Paseo child sessions", () =>
       // @step Then the provider called get_supervisors once for "tui-5" and emitted no event for it
       expect(h.daemon.sent("getSupervisors")).toEqual([{ method: "getSupervisors", sessionId: "tui-5" }]);
       expect(h.events.slice(before)).toEqual([]);
+    });
+  });
+
+  describe("Scenario: A sub-agent without a spawn call naming it opens unattached", () => {
+    it("opens the child without a toolCallId", async () => {
+      // @step Given Paseo session "paseo-1" mapped to daemon session "fspec-sess-42" whose Bash tool call "call-3" printed "sub-9"
+      const h = await harness();
+      await h.open("paseo-1");
+      await h.send(h.prompt("paseo-1", "look"));
+      await h.waitFor("session.turn", (event) => event.state === "started");
+      h.daemon.handlers.getSupervisors = (request) =>
+        request.method === "getSupervisors" && request.sessionId === "sub-9" ? [PARENT] : [];
+      await h.stream(PARENT, toolCall("call-3", "Bash", { command: "fspec sessions" }), toolResult("call-3", "sub-9 idle"));
+      // @step When the daemon streams a Text chunk "working" for daemon session "sub-9" whose supervisor is "fspec-sess-42"
+      await h.stream("sub-9", text("working"));
+      const opened = await h.waitFor("session.opened", (event) => event.sessionId === CHILD);
+      // @step Then the provider emitted session.opened for "paseo-1:sub:sub-9" without a toolCallId
+      expect(opened).toMatchObject({ parentSessionId: "paseo-1", restoration: "parent" });
+      expect(opened).not.toHaveProperty("toolCallId");
+    });
+  });
+
+  describe("Scenario: A failed supervisor lookup is logged", () => {
+    it("logs the failure and adopts nothing", async () => {
+      // @step Given an open Paseo session "paseo-1"
+      const h = await harness();
+      await h.open("paseo-1");
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        // @step When the daemon streams a chunk for daemon session "sub-9" and get_supervisors fails with "connection reset"
+        h.daemon.handlers.getSupervisors = () => {
+          throw new Error("connection reset");
+        };
+        await h.stream("sub-9", text("working"));
+        // @step Then the plugin log reports the failed sub-agent lookup naming "sub-9" and "connection reset"
+        await vi.waitFor(() => expect(logged).toHaveBeenCalledWith(expect.stringMatching(/^\[fspec\] sub-agent lookup for sub-9 failed: .*connection reset/)));
+        // @step And no child session was opened
+        expect(h.ofType("session.opened").filter((event) => event.sessionId === CHILD)).toEqual([]);
+      } finally {
+        logged.mockRestore();
+      }
     });
   });
 

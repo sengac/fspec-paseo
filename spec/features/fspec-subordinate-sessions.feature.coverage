@@ -5,7 +5,7 @@
       "testMappings": [
         {
           "file": "test/subordinate-sessions.test.ts",
-          "lines": "34-54",
+          "lines": "37-58",
           "implMappings": [
             {
               "file": "server/session.ts",
@@ -74,9 +74,31 @@
             {
               "file": "server/transcript.ts",
               "lines": [
-                278,
-                279,
-                280
+                56,
+                57,
+                58,
+                59,
+                60,
+                61,
+                62,
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71,
+                72,
+                294,
+                295,
+                296,
+                297,
+                298,
+                299,
+                300,
+                301
               ]
             },
             {
@@ -105,7 +127,7 @@
       "testMappings": [
         {
           "file": "test/subordinate-sessions.test.ts",
-          "lines": "56-69",
+          "lines": "60-73",
           "implMappings": [
             {
               "file": "server/session.ts",
@@ -167,7 +189,7 @@
       "testMappings": [
         {
           "file": "test/subordinate-sessions.test.ts",
-          "lines": "71-82",
+          "lines": "116-129",
           "implMappings": [
             {
               "file": "server/session.ts",
@@ -231,7 +253,7 @@
       "testMappings": [
         {
           "file": "test/subordinate-sessions.test.ts",
-          "lines": "84-94",
+          "lines": "131-141",
           "implMappings": [
             {
               "file": "server/session.ts",
@@ -303,12 +325,128 @@
           ]
         }
       ]
+    },
+    {
+      "name": "A sub-agent without a spawn call naming it opens unattached",
+      "testMappings": [
+        {
+          "file": "test/subordinate-sessions.test.ts",
+          "lines": "75-92",
+          "implMappings": [
+            {
+              "file": "server/transcript.ts",
+              "lines": [
+                56,
+                57,
+                58,
+                59,
+                60,
+                61,
+                62,
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71,
+                72,
+                294,
+                295,
+                296,
+                297,
+                298,
+                299,
+                300,
+                301
+              ]
+            },
+            {
+              "file": "server/session.ts",
+              "lines": [
+                552,
+                553,
+                554,
+                555,
+                556,
+                557,
+                558,
+                559,
+                560,
+                561,
+                562,
+                563,
+                564,
+                565
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A failed supervisor lookup is logged",
+      "testMappings": [
+        {
+          "file": "test/subordinate-sessions.test.ts",
+          "lines": "94-114",
+          "implMappings": [
+            {
+              "file": "server/session.ts",
+              "lines": [
+                498,
+                499,
+                500,
+                501,
+                502,
+                503,
+                504,
+                505,
+                506,
+                507,
+                508,
+                509,
+                510,
+                511,
+                512,
+                513,
+                514,
+                515,
+                516,
+                517,
+                518,
+                519,
+                520,
+                521,
+                522,
+                523,
+                524
+              ]
+            },
+            {
+              "file": "server/log.ts",
+              "lines": [
+                6,
+                7,
+                8,
+                9,
+                10,
+                11,
+                12,
+                13
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 4,
-    "coveredScenarios": 4,
-    "coveragePercent": 100,
+    "coveredScenarios": 6,
+    "coveragePercent": 150,
     "testFiles": [
       "test/subordinate-sessions.test.ts"
     ],
@@ -316,8 +454,9 @@
       "server/session.ts",
       "server/transcript.ts",
       "server/provider.ts",
-      "server/wire.ts"
+      "server/wire.ts",
+      "server/log.ts"
     ],
-    "totalLinesCovered": 278
+    "totalLinesCovered": 416
   }
 }

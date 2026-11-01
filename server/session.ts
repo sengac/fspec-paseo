@@ -42,6 +42,7 @@ import {
   parseGoal,
 } from "./commands.js";
 import { createTranscript, type Transcript } from "./transcript.js";
+import { logFailure } from "./log.js";
 import { servedWorkspaces, servingWorkspace, within } from "./workspaces.js";
 import { parseStreamChunkJson } from "./transcript-json.js";
 import {
@@ -505,7 +506,11 @@ export function createSessionRegistry(deps: SessionDeps) {
     pendingLookup.set(daemonSessionId, [chunk]);
     void request({ method: "getSupervisors", sessionId: daemonSessionId })
       .then(({ sessions: supervisors }) => supervisors.map((id) => byDaemonId.get(id)).find((s) => s !== undefined))
-      .catch(() => undefined)
+      .catch((error: unknown) => {
+        // No session is known to show it on: the plugin log reports it (FSPEC-063).
+        logFailure(`sub-agent lookup for ${daemonSessionId} failed`, error);
+        return undefined;
+      })
       .then((parent) => {
         const buffered = pendingLookup.get(daemonSessionId) ?? [];
         pendingLookup.delete(daemonSessionId);
@@ -545,7 +550,8 @@ export function createSessionRegistry(deps: SessionDeps) {
     };
     sessions.set(child.sessionId, child);
     byDaemonId.set(daemonSessionId, child);
-    const toolCallId = parent.transcript.toolCallMentioning(daemonSessionId);
+    // FSPEC-063: only the spawn call whose result names this session links it.
+    const toolCallId = parent.transcript.spawnCallOf(daemonSessionId);
     emit({
       type: "session.opened",
       sessionId: child.sessionId,

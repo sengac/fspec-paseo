@@ -53,6 +53,23 @@ function parseInput(raw: string): JsonValue {
   }
 }
 
+/** fspec's AgentManager tool (rust/tools/src/agent_manager/mod.rs). */
+const AGENT_MANAGER = "AgentManager";
+
+function isSpawnOf(state: ToolState, sessionId: string): boolean {
+  const input = state.input;
+  if (state.name !== AGENT_MANAGER || state.status !== "completed" || state.output === undefined) return false;
+  if (input === null || typeof input !== "object" || Array.isArray(input) || input["action"] !== "spawn") return false;
+  let result: unknown;
+  try {
+    result = JSON.parse(state.output);
+  } catch {
+    // Not a Spawned result (e.g. an error text): it names no session.
+    return false;
+  }
+  return result !== null && typeof result === "object" && (result as Record<string, unknown>)["session_id"] === sessionId;
+}
+
 function shellCommand(input: JsonValue): string | undefined {
   if (input !== null && typeof input === "object" && !Array.isArray(input)) {
     const command = input["command"];
@@ -274,9 +291,13 @@ export function createTranscript(epoch: string) {
       state.revertToken = token;
       return toolItem(state);
     },
-    /** The tool call whose output mentions `text`, e.g. the spawn of a sub-agent. */
-    toolCallMentioning(text: string): string | undefined {
-      return [...tools.values()].reverse().find((state) => state.output?.includes(text))?.callId;
+    /**
+     * The AgentManager spawn call that created daemon session `sessionId`
+     * (FSPEC-063): input action "spawn" and a JSON result whose session_id is
+     * it (fspec AgentManagerResult::Spawned). No output text is searched.
+     */
+    spawnCallOf(sessionId: string): string | undefined {
+      return [...tools.values()].find((state) => isSpawnOf(state, sessionId))?.callId;
     },
     /** One tool call by its daemon id, e.g. the call an approval pause gates (FSPEC-050). */
     toolCall(callId: string): { name: string; detail: ProviderToolCallDetail; toolCallId: string } | undefined {

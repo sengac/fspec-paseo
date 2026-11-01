@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:26:12.973Z"
+    "lastUpdated": "2026-11-01T03:28:37.024Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -7398,16 +7398,104 @@
       "id": "FSPEC-063",
       "title": "Attach a sub-agent child only to the AgentManager spawn call whose result names it",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-11-01T03:22:19.609Z",
-      "updatedAt": "2026-11-01T03:23:57.021Z",
+      "updatedAt": "2026-11-01T03:28:37.024Z",
       "description": "openChild finds the parent's tool call by searching every tool output for the child's daemon id (transcript.toolCallMentioning), so a get_status/message/list result or a shell output that mentions the id becomes the child's toolCallId. fspec's explicit link is the AgentManager spawn result {\"session_id\":...} (AgentManagerResult::Spawned). Use only that; without it the child opens unattached. A failed get_supervisors lookup is logged, not swallowed.",
       "epic": "provider-plugin",
       "children": [],
       "attachments": [
         "spec/attachments/FSPEC-063/root-cause.md",
         "spec/attachments/FSPEC-063/ast-research.md"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:26:32.451Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:26:49.864Z"
+        },
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:27:12.740Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:27:12.895Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:27:41.616Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T03:28:29.463Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T03:28:37.024Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "A child's toolCallId is the parent's AgentManager tool call whose input action is 'spawn' and whose result parses as a JSON object with session_id equal to the child's daemon session id (AgentManagerResult::Spawned, rust/tools/src/agent_manager/types.rs:209)",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:26:32.475Z"
+        },
+        {
+          "id": 1,
+          "text": "No tool output is searched for the id: another AgentManager action (message, get_status, list, close) or any other tool whose output mentions the id never links",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:26:32.496Z"
+        },
+        {
+          "id": 2,
+          "text": "Without that spawn call in the parent's transcript the child opens without toolCallId (unattached)",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:26:32.516Z"
+        },
+        {
+          "id": 3,
+          "text": "A failed get_supervisors lookup for an unknown daemon session is logged '[fspec] sub-agent lookup for <id> failed: <reason>' and the session is not adopted",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:27:12.794Z"
+        }
+      ],
+      "nextRuleId": 5,
+      "examples": [
+        {
+          "id": 0,
+          "text": "call-9 AgentManager {action:'spawn'} returns {\"session_id\": \"sub-9\"}, later call-10 AgentManager get_status returns text mentioning sub-9 -> child paseo-1:sub:sub-9 opens with toolCallId call-9",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:26:32.557Z"
+        },
+        {
+          "id": 1,
+          "text": "Only a Bash call whose output prints sub-9 -> child opens without toolCallId",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:26:32.577Z"
+        },
+        {
+          "id": 2,
+          "text": "get_supervisors for sub-9 rejects 'connection lost' -> logged, no session.opened",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:26:32.596Z"
+        }
+      ],
+      "nextExampleId": 3,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/transcript.ts: toolCallMentioning replaced by spawnCallOf(daemonSessionId) matching name AgentManager, input.action spawn, JSON output session_id. server/session.ts openChild uses it; adoptUnknown logs a failed getSupervisors through server/log.ts logFailure (console.error -> Paseo plugin log).",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:26:32.614Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "estimate": 2
     },
     "FSPEC-064": {
       "id": "FSPEC-064",
@@ -7487,7 +7575,6 @@
   },
   "states": {
     "backlog": [
-      "FSPEC-063",
       "FSPEC-064",
       "FSPEC-065",
       "FSPEC-066",
@@ -7561,7 +7648,8 @@
       "FSPEC-059",
       "FSPEC-060",
       "FSPEC-061",
-      "FSPEC-062"
+      "FSPEC-062",
+      "FSPEC-063"
     ],
     "blocked": []
   },

@@ -105,6 +105,7 @@ export class FakeDaemon {
     this.handlers.listProviderSettings = () => ({ ok: true, value: [] });
     this.handlers.getDefaultModel = () => null;
     this.handlers.submitInput = () => ({ ok: true, value: undefined });
+    this.handlers.sendInput = () => ({ ok: true, value: undefined });
     // One workspace, the start workspace get_workspace_info reports.
     this.handlers.listWorkspaces = async (request) => {
       const info = (await this.handlers.getWorkspaceInfo!(request)) as wire.WorkspaceInfo;

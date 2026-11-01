@@ -405,14 +405,15 @@ export function createSessionRegistry(deps: SessionDeps) {
     }
   }
 
-  /** Resumes a saved daemon session; returns the failure text, or null on success. */
-  async function resume(daemonSessionId: string): Promise<string | null> {
-    try {
-      const { result } = await request({ method: "resumeSession", sessionId: daemonSessionId });
-      return result.ok ? null : result.error;
-    } catch (error) {
-      return error instanceof Error ? error.message : String(error);
-    }
+  /**
+   * Makes a saved daemon session live again (resume_session). fspec takes
+   * input only for a session it holds live (BUG-328), so a reopened or
+   * imported session is resumed before it can be prompted; a session that
+   * cannot be resumed fails the open (FSPEC-057).
+   */
+  async function resume(daemonSessionId: string): Promise<void> {
+    const { result } = await request({ method: "resumeSession", sessionId: daemonSessionId });
+    if (!result.ok) throw new Error(`fspec could not resume session ${daemonSessionId}: ${result.error}`);
   }
 
   /**
@@ -912,8 +913,8 @@ export function createSessionRegistry(deps: SessionDeps) {
       }
       // A saved session may have been dropped from daemon memory (close calls
       // destroy_session); resume_session rebuilds it from its manifest.
-      const resumeError = saved ? await resume(saved.sessionId) : null;
-      const resumed = saved !== undefined && resumeError === null;
+      if (saved) await resume(saved.sessionId);
+      const resumed = saved !== undefined;
       // A bot is a session created with fspec's orchestrator role; a resumed
       // session keeps its own role, which decides its mode.
       const requested = fspecMode(input.config.mode ?? DEFAULT_MODE);
@@ -980,18 +981,6 @@ export function createSessionRegistry(deps: SessionDeps) {
       });
       emit({ type: "session.config", sessionId: input.sessionId, config: configState(session) });
       emit({ type: "session.commands", sessionId: input.sessionId, commands: FSPEC_COMMANDS });
-      if (resumeError !== null) {
-        emit({
-          type: "session.notice",
-          sessionId: input.sessionId,
-          notice: {
-            id: `${session.epoch}:resume`,
-            severity: "warning",
-            title: "Previous fspec session could not be resumed; started a new one",
-            description: resumeError,
-          },
-        });
-      }
       if (input.history === "replay" && resumed) {
         try {
           await replay(session);
@@ -1134,7 +1123,8 @@ export function createSessionRegistry(deps: SessionDeps) {
           const { result } = await request({ method: "submitInput", sessionId: session.daemonSessionId, text, mode: "queue" });
           unwrap(result, "submit_input");
         } else {
-          await request({ method: "sendInput", sessionId: session.daemonSessionId, text });
+          // fspec takes input only for a session it holds live (BUG-328): a refusal fails the turn.
+          unwrap((await request({ method: "sendInput", sessionId: session.daemonSessionId, text })).result, "send_input");
         }
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);

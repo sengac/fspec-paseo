@@ -757,7 +757,7 @@ export type FspecServiceResponse =
   | { method: "listWorkspaces"; value: Result<WorkspaceEntry[]> }
   | { method: "listWorkspaceWorkUnits"; value: Result<WorkUnitInfo[]> }
   | { method: "createSessionInWorkspace"; value: Result<string> }
-  | { method: "sendInput"; value: null }
+  | { method: "sendInput"; value: Result<void> }
   | { method: "submitInput"; value: Result<void> }
   | { method: "interrupt"; value: null }
   | { method: "getSessionStatus"; value: SessionStatus }
@@ -770,7 +770,7 @@ export type FspecServiceResponse =
   | { method: "setThinkingLevel"; value: Result<void> }
   | { method: "getSessionRole"; value: string | null }
   | { method: "setSessionRole"; value: Result<void> }
-  | { method: "sendInputWithThinking"; value: null }
+  | { method: "sendInputWithThinking"; value: Result<void> }
   | { method: "destroySession"; value: Result<void> }
   | { method: "moveWorkUnitUp"; value: Result<void> }
   | { method: "moveWorkUnitDown"; value: Result<void> }
@@ -2227,7 +2227,8 @@ export type DecodedResponse =
   | { requestId: number; ok: true; method: "listWorkspaces"; result: Result<WorkspaceEntry[]> }
   | { requestId: number; ok: true; method: "listWorkspaceWorkUnits"; result: Result<WorkUnitInfo[]> }
   | { requestId: number; ok: true; method: "createSessionInWorkspace"; result: Result<string> }
-  | { requestId: number; ok: true; method: "sendInput" }
+  /** fspec BUG-328: refused for a session the daemon does not hold live. */
+  | { requestId: number; ok: true; method: "sendInput"; result: Result<void> }
   | { requestId: number; ok: true; method: "submitInput"; result: Result<void> }
   | { requestId: number; ok: true; method: "interrupt" }
   | { requestId: number; ok: true; method: "getSessionStatus"; status: SessionStatus }
@@ -2241,7 +2242,7 @@ export type DecodedResponse =
   /** The session's role overlay (RPC-022); a bot's starts with BOT_ROLE_MARKER (FSPEC-055). */
   | { requestId: number; ok: true; method: "getSessionRole"; role: string | null }
   | { requestId: number; ok: true; method: "setSessionRole"; result: Result<void> }
-  | { requestId: number; ok: true; method: "sendInputWithThinking" }
+  | { requestId: number; ok: true; method: "sendInputWithThinking"; result: Result<void> }
   | { requestId: number; ok: true; method: "destroySession"; result: Result<void> }
   | { requestId: number; ok: true; method: "moveWorkUnitUp"; result: Result<void> }
   | { requestId: number; ok: true; method: "moveWorkUnitDown"; result: Result<void> }
@@ -2350,6 +2351,8 @@ export function encodeResponseFrame(input: {
     case "clearHistory":
     case "restoreCheckpointAll":
     case "submitInput":
+    case "sendInput":
+    case "sendInputWithThinking":
     case "setSessionRole":
     case "setDefaultModel":
     case "addCustomModel":
@@ -2550,9 +2553,7 @@ export function decodeResponseFrame(bytes: Uint8Array): DecodedResponse {
       return { requestId, ok: true, method, sessionIds: readVec(r, (x) => x.string("SessionId")) };
     case "createSession":
       return { requestId, ok: true, method, sessionId: r.string("SessionId") };
-    case "sendInput":
     case "interrupt":
-    case "sendInputWithThinking":
       return { requestId, ok: true, method };
     case "getSessionStatus":
       return { requestId, ok: true, method, status: readEnumAt(r, SESSION_STATUS, "SessionStatus") };
@@ -2589,6 +2590,8 @@ export function decodeResponseFrame(bytes: Uint8Array): DecodedResponse {
     case "clearHistory":
     case "restoreCheckpointAll":
     case "submitInput":
+    case "sendInput":
+    case "sendInputWithThinking":
     case "setSessionRole":
       return { requestId, ok: true, method, result: readResultVoid(r) };
     case "getSessionRole":

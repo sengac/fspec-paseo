@@ -35,7 +35,7 @@ The plugin is an ordinary client of a running **fspec daemon**. It doesn't start
 - **Composer commands:** `/compact`, `/clear`, `/continue [on|off|N]`, `/goal [text|clear|verify <cmd>]`, `/focus <work-unit-id|none>`. These behave the same as in the fspec TUI.
 - **Attachments:** fspec only accepts text, so the plugin saves pasted images to a private temp folder and passes their paths to the agent. Uploaded files are passed by the path Paseo stored them at.
 - **Revert:** fspec checkpoints become Paseo revert points and restore the working tree.
-- **Resume and import:** Paseo agents reattach to their fspec session after a restart. Paseo's "import session" list shows the daemon's live and saved sessions, and you can search them by prompt text.
+- **Resume and import:** Paseo agents reattach to their fspec session after a restart. The plugin resumes the saved session on the daemon first; if fspec can't resume it, opening the agent fails with fspec's reason instead of starting an empty session. A prompt fspec refuses fails its turn with fspec's reason. Paseo's "import session" list shows the daemon's live and saved sessions, and you can search them by prompt text.
 
 **The fspec board as a Paseo workspace panel**
 

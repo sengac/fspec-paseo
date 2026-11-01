@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T02:57:12.396Z"
+    "lastUpdated": "2026-11-01T02:59:41.745Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -6852,16 +6852,84 @@
       "id": "FSPEC-057",
       "title": "Surface refused input and resume reattached sessions explicitly",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-11-01T02:49:35.641Z",
-      "updatedAt": "2026-11-01T02:53:12.766Z",
+      "updatedAt": "2026-11-01T02:59:41.745Z",
       "description": "fspec BUG-328: send_input (idx 4) and send_input_with_thinking (idx 46) return Result<(), String> and the daemon accepts input only for a session it holds live (no implicit resume inside send_input/submit_input). The plugin decodes no payload for send_input and ignores errors, so a refused prompt waits forever. Decode the Result and fail the turn with the daemon's reason; every path that reattaches to an existing daemon session (resume, import) resumes it with resume_session before input and fails the open when the resume fails instead of silently starting a new session.",
       "epic": "provider-plugin",
       "children": [],
       "attachments": [
         "spec/attachments/FSPEC-057/root-cause.md",
         "spec/attachments/FSPEC-057/ast-research.md"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T02:57:21.423Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T02:57:49.071Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T02:58:26.172Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T02:59:34.414Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T02:59:41.745Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "send_input (idx 4) and send_input_with_thinking (idx 46) answer Result<(), String> (fspec BUG-328); an Err fails the prompt's turn with the daemon's reason",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:57:48.740Z"
+        },
+        {
+          "id": 1,
+          "text": "fspec accepts input only for a session it holds live; every path that reattaches to an existing daemon session (reopen and import, both session.open with persistence) calls resume_session before the session takes input",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:57:48.775Z"
+        },
+        {
+          "id": 2,
+          "text": "A failed resume_session fails the open with 'fspec could not resume session <id>: <reason>'; no new daemon session is created in its place",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:57:48.795Z"
+        }
+      ],
+      "nextRuleId": 3,
+      "examples": [
+        {
+          "id": 0,
+          "text": "send_input answers Err('Session not found: s-1') -> golden send_input_err; the turn fails with 'fspec daemon send_input failed: Session not found: s-1'",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:57:48.816Z"
+        },
+        {
+          "id": 1,
+          "text": "Reopen with persistence { sessionId: 'gone-1' } and resume_session Err('Failed to load session manifest: not found') -> request.failed 'fspec could not resume session gone-1: Failed to load session manifest: not found', no create_session",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:57:48.836Z"
+        }
+      ],
+      "nextExampleId": 2,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/wire.ts sendInput/sendInputWithThinking replies decode Result<void> (encoded with the Result<void> group). server/session.ts prompt unwraps send_input; open() throws when resume() fails instead of creating a session and posting a warning notice. test/support/fake-daemon.ts answers send_input Ok by default.",
+          "deleted": false,
+          "createdAt": "2026-11-01T02:57:48.856Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "estimate": 3
     },
     "FSPEC-058": {
       "id": "FSPEC-058",
@@ -6926,7 +6994,6 @@
   },
   "states": {
     "backlog": [
-      "FSPEC-057",
       "FSPEC-058",
       "FSPEC-059",
       "FSPEC-060",
@@ -6993,7 +7060,8 @@
       "FSPEC-054",
       "FSPEC-055",
       "FSPEC-047",
-      "FSPEC-056"
+      "FSPEC-056",
+      "FSPEC-057"
     ],
     "blocked": []
   },

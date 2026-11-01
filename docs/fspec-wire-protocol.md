@@ -5,7 +5,7 @@ Source of truth: `rust/rpc-server/src/{envelope,transport,pump,server,bounded_re
 `rust/fspec-tui/src/transport/websocket.rs`, `rust/fspec/src/common/daemon_registry.rs`. Verified at commit
 `626eee1e`; re-verified at `344d00b4` (method order `rust/rpc/tests/fixtures/wire_order_frozen.txt`, indices
 124–128, Envelope 9, PauseState details/tool_call_id, InputMode, discovery files, bearer auth); re-verified at
-`76cb29f6` (fspec HEAD: `ProviderInfo.provider_id`).
+`76cb29f6` (fspec HEAD: `ProviderInfo.provider_id`, `send_input` results).
 Wire codec: **bincode 1.3.3 free functions** (`bincode::serialize` / `bincode::deserialize`).
 
 ---
@@ -411,7 +411,7 @@ Variant index = 0-based position in the trait. Full order verified from
 | 2 | `ListLiveSessions` | `list_live_sessions` | — | `Vec<SessionId>` (bare ids, **not** `SessionInfo`) |
 | 3 | `CreateSession` | `create_session` | `role: Option<String>` | `SessionId` |
 | 121 | `CreateSessionChecked` | `create_session_checked` | `role: Option<String>` | `Result<SessionId, String>` (the provider uses this: the legacy 3 answers an empty id on failure) |
-| 4 | `SendInput` | `send_input` | `session_id: SessionId, text: String` | `()` |
+| 4 | `SendInput` | `send_input` | `session_id: SessionId, text: String` | `Result<(), String>` (BUG-328: `Err("Session not found: <id> (resume it with resume_session before sending input)")` for a session the daemon does not hold live) |
 | 5 | `Interrupt` | `interrupt` | `session_id: SessionId` | `()` |
 | 6 | `GetSessionStatus` | `get_session_status` | `session_id: SessionId` | `SessionStatus` |
 | 7 | `Health` | `health` | — | `HealthInfo` |
@@ -430,7 +430,7 @@ Variant index = 0-based position in the trait. Full order verified from
 | 128 | `SubmitInput` | `submit_input` | `session_id: SessionId, text: String, mode: InputMode` | `Result<(), String>` (`Err("Session not found: <id>")`; RIG-016, see §6.9) |
 | 44 | `GetSessionRole` | `get_session_role` | `session_id: SessionId` | `Option<String>` (role overlay; a bot's starts with `# fspec bot: orchestrator`, TUI-114) |
 | 45 | `SetSessionRole` | `set_session_role` | `session_id: SessionId, role: Option<String>` | `Result<(), String>` (`None` clears) |
-| 46 | `SendInputWithThinking` | `send_input_with_thinking` | `session_id: SessionId, text: String, thinking: Option<ThinkingConfig>` | `()` |
+| 46 | `SendInputWithThinking` | `send_input_with_thinking` | `session_id: SessionId, text: String, thinking: Option<ThinkingConfig>` | `Result<(), String>` (BUG-328, as `send_input`) |
 | 30 | `SetDefaultModel` | `set_default_model` | `model: String` ("provider/model") | `Result<(), String>` (empty strings ignored) |
 | 31 | `AddCustomModel` | `add_custom_model` | `provider_id: String, profile_name: String, definition: CustomModelDefinition` | `Result<(), String>` (`provider_id` is the profile section's `ProviderInfo.provider_id`; fspec refuses a missing profile, an unknown model id or a non-openai provider; FSPEC-047, FSPEC-056) |
 | 32 | `UpdateCustomModel` | `update_custom_model` | `provider_id, profile_name, original_model_id: String, definition` | `Result<(), String>` (replaces the entry with `original_model_id`) |
@@ -640,6 +640,11 @@ Behaviour (`sessions/src/background_session/input_modes.rs`, `agent-loop/.../fin
 - The plugin (FSPEC-051): `delivery: "steer"` → `Steer`; a prompt while a turn runs, waits or
   is parked → `Queue`; an idle prompt keeps `send_input`. It never sends `Interrupt` (Stop
   uses `interrupt`, idx 5).
+- Input needs a live session (BUG-328): `send_input`, `send_input_with_thinking` and
+  `submit_input` refuse a session the daemon does not hold; there is no implicit resume. The
+  plugin resumes a reopened or imported session with `resume_session` (idx 55) before it takes
+  input, fails the open when that resume fails (FSPEC-057), and fails a turn whose input the
+  daemon refused with the daemon's reason.
 
 ---
 

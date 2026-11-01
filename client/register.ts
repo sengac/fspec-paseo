@@ -134,10 +134,10 @@ export function registerBoardButtons(
           });
         return () => {
           released = true;
-          void release?.().catch(() => {});
+          void release?.().catch((error: unknown) => console.error("[fspec board] releasing the workspace observation failed", error));
         };
       },
-      available: async (cwd) => (await client.rpc(boardAvailableRpc, { cwd })).available,
+      available: (cwd) => client.rpc(boardAvailableRpc, { cwd }),
       addHeaderButton: (contribution) => client.addHeaderButton(contribution),
       openPanel: (workspaceId) => client.openPanel(BOARD_PANEL_ID, { workspaceId }),
     },

@@ -1,3 +1,5 @@
+import type { BoardAvailability } from "../shared/board.js";
+
 /** The parts of a Paseo workspace that locate it on disk. */
 export interface WorkspaceEntry {
   id: string;
@@ -13,7 +15,7 @@ export type WorkspaceEvent =
 export interface BoardButtonDeps {
   /** Starts observing Paseo's workspaces; returns the release function. */
   watchWorkspaces(onEvent: (event: WorkspaceEvent) => void): () => void;
-  available(cwd: string): Promise<boolean>;
+  available(cwd: string): Promise<BoardAvailability>;
   addHeaderButton(contribution: {
     id: string;
     workspaceId: string;
@@ -31,7 +33,7 @@ export const BOARD_BUTTON_ID = "fspec-board";
  */
 export function syncBoardButtons(deps: BoardButtonDeps, icon: { svg: string } = { svg: "" }): () => void {
   let stopped = false;
-  const buttons = new Map<string, { remove(): void }>();
+  const buttons = new Map<string, { title: string; remove(): void }>();
   /** Bumped per workspace so a slow availability answer never outlives a newer event. */
   const generation = new Map<string, number>();
   /** The directory each workspace was last checked for, so status-only updates cost no RPC. */
@@ -50,26 +52,35 @@ export function syncBoardButtons(deps: BoardButtonDeps, icon: { svg: string } = 
     checked.set(workspace.id, directory);
     const ticket = (generation.get(workspace.id) ?? 0) + 1;
     generation.set(workspace.id, ticket);
-    const served = await deps.available(directory).catch(() => false);
+    let answer: BoardAvailability;
+    try {
+      answer = await deps.available(directory);
+    } catch (error) {
+      answer = { state: "failed", error: error instanceof Error ? error.message : String(error) };
+    }
     if (stopped || generation.get(workspace.id) !== ticket) return;
-    if (!served) {
+    if (answer.state === "unserved") {
       buttons.get(workspace.id)?.remove();
       buttons.delete(workspace.id);
       return;
     }
-    if (buttons.has(workspace.id)) return;
-    buttons.set(
-      workspace.id,
-      deps.addHeaderButton({
-        id: BOARD_BUTTON_ID,
-        workspaceId: workspace.id,
-        button: {
-          title: "fspec board",
-          icon,
-          behavior: { kind: "action", onPress: () => deps.openPanel(workspace.id) },
-        },
-      }),
-    );
+    // FSPEC-066: a failed check is not "unserved": it is logged and the
+    // button opens the board, which reports the failure.
+    if (answer.state === "failed") {
+      console.error(`[fspec board] availability check for ${directory} failed: ${answer.error}`);
+      // The next workspace event checks again.
+      checked.delete(workspace.id);
+    }
+    const title = answer.state === "served" ? "fspec board" : "fspec board (error)";
+    const current = buttons.get(workspace.id);
+    if (current?.title === title) return;
+    current?.remove();
+    const added = deps.addHeaderButton({
+      id: BOARD_BUTTON_ID,
+      workspaceId: workspace.id,
+      button: { title, icon, behavior: { kind: "action", onPress: () => deps.openPanel(workspace.id) } },
+    });
+    buttons.set(workspace.id, { title, remove: () => added.remove() });
   }
 
   const release = deps.watchWorkspaces((event) => {

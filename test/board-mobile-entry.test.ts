@@ -7,6 +7,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { type WorkspaceEvent, syncBoardButtons } from "../client/board-buttons.js";
 import { createBoardFeed } from "../server/board.js";
+import type { BoardAvailability } from "../shared/board.js";
 import { FakeDaemon, daemonOptions, tempHome } from "./support/fake-daemon.js";
 
 const disposers: Array<() => unknown> = [];
@@ -14,7 +15,7 @@ afterEach(async () => {
   for (const dispose of disposers.splice(0)) await dispose();
 });
 
-function fakeHost(served: string) {
+function fakeHost(served: string, check?: (cwd: string) => Promise<BoardAvailability>) {
   let emit: (event: WorkspaceEvent) => void = () => {};
   const buttons = new Map<string, { title: string; press: () => void; removed: boolean }>();
   const opened: string[] = [];
@@ -26,7 +27,10 @@ function fakeHost(served: string) {
         released = true;
       };
     },
-    available: async (cwd) => cwd === served || cwd.startsWith(`${served}/`),
+    available:
+      check ??
+      (async (cwd) =>
+        cwd === served || cwd.startsWith(`${served}/`) ? { state: "served" } : { state: "unserved", reason: `not ${served}` }),
     addHeaderButton({ id, workspaceId, button }) {
       expect(id).toBe("fspec-board");
       const entry = { title: button.title, press: () => void button.behavior.onPress(), removed: false };
@@ -115,11 +119,61 @@ describe("Feature: Open the fspec board from the workspace menu on phones", () =
       // @step When the client asks fspec.board.available for "/ws/sub" and "/other"
       const inside = await feed.available({ cwd: "/ws/sub" });
       const outside = await feed.available({ cwd: "/other" });
-      // @step Then "/ws/sub" is available and "/other" is not
-      expect(inside).toEqual({ available: true });
-      expect(outside).toEqual({ available: false });
+      // @step Then "/ws/sub" is served and "/other" is unserved with the reason "the fspec daemon serves /ws, not /other — start fspec in /other to use it there"
+      expect(inside).toEqual({ state: "served" });
+      expect(outside).toEqual({
+        state: "unserved",
+        reason: "the fspec daemon serves /ws, not /other — start fspec in /other to use it there",
+      });
       await feed.close();
-      await expect(feed.available({ cwd: "/ws" })).resolves.toEqual({ available: false });
+      await expect(feed.available({ cwd: "/ws" })).resolves.toEqual({ state: "failed", error: "the fspec plugin was unloaded" });
+    });
+  });
+
+  describe("Scenario: A failing daemon is a failed check, not an unserved directory", () => {
+    it("answers failed for a daemon error and unserved without a daemon", async () => {
+      // @step Given the fspec daemon's list_workspaces fails with "registry unreadable"
+      const home = tempHome();
+      home.writeDaemonEntry();
+      const daemon = new FakeDaemon();
+      daemon.handlers.listWorkspaces = () => ({ ok: false, error: "registry unreadable" });
+      const feed = createBoardFeed(daemonOptions(home, daemon));
+      const empty = tempHome();
+      const none = createBoardFeed({ env: {}, homeDir: empty.homeDir });
+      disposers.push(home.dispose, empty.dispose, () => feed.close(), () => none.close());
+      // @step When the client asks fspec.board.available for "/ws"
+      const answer = await feed.available({ cwd: "/ws" });
+      // @step Then it answers failed with "fspec daemon list_workspaces failed: registry unreadable"
+      expect(answer).toEqual({ state: "failed", error: "fspec daemon list_workspaces failed: registry unreadable" });
+      // @step And with no fspec daemon running it answers unserved with the no-daemon reason
+      expect(await none.available({ cwd: "/ws" })).toEqual({
+        state: "unserved",
+        reason: expect.stringMatching(/^no fspec daemon is running — no live entry in .*; start fspec daemon first$/),
+      });
+    });
+  });
+
+  describe("Scenario: A failed check shows an error button and is logged", () => {
+    it("adds the error button and logs the failure", async () => {
+      // @step Given workspace "W1" in "/ws" whose availability check fails with "socket closed"
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        const host = fakeHost("/ws", async () => {
+          throw new Error("socket closed");
+        });
+        // @step When the plugin client starts
+        host.emit({ kind: "snapshot", entries: [{ id: "W1", projectRootPath: "/ws" }] });
+        await vi.waitFor(() => expect(host.live()).toEqual(["W1"]));
+        // @step Then "W1" has a header button titled "fspec board (error)" that opens panel "fspec-board"
+        expect(host.buttons.get("W1")!.title).toBe("fspec board (error)");
+        host.buttons.get("W1")!.press();
+        expect(host.opened).toEqual(["W1"]);
+        // @step And the console logs "[fspec board] availability check for /ws failed: socket closed"
+        expect(logged).toHaveBeenCalledWith("[fspec board] availability check for /ws failed: socket closed");
+        host.stop();
+      } finally {
+        logged.mockRestore();
+      }
     });
   });
 });

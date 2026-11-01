@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:34:51.980Z"
+    "lastUpdated": "2026-11-01T03:37:40.103Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -7697,16 +7697,114 @@
       "id": "FSPEC-066",
       "title": "Tell an unserved directory from a failed board check and open agents only on fspec's default model",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-11-01T03:22:19.690Z",
-      "updatedAt": "2026-11-01T03:23:57.141Z",
+      "updatedAt": "2026-11-01T03:37:40.103Z",
       "description": "fspec.board.available answers false on any error, and the client turns a failed RPC into false too, so a broken daemon looks like an unserved directory. Answer served / unserved (no daemon or no workspace serves it) / failed (anything else) and show failures. Open in agent falls back to the first listed model when none is the default and treats a Paseo listModels error as no models: use only fspec's default model and surface listModels errors. The workspace subscription release error is logged.",
       "epic": "kanban-board",
       "children": [],
       "attachments": [
         "spec/attachments/FSPEC-066/root-cause.md",
         "spec/attachments/FSPEC-066/ast-research.md"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:35:18.672Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:35:38.327Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:36:03.693Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T03:37:32.680Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T03:37:40.103Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "fspec.board.available answers { state: 'served' }, { state: 'unserved', reason } or { state: 'failed', error }",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:35:18.709Z"
+        },
+        {
+          "id": 1,
+          "text": "Unserved: discovery finds no daemon for the directory (no live entry, or none whose workspace holds it — DaemonNotFoundError from server/daemon.ts), or the daemon's workspaces hold none for it; every other error (several daemons, connection, list_workspaces error, unreadable daemons directory, plugin unloaded) is failed",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:35:18.731Z"
+        },
+        {
+          "id": 2,
+          "text": "The client gives served workspaces the 'fspec board' header button, unserved ones none, and a failed check (including a failed RPC) is logged '[fspec board] availability check for <dir> failed: <error>' and shows the button titled 'fspec board (error)', whose panel reports the failure",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:35:18.757Z"
+        },
+        {
+          "id": 3,
+          "text": "Open in agent creates the agent only on the model Paseo marks default (fspec's default model); without one it fails 'fspec has no default model — set one under fspec providers'; never the first listed model",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:35:18.778Z"
+        },
+        {
+          "id": 4,
+          "text": "Paseo's listModels error fails Open in agent with that error; a response without models fails 'Paseo listed no fspec models'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:35:18.798Z"
+        },
+        {
+          "id": 5,
+          "text": "A failed release of the workspace subscription is logged",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:35:18.818Z"
+        }
+      ],
+      "nextRuleId": 6,
+      "examples": [
+        {
+          "id": 0,
+          "text": "Daemon serves /ws: available /ws/sub -> served; /other -> unserved 'the fspec daemon serves /ws, not /other — ...'; list_workspaces errors 'registry unreadable' -> failed 'fspec daemon list_workspaces failed: registry unreadable'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:35:18.837Z"
+        },
+        {
+          "id": 1,
+          "text": "No daemon running -> unserved 'no fspec daemon is running — ...'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:35:18.857Z"
+        },
+        {
+          "id": 2,
+          "text": "Models m1, m2 with none default -> Open in agent fails 'fspec has no default model — set one under fspec providers', no agent created",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:35:18.877Z"
+        },
+        {
+          "id": 3,
+          "text": "listModels answers { error: 'provider fspec is loading' } -> Open in agent fails 'provider fspec is loading'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:35:18.898Z"
+        }
+      ],
+      "nextExampleId": 4,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "shared/board.ts boardAvailableRpc output becomes a discriminated union. server/daemon.ts exports DaemonNotFoundError (noDaemon and the none-serves case). server/board.ts both available() implementations. client/board-buttons.ts deps.available returns the union. client/open-in-agent.ts openInAgent default-only + fspecModels(result) used by client/board-panel.tsx. client/register.ts logs the release failure.",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:35:18.918Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "estimate": 3
     },
     "FSPEC-067": {
       "id": "FSPEC-067",
@@ -7741,7 +7839,6 @@
   },
   "states": {
     "backlog": [
-      "FSPEC-066",
       "FSPEC-067",
       "FSPEC-068"
     ],
@@ -7815,7 +7912,8 @@
       "FSPEC-062",
       "FSPEC-063",
       "FSPEC-064",
-      "FSPEC-065"
+      "FSPEC-065",
+      "FSPEC-066"
     ],
     "blocked": []
   },

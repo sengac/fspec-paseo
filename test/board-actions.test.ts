@@ -5,7 +5,7 @@
  * Scenarios in this test map directly to scenarios in the Gherkin feature.
  */
 import { afterEach, describe, expect, it } from "vitest";
-import { type AgentEntry, openInAgent } from "../client/open-in-agent.js";
+import { type AgentEntry, fspecModels, openInAgent } from "../client/open-in-agent.js";
 import { createBoardFeed } from "../server/board.js";
 import type { BoardUnit } from "../shared/board.js";
 import { FakeDaemon, daemonOptions, tempHome } from "./support/fake-daemon.js";
@@ -127,10 +127,32 @@ describe("Feature: Reorder fspec cards and open them in an agent from the Paseo 
       // @step And the new agent is opened
       expect(result).toEqual({ agentId: "A-new", created: true });
       expect(t.opened).toEqual(["A-new"]);
-      const none = deps([], []);
-      await expect(openInAgent(none.deps, unit("FSPEC-002", "Wire codec"), {})).rejects.toThrow(
-        "fspec has no models available",
-      );
+    });
+  });
+
+  describe("Scenario: Open in agent without fspec's default model fails", () => {
+    it("creates nothing without a default model", async () => {
+      // @step Given "FSPEC-002" has no focused session and the fspec models are "m1" and "m2" with no default
+      const t = deps([], [{ id: "m1" }, { id: "m2" }]);
+      // @step When the user opens "FSPEC-002" in an agent
+      const opening = openInAgent(t.deps, unit("FSPEC-002", "Wire codec"), {});
+      // @step Then it fails with "fspec has no default model — set one under fspec providers" and no agent is created
+      await expect(opening).rejects.toThrow("fspec has no default model — set one under fspec providers");
+      expect(t.created).toEqual([]);
+    });
+  });
+
+  describe("Scenario: Open in agent reports Paseo's model listing error", () => {
+    it("throws the listing error or the missing list", () => {
+      // @step Given Paseo answers the fspec model listing with the error "provider fspec is loading"
+      const failed = { error: "provider fspec is loading" };
+      // @step When the board reads the fspec models
+      const read = () => fspecModels(failed);
+      // @step Then it fails with "provider fspec is loading"
+      expect(read).toThrow("provider fspec is loading");
+      // @step And a listing without models fails with "Paseo listed no fspec models"
+      expect(() => fspecModels({ error: null })).toThrow("Paseo listed no fspec models");
+      expect(fspecModels({ models: [{ id: "m1" }], error: null })).toEqual([{ id: "m1" }]);
     });
   });
 });

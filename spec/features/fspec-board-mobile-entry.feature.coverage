@@ -5,7 +5,7 @@
       "testMappings": [
         {
           "file": "test/board-mobile-entry.test.ts",
-          "lines": "52-80",
+          "lines": "57-82",
           "implMappings": [
             {
               "file": "client/board-buttons.ts",
@@ -180,7 +180,7 @@
       "testMappings": [
         {
           "file": "test/board-mobile-entry.test.ts",
-          "lines": "82-107",
+          "lines": "84-108",
           "implMappings": [
             {
               "file": "client/board-buttons.ts",
@@ -245,20 +245,23 @@
       "testMappings": [
         {
           "file": "test/board-mobile-entry.test.ts",
-          "lines": "109-128",
+          "lines": "110-131",
           "implMappings": [
             {
               "file": "server/board.ts",
               "lines": [
-                238,
-                239,
-                240,
-                241,
-                242,
-                243,
-                244,
-                245,
-                246
+                422,
+                423,
+                424,
+                425,
+                426,
+                427,
+                428,
+                429,
+                430,
+                431,
+                432,
+                433
               ]
             },
             {
@@ -269,7 +272,17 @@
                 81,
                 82,
                 83,
-                84
+                84,
+                85,
+                86,
+                87,
+                88,
+                89,
+                90,
+                91,
+                92,
+                93,
+                94
               ]
             },
             {
@@ -281,12 +294,110 @@
           ]
         }
       ]
+    },
+    {
+      "name": "A failing daemon is a failed check, not an unserved directory",
+      "testMappings": [
+        {
+          "file": "test/board-mobile-entry.test.ts",
+          "lines": "133-154",
+          "implMappings": [
+            {
+              "file": "server/board.ts",
+              "lines": [
+                422,
+                423,
+                424,
+                425,
+                426,
+                427,
+                428,
+                429,
+                430,
+                431,
+                432,
+                433
+              ]
+            },
+            {
+              "file": "server/daemon.ts",
+              "lines": [
+                197,
+                198,
+                199,
+                200,
+                201,
+                202,
+                203
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A failed check shows an error button and is logged",
+      "testMappings": [
+        {
+          "file": "test/board-mobile-entry.test.ts",
+          "lines": "156-178",
+          "implMappings": [
+            {
+              "file": "client/board-buttons.ts",
+              "lines": [
+                49,
+                50,
+                51,
+                52,
+                53,
+                54,
+                55,
+                56,
+                57,
+                58,
+                59,
+                60,
+                61,
+                62,
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71,
+                72,
+                73,
+                74,
+                75,
+                76,
+                77,
+                78,
+                79,
+                80,
+                81,
+                82,
+                83,
+                84,
+                85,
+                86,
+                87,
+                88,
+                89,
+                90
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 3,
-    "coveredScenarios": 3,
-    "coveragePercent": 100,
+    "coveredScenarios": 5,
+    "coveragePercent": 167,
     "testFiles": [
       "test/board-mobile-entry.test.ts"
     ],
@@ -296,8 +407,9 @@
       "index.client.tsx",
       "server/board.ts",
       "shared/board.ts",
-      "index.server.ts"
+      "index.server.ts",
+      "server/daemon.ts"
     ],
-    "totalLinesCovered": 284
+    "totalLinesCovered": 426
   }
 }

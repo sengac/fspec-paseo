@@ -76,9 +76,18 @@ export const moveBoardRpc = defineRpc({
 export type BoardMoveInput = z.infer<typeof moveBoardRpc.input>;
 export type BoardMoveOutput = z.infer<typeof moveBoardRpc.output>;
 
-/** Whether the fspec daemon serves a directory, so the client offers the board there. */
+/**
+ * Whether the fspec daemon serves a directory, so the client offers the board
+ * there (FSPEC-040). FSPEC-066: a check that failed is not "unserved".
+ */
 export const boardAvailableRpc = defineRpc({
   name: "fspec.board.available",
   input: z.object({ cwd: z.string() }),
-  output: z.object({ available: z.boolean() }),
+  output: z.discriminatedUnion("state", [
+    z.object({ state: z.literal("served") }),
+    z.object({ state: z.literal("unserved"), reason: z.string() }),
+    z.object({ state: z.literal("failed"), error: z.string() }),
+  ]),
 });
+
+export type BoardAvailability = z.infer<typeof boardAvailableRpc.output>;

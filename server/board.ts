@@ -1,4 +1,5 @@
 import type {
+  BoardAvailability,
   BoardDetailsInput,
   BoardDetailsOutput,
   BoardMoveInput,
@@ -8,6 +9,7 @@ import type {
 } from "../shared/board.js";
 import {
   createFspecDaemonClient,
+  DaemonNotFoundError,
   type DaemonClientOptions,
   type DaemonConnection,
   type FspecDaemonClient,
@@ -35,8 +37,8 @@ export interface BoardFeed {
   details(input: BoardDetailsInput): Promise<BoardDetailsOutput>;
   /** Moves a card one position within its column (FSPEC-037). */
   move(input: BoardMoveInput): Promise<BoardMoveOutput>;
-  /** Whether a workspace the daemon serves holds `cwd`; false when it is unreachable (FSPEC-040, FSPEC-053). */
-  available(input: { cwd: string }): Promise<{ available: boolean }>;
+  /** Whether a workspace the daemon serves holds `cwd` (FSPEC-040, FSPEC-053); a failed check says so (FSPEC-066). */
+  available(input: { cwd: string }): Promise<BoardAvailability>;
   close(): Promise<void>;
 }
 
@@ -130,7 +132,7 @@ export function createBoardFeed(options: DaemonClientOptions = {}): BoardFeed {
       return via(input.cwd, (feed) => feed.move(input));
     },
     async available(input) {
-      if (closed) return { available: false };
+      if (closed) return { state: "failed", error: unloaded.reason };
       return via(input.cwd, (feed) => feed.available(input));
     },
     async close() {
@@ -418,11 +420,14 @@ function createDaemonBoardFeed(options: DaemonClientOptions): BoardFeed {
       }
     },
     async available({ cwd }) {
-      if (closed) return { available: false };
+      if (closed) return { state: "failed", error: "the fspec plugin was unloaded" };
       try {
-        return { available: !("refused" in (await resolve(cwd))) };
-      } catch {
-        return { available: false };
+        const found = await resolve(cwd);
+        return "refused" in found ? { state: "unserved", reason: found.refused } : { state: "served" };
+      } catch (error) {
+        // No daemon for the directory is an answer; anything else is a failure.
+        if (error instanceof DaemonNotFoundError) return { state: "unserved", reason: error.message };
+        return { state: "failed", error: error instanceof Error ? error.message : String(error) };
       }
     },
     async close() {

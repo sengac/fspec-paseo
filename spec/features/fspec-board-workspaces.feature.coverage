@@ -5,7 +5,7 @@
       "testMappings": [
         {
           "file": "test/board-workspaces.test.ts",
-          "lines": "75-86",
+          "lines": "79-90",
           "implMappings": [
             {
               "file": "server/board.ts",
@@ -92,7 +92,7 @@
       "testMappings": [
         {
           "file": "test/board-workspaces.test.ts",
-          "lines": "88-110",
+          "lines": "92-114",
           "implMappings": [
             {
               "file": "server/board.ts",
@@ -154,7 +154,7 @@
       "testMappings": [
         {
           "file": "test/board-workspaces.test.ts",
-          "lines": "112-124",
+          "lines": "116-128",
           "implMappings": [
             {
               "file": "server/board.ts",
@@ -208,7 +208,7 @@
       "testMappings": [
         {
           "file": "test/board-workspaces.test.ts",
-          "lines": "126-136",
+          "lines": "130-140",
           "implMappings": [
             {
               "file": "server/board.ts",
@@ -353,7 +353,7 @@
       "testMappings": [
         {
           "file": "test/board-workspaces.test.ts",
-          "lines": "218-235",
+          "lines": "218-234",
           "implMappings": [
             {
               "file": "server/board.ts",

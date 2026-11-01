@@ -33,7 +33,7 @@ import {
   EMPTY_DRAWER,
 } from "./details-document.js";
 import { DetailsDrawer } from "./details-drawer.js";
-import { type AgentEntry, openInAgent } from "./open-in-agent.js";
+import { type AgentEntry, fspecModels, openInAgent } from "./open-in-agent.js";
 import { useBoard } from "./use-board.js";
 
 type Theme = PluginWorkspacePanelProps["theme"];
@@ -221,7 +221,7 @@ export function BoardPanel({ theme, layout, workspaceId, tab, navigation }: Plug
             return entries;
           },
           async listModels() {
-            return (await paseo.providers.listModels("fspec")).models ?? [];
+            return fspecModels(await paseo.providers.listModels("fspec"));
           },
           async createAgent({ provider, title, prompt }) {
             const agent = await paseo.workspaces.ref(workspaceId).agents.create({ config: { provider }, title, prompt });

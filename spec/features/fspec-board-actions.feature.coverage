@@ -192,7 +192,7 @@
       "testMappings": [
         {
           "file": "test/board-actions.test.ts",
-          "lines": "119-135",
+          "lines": "119-131",
           "implMappings": [
             {
               "file": "client/open-in-agent.ts",
@@ -280,12 +280,79 @@
           ]
         }
       ]
+    },
+    {
+      "name": "Open in agent without fspec's default model fails",
+      "testMappings": [
+        {
+          "file": "test/board-actions.test.ts",
+          "lines": "133-143",
+          "implMappings": [
+            {
+              "file": "client/open-in-agent.ts",
+              "lines": [
+                57,
+                58,
+                59,
+                60,
+                61,
+                62,
+                63,
+                64,
+                65,
+                66,
+                67,
+                68,
+                69,
+                70,
+                71,
+                72,
+                73,
+                74,
+                75,
+                76,
+                77,
+                78,
+                79,
+                80
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Open in agent reports Paseo's model listing error",
+      "testMappings": [
+        {
+          "file": "test/board-actions.test.ts",
+          "lines": "145-157",
+          "implMappings": [
+            {
+              "file": "client/open-in-agent.ts",
+              "lines": [
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39,
+                40,
+                41
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 3,
-    "coveredScenarios": 3,
-    "coveragePercent": 100,
+    "coveredScenarios": 5,
+    "coveragePercent": 167,
     "testFiles": [
       "test/board-actions.test.ts"
     ],
@@ -296,6 +363,6 @@
       "client/board-panel.tsx",
       "client/open-in-agent.ts"
     ],
-    "totalLinesCovered": 280
+    "totalLinesCovered": 338
   }
 }

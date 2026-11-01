@@ -29,6 +29,16 @@ function daemonSessionId(entry: AgentEntry): string | null {
   return typeof sessionId === "string" ? sessionId : null;
 }
 
+/**
+ * The models of Paseo's fspec model listing (FSPEC-066): its error, or a
+ * listing without models, is an error rather than "no models".
+ */
+export function fspecModels<M>(result: { models?: M[]; error?: string | null }): M[] {
+  if (typeof result.error === "string") throw new Error(result.error);
+  if (result.models === undefined) throw new Error("Paseo listed no fspec models");
+  return result.models;
+}
+
 /** The open Paseo agent whose fspec session is focused on the card, if any. */
 export function focusedAgent(entries: readonly AgentEntry[], sessionIds: readonly string[]): string | null {
   const match = entries.find((entry) => {
@@ -57,9 +67,9 @@ export async function openInAgent(
       return { agentId: existing, created: false };
     }
   }
-  const models = await deps.listModels();
-  const model = models.find((entry) => entry.isDefault) ?? models[0];
-  if (model === undefined) throw new Error("fspec has no models available — is the fspec daemon running?");
+  // FSPEC-066: only fspec's default model, which Paseo's catalog marks; never a guess.
+  const model = (await deps.listModels()).find((entry) => entry.isDefault);
+  if (model === undefined) throw new Error("fspec has no default model — set one under fspec providers");
   const agent = await deps.createAgent({
     provider: `fspec/${model.id}`,
     title: `${unit.id} — ${unit.title}`,

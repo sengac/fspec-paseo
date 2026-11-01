@@ -49,8 +49,8 @@ The plugin is an ordinary client of a running **fspec daemon**. It doesn't start
   - Tapping an attachment opens the file in Paseo's file viewer.
   - Close it with **Close**, Android **Back**, or **Escape** on web.
 - **Move up / Move down** reorders a card within its column.
-- **Open in agent** switches to the fspec agent already focused on that card. If there isn't one, it creates an fspec agent with the default model and runs `/focus <id>` in it.
-- To open the board, use the workspace panel tab, the Command Center item **Open fspec board**, or the `/board` slash command. On phones, which don't show plugin panels in the tab menu, use the **fspec board** entry in the workspace `···` menu. That entry only appears for workspaces the fspec daemon serves.
+- **Open in agent** switches to the fspec agent already focused on that card. If there isn't one, it creates an fspec agent on fspec's default model and runs `/focus <id>` in it. Without a default model it says to set one under fspec providers rather than picking a model for you.
+- To open the board, use the workspace panel tab, the Command Center item **Open fspec board**, or the `/board` slash command. On phones, which don't show plugin panels in the tab menu, use the **fspec board** entry in the workspace `···` menu. That entry only appears for workspaces the fspec daemon serves. If the plugin can't tell (the daemon fails rather than answering), the entry reads **fspec board (error)** and the board it opens shows why.
 
 **fspec providers as a Paseo settings screen**
 
@@ -306,5 +306,6 @@ This project is itself built with fspec. Every feature has a work unit and a Ghe
 | `non-loopback daemon host …` | `FSPEC_DAEMON_URL` points at a non-loopback host. Only loopback is supported. The daemon's bearer token is not a substitute for TLS. |
 | `… could not be established — …FSPEC_DAEMON_TOKEN…` | The daemon is down, or it requires a token the Paseo daemon doesn't send or doesn't match. Set `FSPEC_DAEMON_TOKEN` for the Paseo daemon and restart it. |
 | No fspec board button on phone | No workspace the running daemon serves holds the workspace's directory. |
+| **fspec board (error)** in the workspace menu | The availability check failed (for example `list_workspaces` failed or several daemons serve the directory). Open it to see the reason; it is also in `paseo plugin logs fspec-paseo-provider`. |
 | Board shows "Reconnecting: …" | The daemon restarted or went away. The panel recovers once the daemon is back. |
 | Plugin doesn't load at all | Check `pluginsEnabled: true`, `paseo plugin ls`, and `paseo plugin logs fspec-paseo-provider`. |

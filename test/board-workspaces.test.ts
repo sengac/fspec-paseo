@@ -134,7 +134,7 @@ describe("Feature: Show the fspec board for every workspace the daemon serves", 
       // @step When the client asks fspec.board.available for "/app/web", "/ws" and "/other"
       const answers = [await feed.available({ cwd: "/app/web" }), await feed.available({ cwd: "/ws" }), await feed.available({ cwd: "/other" })];
       // @step Then "/app/web" and "/ws" are available and "/other" is not
-      expect(answers).toEqual([{ available: true }, { available: true }, { available: false }]);
+      expect(answers).toEqual([{ state: "served" }, { state: "served" }, { state: "unserved", reason: expect.stringContaining("not /other") }]);
       expect(daemon.sent("listWorkspaceWorkUnits")).toEqual([]);
     });
   });

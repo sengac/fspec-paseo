@@ -194,6 +194,14 @@ function describeEntry(entry: DaemonEntry): string {
   return `pid ${entry.pid} in ${entry.workspace ?? "(no workspace)"} (port ${entry.port})`;
 }
 
+/**
+ * Discovery found no daemon for the directory: none is running, or none's
+ * workspace holds it (FSPEC-066 tells this from a failure).
+ */
+export class DaemonNotFoundError extends Error {
+  override name = "DaemonNotFoundError";
+}
+
 // ---------------------------------------------------------------------------
 // The client
 // ---------------------------------------------------------------------------
@@ -280,7 +288,7 @@ export function createFspecDaemonClient(
   }
 
   function noDaemon(): Error {
-    return new Error(`no fspec daemon is running — no live entry in ${daemonsDir()}; start fspec daemon first`);
+    return new DaemonNotFoundError(`no fspec daemon is running — no live entry in ${daemonsDir()}; start fspec daemon first`);
   }
 
   /**
@@ -302,7 +310,7 @@ export function createFspecDaemonClient(
     const serving = entries.filter((entry) => entry.workspace !== undefined && within(entry.workspace, dir));
     if (serving.length === 1) return loopbackTarget(serving[0]!);
     if (serving.length === 0) {
-      throw new Error(
+      throw new DaemonNotFoundError(
         `no fspec daemon serves ${dir} — the live daemons are ${all}; start fspec in ${dir}, or set FSPEC_DAEMON_URL to choose a daemon`,
       );
     }

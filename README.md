@@ -74,7 +74,7 @@ This screen mirrors the fspec TUI's `/provider` view.
 ## Requirements
 
 - **Paseo ≥ 0.13.0** with plugins enabled.
-- **fspec** installed, with the daemon running in the project you want to work in. This was developed against fspec 0.10.x.
+- **fspec** installed, with the daemon running in the project you want to work in. This was developed against fspec 0.10.9 at commit `344d00b4`, which has multi-workspace daemons, `submit_input`, `get_default_model`, per-daemon discovery files and bearer auth. Older daemons lack those RPCs.
 - Node.js ≥ 20, but only if you want to run the typecheck or tests. Paseo compiles the plugin's TypeScript itself, so there's no build step.
 
 ## Setup
@@ -244,20 +244,25 @@ icon.svg                 Provider icon
 
 server/
   provider.ts            Provider registration, capability negotiation, input dispatch
-  daemon.ts              Daemon discovery (daemon.json / FSPEC_DAEMON_URL), loopback rule, socket, RPC
-  session.ts             Paseo session ↔ daemon session: open/resume, prompts, turn queue, stop,
-                         permissions, sub-agents, revert, import list, commands
+  daemon.ts              Daemon discovery (daemons/, daemon.json, FSPEC_DAEMON_URL), loopback rule,
+                         bearer token, socket, RPC
+  session.ts             Paseo session ↔ daemon session: open/resume, prompts, steer/queue, turns, stop,
+                         permissions, sub-agents, revert, import list, commands, modes
+  workspaces.ts          Which served workspace holds a directory
+  bot.ts                 fspec's orchestrator bot role and the agent/bot modes
   transcript.ts          Stream chunks → Paseo timeline items, usage
   transcript-json.ts     Replay of persisted transcripts
   interactions.ts        Approval pauses / HITL questions ↔ Paseo permission requests
   commands.ts            /compact /clear /continue /goal /focus
   attachments.ts         Images and uploaded files → paths in the prompt text
   catalog.ts             list_providers → Paseo model picker
-  board.ts               Live board feed: watch, details, move, availability
+  board.ts               Live board feeds per daemon and workspace: watch, details, move, availability
+  settings.ts, oauth.ts  fspec providers screen feed: credentials, settings, profiles, custom models,
+                         default model, OAuth
   bincode.ts, wire.ts    The fspec wire codec
 
-shared/board.ts          RPC schemas shared by server and client
-client/                  Board panel UI (React Native) and its pure models
+shared/                  RPC schemas shared by server and client (board, settings)
+client/                  Board panel and providers screen UI (React Native) and their pure models
 
 docs/                    Reference: fspec wire protocol, Paseo provider contract
 spec/                    fspec specs for this project (features, work units, foundation)

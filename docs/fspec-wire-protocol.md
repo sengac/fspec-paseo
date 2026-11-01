@@ -2,7 +2,9 @@
 
 Source of truth: `rust/rpc-server/src/{envelope,transport,pump,server,bounded_reads}.rs`,
 `rust/rpc/src/lib.rs` (trait), `rust/rpc-types/src/*.rs`, `rust/fspec/src/{daemon,client,common}.rs`,
-`rust/fspec-tui/src/transport/websocket.rs`. Verified at commit `626eee1e`.
+`rust/fspec-tui/src/transport/websocket.rs`, `rust/fspec/src/common/daemon_registry.rs`. Verified at commit
+`626eee1e`; re-verified at `344d00b4` (method order `rust/rpc/tests/fixtures/wire_order_frozen.txt`, indices
+124–128, Envelope 9, PauseState details/tool_call_id, InputMode, discovery files, bearer auth).
 Wire codec: **bincode 1.3.3 free functions** (`bincode::serialize` / `bincode::deserialize`).
 
 ---

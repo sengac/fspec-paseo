@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T00:16:02.770Z"
+    "lastUpdated": "2026-11-01T00:21:41.006Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -5633,15 +5633,121 @@
       "id": "FSPEC-047",
       "title": "Manage fspec custom models from Paseo",
       "type": "story",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-10-30T05:31:53.454Z",
-      "updatedAt": "2026-10-30T05:37:12.188Z",
+      "updatedAt": "2026-11-01T00:21:41.006Z",
       "description": "Custom models inside a provider profile (add/update/delete_custom_model with CustomModelDefinition), which the fspec TUI manages from its model selector rather than the provider view. Profiles themselves are delivered by FSPEC-045.",
       "epic": "provider-settings",
       "children": [],
       "dependsOn": [
         "FSPEC-045"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T00:17:49.410Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T00:18:24.180Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T00:21:33.662Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T00:21:40.857Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T00:21:41.006Z"
+        }
+      ],
+      "userStory": {
+        "role": "Paseo user running local OpenAI-compatible servers through fspec profiles",
+        "action": "add, edit and delete the custom models of an fspec profile from the fspec providers screen",
+        "benefit": "models my server offers but fspec cannot discover appear in Paseo's model picker without editing fspec-config.json"
+      },
+      "rules": [
+        {
+          "id": 0,
+          "text": "Custom models belong to a profile of the openai provider (fspec's profile_sections guard rejects any other provider id); the provider tree lists each openai profile's custom models (list_providers entries of key 'openai:<profile>' with is_custom) under its profile row, then '+ Add model to <profile>'",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:17:49.451Z"
+        },
+        {
+          "id": 1,
+          "text": "The custom model sheet has the fspec TUI's eight fields (rust/fspec-tui/src/views/model_selector/form_fields.rs): Model ID (required), Display Name, Facade (openai, codex, claude, gemini, zai or default), Context Window, Max Output Tokens, Compaction Trigger ('80%' or '200000'), Reasoning, Vision",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:17:49.474Z"
+        },
+        {
+          "id": 2,
+          "text": "Saving builds a CustomModelDefinition like the TUI's build_definition: trimmed id, blank optional fields omitted, a trailing-% trigger is percentage, a bare number is tokens; a blank Model ID or a non-number limit is refused in the form and nothing is sent",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:17:49.493Z"
+        },
+        {
+          "id": 3,
+          "text": "A new model is written with add_custom_model (idx 31: 'openai', profile, definition); an edited one with update_custom_model (idx 32) carrying its original id, so renaming the id replaces the entry; delete asks 'Delete the custom model <name> from <profile>?' and calls delete_custom_model (idx 33)",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:17:49.514Z"
+        },
+        {
+          "id": 4,
+          "text": "Editing prefills only what list_providers reports (id, display name unless it equals the id, context window, reasoning, vision); facade, max output and trigger start blank, as in the TUI",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:17:49.532Z"
+        },
+        {
+          "id": 5,
+          "text": "After every successful write the screen reloads the list and refreshes Paseo's fspec models, so the model appears in the picker; a daemon error is shown on the sheet and changes nothing",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:17:49.550Z"
+        }
+      ],
+      "nextRuleId": 6,
+      "examples": [
+        {
+          "id": 0,
+          "text": "Profile Strata of openai serves custom model qwen3-coder ('Qwen3 Coder') -> tree rows '📁 Strata → http://10.0.0.5:8080/v1', '◆ Qwen3 Coder', '+ Add model to Strata'",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:17:49.571Z"
+        },
+        {
+          "id": 1,
+          "text": "Add: Model ID 'qwen3-coder', Display Name 'Qwen3 Coder', Facade openai, Context Window 32768, Trigger '80%', Reasoning on -> add_custom_model('openai', 'Strata', { id: 'qwen3-coder', displayName: 'Qwen3 Coder', facade: 'openai', contextWindow: 32768, compactionThresholdType: 'percentage', compactionThresholdValue: 80, reasoning: true, hasVision: false })",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:17:49.590Z"
+        },
+        {
+          "id": 2,
+          "text": "Edit qwen3 -> id changed to qwen3-coder -> update_custom_model('openai', 'Strata', 'qwen3', { id: 'qwen3-coder', ... })",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:17:49.608Z"
+        },
+        {
+          "id": 3,
+          "text": "Delete qwen3-coder -> confirm 'Delete the custom model Qwen3 Coder from Strata?' -> delete_custom_model('openai', 'Strata', 'qwen3-coder')",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:17:49.627Z"
+        }
+      ],
+      "nextExampleId": 4,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "shared/settings.ts: settingsModelSchema gains optional isCustom/supportsReasoning/supportsVision (set for custom models); saveCustomModelRpc { providerId, profile, originalId, definition } and deleteCustomModelRpc. server/settings.ts: saveCustomModel (originalId null -> addCustomModel, else updateCustomModel) and deleteCustomModel over the FSPEC-041 codec (idx 31-33). client/custom-model-form.ts (pure: fields, prefill, build, prompts); client/settings-model.ts tree rows customModel/addCustomModel under openai profiles; client/custom-model-sheet.tsx; client/settings-screen.tsx wires the sheet. The plugin sends provider id 'openai' (the daemon guard in rust/sessions/src/handle_impl/handle_impl_6.rs); the fspec TUI's model selector passes the profile's list_providers key ('openai:<profile>', profile_sections.rs build_profile_provider_info), which that guard rejects — reported, not worked around in fspec.",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:17:49.646Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "attachments": [
+        "spec/attachments/FSPEC-047/ast-research.md"
+      ],
+      "estimate": 5
     },
     "FSPEC-048": {
       "id": "FSPEC-048",
@@ -6649,9 +6755,7 @@
     }
   },
   "states": {
-    "backlog": [
-      "FSPEC-047"
-    ],
+    "backlog": [],
     "specifying": [],
     "testing": [],
     "implementing": [],
@@ -6711,7 +6815,8 @@
       "FSPEC-052",
       "FSPEC-053",
       "FSPEC-054",
-      "FSPEC-055"
+      "FSPEC-055",
+      "FSPEC-047"
     ],
     "blocked": []
   },

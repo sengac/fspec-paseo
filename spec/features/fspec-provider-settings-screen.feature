@@ -2,6 +2,7 @@
 @provider
 @core
 @FSPEC-043
+@FSPEC-047
 Feature: Manage fspec providers from a Paseo settings screen
 
   """
@@ -22,7 +23,7 @@ Feature: Manage fspec providers from a Paseo settings screen
   #   6. After every successful save, remove or refresh the screen reloads the list and asks Paseo to refresh the fspec provider (paseo.providers.refresh) so the model picker updates.
   #   7. A failed action leaves the list unchanged and shows the daemon's error on that row.
   #   8. Providers are one tree in a single card, as in the fspec TUI: configured providers first, then the rest in the daemon's order; each provider header shows ▶/▼, its name and status segments — green '✓ <masked key>' with a dim '[<source>]' for keys, '✓ OAuth [Claude|ChatGPT|GitHub Copilot]' for OAuth sign-ins, gray '(not configured)' otherwise — plus '(N profiles)' when it has profiles and the last test result.
-  #   9. An expanded provider shows a Test and Refresh models action line, then its child rows in the TUI's order: OAuth status and sign-in rows (OAuth providers), '🔑 API key' (API-key providers except openai), '⚙ Settings', one '📁 <profile> → <base URL>' row per profile ('(inherits auth)' when the profile has no base URL), and '+ Add profile'.
+  #   9. An expanded provider shows a Test and Refresh models action line, then its child rows in the TUI's order: OAuth status and sign-in rows (OAuth providers), '🔑 API key' (API-key providers except openai), '⚙ Settings', one '📁 <profile> → <base URL>' row per profile ('(inherits auth)' when the profile has no base URL), and '+ Add profile'. FSPEC-047: each openai profile row is followed by its custom models ('◆ <name>') and '+ Add model to <profile>'.
   #   10. Profiles reported by the daemon as their own providers ('<provider>:<profile>', e.g. 'openai:Strata') are folded under their parent provider as profile rows, never listed as separate providers.
   #   11. Tapping a child row opens its sheet (Paseo Modal, a bottom sheet on phones); this story delivers the API key sheet (masked current key, secure new-key field, Save, Test, Remove). The Settings and profile sheets come with FSPEC-045, OAuth sign-in with FSPEC-044; until then those rows open a sheet that says so.
   #   12. settings.list also returns each provider's profiles (name and base URL only, from list_provider_settings) so the tree can show them; no profile API key ever reaches the client.
@@ -67,7 +68,7 @@ Feature: Manage fspec providers from a Paseo settings screen
   Scenario: An expanded OpenAI shows Settings and its profiles but no API key row
     Given the provider tree from the credentials above
     When the user expands OpenAI
-    Then its rows are "⚙ Settings", "📁 Strata → http://10.0.0.5:8080/v1", "📁 spark → http://spark:8000/v1" and "+ Add profile"
+    Then its rows are "⚙ Settings", "📁 Strata → http://10.0.0.5:8080/v1", "+ Add model to Strata", "📁 spark → http://spark:8000/v1", "+ Add model to spark" and "+ Add profile"
     And the header offers Test and Refresh models
 
   Scenario: An expanded OAuth provider shows its sign-in rows first

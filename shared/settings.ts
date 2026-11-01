@@ -4,11 +4,17 @@ import { z } from "zod";
 /** Why the settings cannot be served (no daemon, connection lost, plugin unloaded). */
 const unavailableSchema = z.object({ state: z.literal("unavailable"), reason: z.string() });
 
-/** One model a provider offers, as list_providers reports it. */
+/**
+ * One model a provider offers, as list_providers reports it. A custom model
+ * (one a profile defines, FSPEC-047) also says so, with its capabilities.
+ */
 export const settingsModelSchema = z.object({
   id: z.string(),
   displayName: z.string(),
   contextWindow: z.number(),
+  isCustom: z.boolean().optional(),
+  supportsReasoning: z.boolean().optional(),
+  supportsVision: z.boolean().optional(),
 });
 
 /**
@@ -156,6 +162,41 @@ export const deleteProfileRpc = defineRpc({
   input: z.object({ providerId: z.string(), name: z.string() }),
   output: writeOutput,
 });
+
+/** A custom model of a profile, as fspec stores it (rpc-types CustomModelDefinition). */
+export const customModelDefinitionSchema = z.object({
+  id: z.string().min(1),
+  displayName: z.string().nullable(),
+  facade: z.string().nullable(),
+  contextWindow: z.number().nullable(),
+  maxOutputTokens: z.number().nullable(),
+  compactionThresholdType: z.string().nullable(),
+  compactionThresholdValue: z.number().nullable(),
+  reasoning: z.boolean().nullable(),
+  hasVision: z.boolean().nullable(),
+});
+
+/** Adds a custom model to a profile, or replaces the one `originalId` names (FSPEC-047). */
+export const saveCustomModelRpc = defineRpc({
+  name: "fspec.settings.save-custom-model",
+  input: z.object({
+    providerId: z.string(),
+    profile: z.string(),
+    originalId: z.string().nullable(),
+    definition: customModelDefinitionSchema,
+  }),
+  output: writeOutput,
+});
+
+export const deleteCustomModelRpc = defineRpc({
+  name: "fspec.settings.delete-custom-model",
+  input: z.object({ providerId: z.string(), profile: z.string(), id: z.string() }),
+  output: writeOutput,
+});
+
+export type SettingsModel = z.infer<typeof settingsModelSchema>;
+export type CustomModelInput = z.infer<typeof customModelDefinitionSchema>;
+export type SaveCustomModelInput = z.infer<typeof saveCustomModelRpc.input>;
 
 /** Makes "provider/model" fspec's default model (set_default_model, FSPEC-046). */
 export const setDefaultModelRpc = defineRpc({

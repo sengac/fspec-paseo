@@ -17,6 +17,7 @@ import type {
   RemoveCredentialsOutput,
   SaveCredentialsInput,
   SaveCredentialsOutput,
+  SaveCustomModelInput,
   SaveProfileInput,
   SettingsListOutput,
   SettingsProvider,
@@ -53,6 +54,9 @@ export interface SettingsFeed {
   deleteProfile(input: { providerId: string; name: string }): Promise<WriteOutput>;
   /** Makes a "provider/model" fspec's default model (FSPEC-046). */
   setDefaultModel(input: { model: string }): Promise<WriteOutput>;
+  /** A profile's custom models (FSPEC-047): add, or replace the one originalId names. */
+  saveCustomModel(input: SaveCustomModelInput): Promise<WriteOutput>;
+  deleteCustomModel(input: { providerId: string; profile: string; id: string }): Promise<WriteOutput>;
   /** OAuth sign-in and log-out (FSPEC-044). */
   oauthStart(input: OAuthStartInput): Promise<OAuthStartOutput>;
   oauthComplete(input: { loginId: string; code: string }): Promise<WriteOutput>;
@@ -73,7 +77,15 @@ function message(error: unknown): string {
 }
 
 function models(entries: readonly ModelEntry[]) {
-  return entries.map((entry) => ({ id: entry.id, displayName: entry.displayName, contextWindow: entry.contextWindow }));
+  return entries.map((entry) => ({
+    id: entry.id,
+    displayName: entry.displayName,
+    contextWindow: entry.contextWindow,
+    // Only a custom model carries what its edit form prefills.
+    ...(entry.isCustom
+      ? { isCustom: true, supportsReasoning: entry.supportsReasoning, supportsVision: entry.supportsVision }
+      : {}),
+  }));
 }
 
 /** A stored definition for the client: the key becomes a flag. */
@@ -288,6 +300,18 @@ export function createSettingsFeed(
 
     setDefaultModel: ({ model }) =>
       guarded(async () => written((await call({ method: "setDefaultModel", model })).result)),
+
+    saveCustomModel: ({ providerId, profile, originalId, definition }) =>
+      guarded(async () => {
+        const { result } =
+          originalId === null
+            ? await call({ method: "addCustomModel", providerId, profileName: profile, definition })
+            : await call({ method: "updateCustomModel", providerId, profileName: profile, originalModelId: originalId, definition });
+        return written(result);
+      }),
+
+    deleteCustomModel: ({ providerId, profile, id }) =>
+      guarded(async () => written((await call({ method: "deleteCustomModel", providerId, profileName: profile, modelId: id })).result)),
 
     oauthStart: (input) => guarded(() => logins.start(input)),
     oauthComplete: (input) => guarded(() => logins.complete(input)),

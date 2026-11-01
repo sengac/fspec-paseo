@@ -4,6 +4,7 @@ import { createFspecProvider } from "./server/provider.js";
 import { createSettingsFeed } from "./server/settings.js";
 import { boardAvailableRpc, boardDetailsRpc, moveBoardRpc, watchBoardRpc } from "./shared/board.js";
 import {
+  deleteCustomModelRpc,
   deleteProfileRpc,
   oauthCancelRpc,
   oauthCompleteRpc,
@@ -14,6 +15,7 @@ import {
   refreshModelsRpc,
   removeCredentialsRpc,
   saveCredentialsRpc,
+  saveCustomModelRpc,
   saveProfileRpc,
   saveSettingsRpc,
   setDefaultModelRpc,
@@ -41,6 +43,8 @@ export default function contribute(
   server.handle(saveProfileRpc, (input) => settings.saveProfile(input));
   server.handle(deleteProfileRpc, (input) => settings.deleteProfile(input));
   server.handle(setDefaultModelRpc, (input) => settings.setDefaultModel(input));
+  server.handle(saveCustomModelRpc, (input) => settings.saveCustomModel(input));
+  server.handle(deleteCustomModelRpc, (input) => settings.deleteCustomModel(input));
   server.handle(oauthStartRpc, (input) => settings.oauthStart(input));
   server.handle(oauthCompleteRpc, (input) => settings.oauthComplete(input));
   server.handle(oauthStatusRpc, (input) => settings.oauthStatus(input));

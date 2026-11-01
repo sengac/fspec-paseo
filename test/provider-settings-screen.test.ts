@@ -169,11 +169,13 @@ describe("Feature: Manage fspec providers from a Paseo settings screen", () => {
       // @step When the user expands OpenAI
       const expanded = toggleExpanded(new Set(), "openai");
       expect(expanded.has("openai")).toBe(true);
-      // @step Then its rows are "⚙ Settings", "📁 Strata → http://10.0.0.5:8080/v1", "📁 spark → http://spark:8000/v1" and "+ Add profile"
+      // @step Then its rows are "⚙ Settings", "📁 Strata → http://10.0.0.5:8080/v1", "+ Add model to Strata", "📁 spark → http://spark:8000/v1", "+ Add model to spark" and "+ Add profile"
       expect(labels(openai.rows)).toEqual([
         "⚙ Settings",
         "📁 Strata → http://10.0.0.5:8080/v1",
+        "+ Add model to Strata",
         "📁 spark → http://spark:8000/v1",
+        "+ Add model to spark",
         "+ Add profile",
       ]);
       // @step And the header offers Test and Refresh models

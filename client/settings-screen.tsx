@@ -13,6 +13,7 @@ import {
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, Text, View } from "react-native";
 import {
+  deleteCustomModelRpc,
   deleteProfileRpc,
   oauthCancelRpc,
   oauthCompleteRpc,
@@ -23,6 +24,7 @@ import {
   refreshModelsRpc,
   removeCredentialsRpc,
   saveCredentialsRpc,
+  saveCustomModelRpc,
   saveProfileRpc,
   saveSettingsRpc,
   setDefaultModelRpc,
@@ -32,6 +34,7 @@ import {
   testProviderRpc,
 } from "../shared/settings.js";
 import { StripButton } from "./board-details.js";
+import { CustomModelSheet } from "./custom-model-sheet.js";
 import { OAuthLoginSheet, OAuthStatusSheet } from "./oauth-sheet.js";
 import { FormSheet } from "./settings-form-sheet.js";
 import { runWrite } from "./settings-actions.js";
@@ -66,7 +69,10 @@ function rowTint(kind: TreeRow["kind"], c: Colors): string {
       return c.accent;
     case "oauthStatus":
     case "addProfile":
+    case "addCustomModel":
       return c.statusSuccess;
+    case "customModel":
+      return c.foreground;
   }
 }
 
@@ -89,6 +95,8 @@ export function SettingsScreen({ theme }: PluginSurfaceProps) {
     saveProfile: useRpc(saveProfileRpc),
     deleteProfile: useRpc(deleteProfileRpc),
     setDefaultModel: useRpc(setDefaultModelRpc),
+    saveCustomModel: useRpc(saveCustomModelRpc),
+    deleteCustomModel: useRpc(deleteCustomModelRpc),
     oauthStart: useRpc(oauthStartRpc),
     oauthComplete: useRpc(oauthCompleteRpc),
     oauthStatus: useRpc(oauthStatusRpc),
@@ -222,7 +230,33 @@ export function SettingsScreen({ theme }: PluginSurfaceProps) {
         onOpenChange={(isOpen) => !isOpen && setSheet(null)}
       >
         <Modal.Content>
-          {sheet !== null && open !== null && (sheet.kind === "settings" || sheet.kind === "profile") ? (
+          {sheet !== null && open !== null && sheet.kind === "customModel" ? (
+            <CustomModelSheet
+              key={`${sheet.profile}:${sheet.model?.id ?? "+"}`}
+              theme={theme}
+              profile={sheet.profile}
+              model={sheet.model}
+              save={async (input) => {
+                const outcome = await runWrite({
+                  write: () => rpcRef.current.saveCustomModel({ providerId: open.id, profile: sheet.profile, ...input }),
+                  reload,
+                  refreshPaseo,
+                });
+                if (outcome.ok) toast.show(`Saved ${input.definition.id} in ${sheet.profile}`, { variant: "success" });
+                return outcome;
+              }}
+              remove={async (id) => {
+                const outcome = await runWrite({
+                  write: () => rpcRef.current.deleteCustomModel({ providerId: open.id, profile: sheet.profile, id }),
+                  reload,
+                  refreshPaseo,
+                });
+                if (outcome.ok) toast.show(`Deleted ${id} from ${sheet.profile}`, { variant: "success" });
+                return outcome;
+              }}
+              onDone={() => setSheet(null)}
+            />
+          ) : sheet !== null && open !== null && (sheet.kind === "settings" || sheet.kind === "profile") ? (
             <FormSheet
               key={`${sheet.kind}:${sheet.providerId}:${sheet.kind === "profile" ? (sheet.profile ?? "+") : ""}`}
               kind={sheet.kind}
@@ -327,6 +361,8 @@ function sheetTitle(sheet: Sheet, provider: TreeProvider): string {
       return `${provider.displayName} · Settings`;
     case "profile":
       return sheet.profile === null ? `${provider.displayName} · New profile` : `${provider.displayName} · ${sheet.profile}`;
+    case "customModel":
+      return sheet.model === null ? `${sheet.profile} · New model` : `${sheet.profile} · ${sheet.model.displayName}`;
     case "oauthLogin":
     case "oauthStatus":
       return `${provider.displayName} · Sign in`;
@@ -384,7 +420,17 @@ function ProviderTree(props: {
           ) : null}
           {provider.rows.map((row) => (
             <Pressable
-              key={row.kind === "profile" ? `profile:${row.name}` : row.kind === "oauthLogin" ? `login:${row.method}` : row.kind}
+              key={
+                row.kind === "profile"
+                  ? `profile:${row.name}`
+                  : row.kind === "oauthLogin"
+                    ? `login:${row.method}`
+                    : row.kind === "customModel"
+                      ? `model:${row.profile}:${row.model.id}`
+                      : row.kind === "addCustomModel"
+                        ? `add-model:${row.profile}`
+                        : row.kind
+              }
               accessibilityRole="button"
               onPress={() => props.onOpen(row)}
               style={({ pressed }) => ({

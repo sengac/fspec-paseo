@@ -429,6 +429,9 @@ Variant index = 0-based position in the trait. Full order verified from
 | 45 | `SetSessionRole` | `set_session_role` | `session_id: SessionId, role: Option<String>` | `Result<(), String>` (`None` clears) |
 | 46 | `SendInputWithThinking` | `send_input_with_thinking` | `session_id: SessionId, text: String, thinking: Option<ThinkingConfig>` | `()` |
 | 30 | `SetDefaultModel` | `set_default_model` | `model: String` ("provider/model") | `Result<(), String>` (empty strings ignored) |
+| 31 | `AddCustomModel` | `add_custom_model` | `provider_id: String, profile_name: String, definition: CustomModelDefinition` | `Result<(), String>` (provider id must be `"openai"`; FSPEC-047) |
+| 32 | `UpdateCustomModel` | `update_custom_model` | `provider_id, profile_name, original_model_id: String, definition` | `Result<(), String>` (replaces the entry with `original_model_id`) |
+| 33 | `DeleteCustomModel` | `delete_custom_model` | `provider_id, profile_name, model_id: String` | `Result<(), String>` |
 | 127 | `GetDefaultModel` | `get_default_model` | — | `Option<String>` ("provider/model"; RPC-440) |
 | 87 | `DestroySession` | `destroy_session` | `session_id: SessionId` | `Result<(), String>` |
 | 123 | `GetWorkUnitDetails` | `get_work_unit_details` | `id: String` | `Result<String, String>` (JSON `{id, workspace, workUnit}`) |

@@ -1,4 +1,4 @@
-import type { OAuthStep, SettingsListOutput, SettingsProvider, TestProviderOutput } from "../shared/settings.js";
+import type { OAuthStep, SettingsListOutput, SettingsModel, SettingsProvider, TestProviderOutput } from "../shared/settings.js";
 
 /**
  * The fspec TUI's provider tree (rust/fspec-tui/src/views/provider_settings):
@@ -15,6 +15,8 @@ export type TreeRow =
   | { kind: "apiKey"; label: string }
   | { kind: "settings"; label: string }
   | { kind: "profile"; name: string; baseUrl: string; label: string }
+  | { kind: "customModel"; profile: string; model: SettingsModel; label: string }
+  | { kind: "addCustomModel"; profile: string; label: string }
   | { kind: "addProfile"; label: string };
 
 export interface TreeProvider {
@@ -34,6 +36,7 @@ export type Sheet =
   | { kind: "apiKey"; providerId: string }
   | { kind: "settings"; providerId: string }
   | { kind: "profile"; providerId: string; profile: string | null }
+  | { kind: "customModel"; providerId: string; profile: string; model: SettingsModel | null }
   | { kind: "oauthLogin"; providerId: string; method: OAuthMethod }
   | { kind: "oauthStatus"; providerId: string };
 
@@ -98,7 +101,14 @@ function headerStatus(row: SettingsProvider, profileCount: number): string {
   return status;
 }
 
-function childRows(row: SettingsProvider, profiles: ReadonlyArray<{ name: string; baseUrl: string }>): TreeRow[] {
+/** fspec keeps custom models in openai profiles only (profile_sections.rs). */
+export const CUSTOM_MODEL_PROVIDER = "openai";
+
+function childRows(
+  row: SettingsProvider,
+  profiles: ReadonlyArray<{ name: string; baseUrl: string }>,
+  profileModels: ReadonlyMap<string, readonly SettingsModel[]>,
+): TreeRow[] {
   const rows: TreeRow[] = [];
   if (row.credentialType === "oauth") {
     if (row.configured) rows.push({ kind: "oauthStatus", label: `✓ Logged in [${oauthLabel(row.id)}]` });
@@ -114,6 +124,12 @@ function childRows(row: SettingsProvider, profiles: ReadonlyArray<{ name: string
   for (const profile of profiles) {
     const target = profile.baseUrl === "" ? "(inherits auth)" : profile.baseUrl;
     rows.push({ kind: "profile", name: profile.name, baseUrl: profile.baseUrl, label: `📁 ${profile.name} → ${target}` });
+    if (row.id !== CUSTOM_MODEL_PROVIDER) continue;
+    // FSPEC-047: the profile's custom models, then a row to add one.
+    for (const model of profileModels.get(profile.name) ?? []) {
+      if (model.isCustom === true) rows.push({ kind: "customModel", profile: profile.name, model, label: `◆ ${model.displayName}` });
+    }
+    rows.push({ kind: "addCustomModel", profile: profile.name, label: `+ Add model to ${profile.name}` });
   }
   rows.push({ kind: "addProfile", label: "+ Add profile" });
   return rows;
@@ -126,14 +142,15 @@ function childRows(row: SettingsProvider, profiles: ReadonlyArray<{ name: string
  */
 export function buildTree(rows: readonly SettingsProvider[]): TreeProvider[] {
   const ids = new Set(rows.map((row) => row.id));
-  const folded = new Map<string, string[]>();
+  /** parent -> profile name -> the models its '<parent>:<profile>' row lists. */
+  const folded = new Map<string, Map<string, readonly SettingsModel[]>>();
   const providers: SettingsProvider[] = [];
   for (const row of rows) {
     const colon = row.id.indexOf(":");
     const parent = colon > 0 ? row.id.slice(0, colon) : null;
     if (parent !== null && ids.has(parent)) {
-      const names = folded.get(parent) ?? [];
-      names.push(row.id.slice(colon + 1));
+      const names = folded.get(parent) ?? new Map<string, readonly SettingsModel[]>();
+      names.set(row.id.slice(colon + 1), row.models);
       folded.set(parent, names);
     } else {
       providers.push(row);
@@ -141,8 +158,9 @@ export function buildTree(rows: readonly SettingsProvider[]): TreeProvider[] {
   }
   const tree = providers.map((row): TreeProvider => {
     const profiles = [...row.profiles];
+    const profileModels = folded.get(row.id) ?? new Map<string, readonly SettingsModel[]>();
     // A profile the daemon lists as a provider but not in the settings still shows.
-    for (const name of folded.get(row.id) ?? []) {
+    for (const name of profileModels.keys()) {
       if (!profiles.some((profile) => profile.name === name)) profiles.push({ name, baseUrl: "" });
     }
     return {
@@ -153,7 +171,7 @@ export function buildTree(rows: readonly SettingsProvider[]): TreeProvider[] {
       canTest: row.configured,
       canRefresh: row.configured,
       provider: row,
-      rows: childRows(row, profiles),
+      rows: childRows(row, profiles, profileModels),
     };
   });
   // Array#sort is stable, so each group keeps the daemon's order.
@@ -172,6 +190,10 @@ export function sheetFor(providerId: string, row: TreeRow): Sheet {
       return { kind: "settings", providerId };
     case "profile":
       return { kind: "profile", providerId, profile: row.name };
+    case "customModel":
+      return { kind: "customModel", providerId, profile: row.profile, model: row.model };
+    case "addCustomModel":
+      return { kind: "customModel", providerId, profile: row.profile, model: null };
     case "addProfile":
       return { kind: "profile", providerId, profile: null };
   }

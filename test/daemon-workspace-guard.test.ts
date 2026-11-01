@@ -4,12 +4,13 @@
  * This test file validates the acceptance criteria defined in the feature file.
  * Scenarios in this test map directly to scenarios in the Gherkin feature.
  */
-import { mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from "node:fs";
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, realpathSync, rmSync, symlinkSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import * as wire from "../server/wire.js";
+import { within } from "../server/workspaces.js";
 import { disposeHarnesses, harness } from "./support/provider-harness.js";
 
 afterEach(disposeHarnesses);
@@ -87,6 +88,52 @@ describe("Feature: Run each fspec session in the workspace of its Paseo director
         expect(opened.at(-1)).toMatchObject({ type: "session.ready" });
         await vi.waitFor(() => expect(h.daemon.sent("createSessionChecked")).toHaveLength(1));
       } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("Scenario: A directory not yet created under a symlinked workspace path is inside it", () => {
+    it("canonicalises the missing directory through its deepest existing ancestor", async () => {
+      // @step Given the fspec daemon reports its workspace by its resolved real path
+      const root = mkdtempSync(join(tmpdir(), "fspec-ws-"));
+      const real = join(root, "real");
+      mkdirSync(real);
+      const link = join(root, "link");
+      symlinkSync(real, link);
+      const h = await harness();
+      h.daemon.handlers.getWorkspaceInfo = () => ({ cwd: realpathSync(real), gitBranch: null });
+      h.daemon.handlers.listWorkspaces = () => ({ ok: true, value: [{ path: realpathSync(real), name: "real", start: true }] });
+      try {
+        // @step When Paseo opens an fspec session in a directory that does not exist yet under a symlinked path to that workspace
+        const opened = await h.open("paseo-1", { cwd: join(link, "new", "deeper") });
+        // @step Then the provider created the session with create_session_checked and no create_session_in_workspace
+        expect(h.daemon.sent("createSessionChecked")).toHaveLength(1);
+        expect(h.daemon.sent("createSessionInWorkspace")).toEqual([]);
+        // @step And the open reaches session.ready
+        expect(opened.at(-1)).toMatchObject({ type: "session.ready" });
+        expect(within(real, join(link, "new"))).toBe(true);
+        expect(within(real, join(root, "other", "new"))).toBe(false);
+      } finally {
+        rmSync(root, { recursive: true, force: true });
+      }
+    });
+  });
+
+  describe("Scenario: A path that cannot be resolved is an error", () => {
+    it.skipIf(process.getuid?.() === 0)("throws naming the path", () => {
+      // @step Given a directory whose contents cannot be read
+      const root = mkdtempSync(join(tmpdir(), "fspec-ws-"));
+      const locked = join(root, "locked");
+      mkdirSync(locked);
+      chmodSync(locked, 0o000);
+      try {
+        // @step When the workspace guard compares a path inside it with a workspace
+        const compare = () => within(root, join(locked, "inner"));
+        // @step Then it fails with "cannot resolve" naming the path
+        expect(compare).toThrow(`cannot resolve ${join(locked, "inner")}:`);
+      } finally {
+        chmodSync(locked, 0o700);
         rmSync(root, { recursive: true, force: true });
       }
     });

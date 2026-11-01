@@ -3,10 +3,10 @@
 @provider
 @FSPEC-015
 @FSPEC-052
+@FSPEC-062
 Feature: Run each fspec session in the workspace of its Paseo directory
-
   """
-  server/session.ts open() calls get_workspace_info (idx 22, added to server/wire.ts) first and compares realpaths with config.cwd. FSPEC-052 (multi-workspace daemons, fspec RPC-441..445): open() resolves the workspace from list_workspaces (idx 124) — the deepest listed workspace holding the cwd, else the cwd itself — and creates the session with create_session_checked in the start workspace or create_session_in_workspace (idx 126) elsewhere; the refusal is gone. server/wire.ts listWorkspaces 124 (WorkspaceEntry rpc-types chrome.rs), listWorkspaceWorkUnits 125, createSessionInWorkspace 126. fspec side: rpc service_implementation/schedule_loops.rs create_session_in_workspace (opens the workspace through SharedFspecService::workspace, registry RPC-441), sessions/src/default_project.rs create_session_in_workspace_checked (canonicalises, rejects non-directories, needs a default model). TUI parity (board-workspace-dropdown.feature): session creation uses create_session_in_workspace when a non-start workspace is selected.
+  server/session.ts open() calls get_workspace_info (idx 22, added to server/wire.ts) first and compares realpaths with config.cwd. FSPEC-052 (multi-workspace daemons, fspec RPC-441..445): open() resolves the workspace from list_workspaces (idx 124) — the deepest listed workspace holding the cwd, else the cwd itself — and creates the session with create_session_checked in the start workspace or create_session_in_workspace (idx 126) elsewhere; the refusal is gone. server/wire.ts listWorkspaces 124 (WorkspaceEntry rpc-types chrome.rs), listWorkspaceWorkUnits 125, createSessionInWorkspace 126. fspec side: rpc service_implementation/schedule_loops.rs create_session_in_workspace (opens the workspace through SharedFspecService::workspace, registry RPC-441), sessions/src/default_project.rs create_session_in_workspace_checked (canonicalises, rejects non-directories, needs a default model). TUI parity (board-workspace-dropdown.feature): session creation uses create_session_in_workspace when a non-start workspace is selected. FSPEC-062: server/workspaces.ts canonicalPath gives within() one rule for both paths: the real path of the deepest existing ancestor plus the missing remainder; only ENOENT/ENOTDIR mean missing, any other realpath error throws.
   """
 
   # ========================================
@@ -21,6 +21,8 @@ Feature: Run each fspec session in the workspace of its Paseo directory
   #   5. FSPEC-052: the open's workspace is the deepest listed workspace holding the cwd, else the cwd; the start workspace (and directories inside it) keeps create_session_checked, any other workspace uses create_session_in_workspace(<workspace>, role)
   #   6. FSPEC-052: a failed create_session_in_workspace fails the open with 'fspec could not create a session in <workspace>: <reason>' and nothing is configured
   #   7. FSPEC-052: the import list for a cwd lists the sessions of the listed workspace holding it; a cwd no listed workspace holds lists nothing and opens no workspace
+  #   8. FSPEC-062: both paths are canonicalised by one rule: the real path of the deepest existing ancestor with the not-yet-existing remainder appended, so a directory not yet created under a symlinked spelling of a workspace is inside it
+  #   9. FSPEC-062: only ENOENT and ENOTDIR mean a path does not exist; any other realpath failure is an error 'cannot resolve <path>: <reason>'
   #
   # EXAMPLES:
   #   1. Daemon workspace /repos/fspec, Paseo opens an fspec agent with cwd /repos/fspec-paseo: FSPEC-052 create_session_in_workspace('/repos/fspec-paseo', None) and the open reaches ready (FSPEC-015 refused it)
@@ -28,9 +30,10 @@ Feature: Run each fspec session in the workspace of its Paseo directory
   #   5. FSPEC-052: create_session_in_workspace answers Err('workspace path is not a directory: /gone') -> request.failed 'fspec could not create a session in /gone: workspace path is not a directory: /gone'
   #   2. Daemon workspace /repos/fspec, cwd /repos/fspec/rust: the open proceeds (inside the workspace)
   #   3. Daemon workspace reported as /private/tmp/ws (realpath) while Paseo passes /tmp/ws (macOS symlink): the open proceeds
+  #   6. FSPEC-062: daemon workspace <tmp>/real, Paseo cwd <tmp>/link/new (link -> real, new missing): create_session_checked, session.ready
+  #   7. FSPEC-062: a path inside a mode-000 directory: within fails 'cannot resolve <path>: ...'
   #
   # ========================================
-
   Background: User Story
     As a Paseo user starting an fspec agent in a project
     I want to have the agent run in that project's workspace on the fspec daemon, whichever directory the daemon started in
@@ -42,24 +45,31 @@ Feature: Run each fspec session in the workspace of its Paseo directory
     Then the provider created the session with create_session_in_workspace for "/repos/fspec-paseo" and no create_session_checked
     And the open reached session.ready
 
-
   Scenario: An open inside the daemon workspace proceeds
     Given the fspec daemon serves workspace "/repos/fspec"
     When Paseo opens an fspec session with cwd "/repos/fspec/rust"
     Then the provider resolved the workspace with list_workspaces before create_session_checked and the open reached session.ready
-
 
   Scenario: Symlinked paths to the daemon workspace are accepted
     Given the fspec daemon reports its workspace by its resolved real path
     When Paseo opens an fspec session with a symlinked path to the same directory
     Then the open reaches session.ready
 
+  Scenario: A directory not yet created under a symlinked workspace path is inside it
+    Given the fspec daemon reports its workspace by its resolved real path
+    When Paseo opens an fspec session in a directory that does not exist yet under a symlinked path to that workspace
+    Then the provider created the session with create_session_checked and no create_session_in_workspace
+    And the open reaches session.ready
+
+  Scenario: A path that cannot be resolved is an error
+    Given a directory whose contents cannot be read
+    When the workspace guard compares a path inside it with a workspace
+    Then it fails with "cannot resolve" naming the path
 
   Scenario: An open inside another served workspace creates the session there
     Given the fspec daemon started in "/repos/fspec" and also serves "/repos/app"
     When Paseo opens an fspec session with cwd "/repos/app/web"
     Then the provider created the session with create_session_in_workspace for "/repos/app"
-
 
   Scenario: A workspace the daemon refuses fails the open with its reason
     Given create_session_in_workspace answers "workspace path is not a directory: /gone"
@@ -67,16 +77,13 @@ Feature: Run each fspec session in the workspace of its Paseo directory
     Then the open fails with "fspec could not create a session in /gone: workspace path is not a directory: /gone"
     And no set_session_model or set_thinking_level was sent
 
-
   Scenario: Workspace RPCs match the daemon's encoding
     Given the Rust golden vectors for list_workspaces, create_session_in_workspace and list_workspace_work_units
     When the codec decodes the replies and encodes the requests
     Then the workspaces decode to "/w/a" named "a" as the start workspace and "/w/b" named "b"
     And the create_session_in_workspace and list_workspace_work_units arguments and reply match the golden vectors exactly
 
-
   Scenario: The import list shows the sessions of the served workspace holding the directory
     Given the fspec daemon started in "/repos/fspec" and also serves "/repos/app"
     When Paseo lists importable fspec sessions for cwd "/repos/app/web"
     Then the provider listed the sessions of "/repos/app" and each summary carries cwd "/repos/app"
-

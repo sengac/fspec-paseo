@@ -223,6 +223,8 @@ One fspec daemon can serve several workspaces (`list_workspaces`). Each fspec ag
 - A directory inside another workspace the daemon already serves gets a session in that workspace. The deepest match wins, so a project inside the start workspace keeps its own workspace.
 - Any other directory becomes a new workspace: the daemon opens it and creates the session there (`create_session_in_workspace`). If the daemon refuses, the open fails with its reason, for example `fspec could not create a session in /gone: workspace path is not a directory: /gone`.
 
+Directories are compared by real path, so a symlinked spelling of a workspace (macOS `/var` and `/private/var`) still matches, even for a directory that does not exist yet: its deepest existing parent is resolved. A path that cannot be resolved (for example inside an unreadable directory) fails with `cannot resolve <path>: …`.
+
 Paseo's import list shows the sessions of the served workspace that holds the directory, and nothing for a directory no workspace holds. Listing never opens a workspace.
 
 Several local daemons can run at once. Each agent and board panel uses the daemon serving its directory (see [Start the fspec daemon](#2-start-the-fspec-daemon-in-that-project)). `FSPEC_DAEMON_URL` pins every connection to one daemon.

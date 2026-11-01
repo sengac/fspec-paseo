@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:23:57.220Z"
+    "lastUpdated": "2026-11-01T03:26:12.973Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -7309,16 +7309,90 @@
       "id": "FSPEC-062",
       "title": "Compare workspace paths through the real path of their deepest existing ancestor",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-11-01T03:22:19.563Z",
-      "updatedAt": "2026-11-01T03:23:56.979Z",
+      "updatedAt": "2026-11-01T03:26:12.973Z",
       "description": "within() (server/workspaces.ts) realpaths a path that exists but only resolve()s one that does not, so a directory not yet created under a symlinked spelling of a workspace (macOS /var vs /private/var) is compared unresolved against a resolved root and wrongly reported outside it; any realpath error was swallowed. Canonicalise both paths the same way: the deepest existing ancestor's real path plus the missing remainder; only ENOENT/ENOTDIR mean 'does not exist', any other failure is an error naming the path.",
       "epic": "provider-plugin",
       "children": [],
       "attachments": [
         "spec/attachments/FSPEC-062/root-cause.md",
         "spec/attachments/FSPEC-062/ast-research.md"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:24:15.012Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:24:33.692Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:24:52.871Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T03:26:05.319Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T03:26:12.973Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "within(root, dir) canonicalises both paths by one rule: the real path of the deepest existing ancestor with the not-yet-existing remainder appended",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:24:15.038Z"
+        },
+        {
+          "id": 1,
+          "text": "Only ENOENT and ENOTDIR from realpath mean the path does not exist; any other realpath failure throws 'cannot resolve <path>: <reason>'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:24:15.058Z"
+        },
+        {
+          "id": 2,
+          "text": "A directory not yet created under a symlinked spelling of a workspace is inside that workspace",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:24:15.076Z"
+        }
+      ],
+      "nextRuleId": 3,
+      "examples": [
+        {
+          "id": 0,
+          "text": "Daemon workspace <tmp>/real (its real path), Paseo opens cwd <tmp>/link/new where link -> real and new does not exist -> create_session_checked in the start workspace and session.ready",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:24:15.097Z"
+        },
+        {
+          "id": 1,
+          "text": "within('<tmp>/real', '<tmp>/link/new/deeper') -> true; within('<tmp>/real', '<tmp>/other/new') -> false",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:24:15.117Z"
+        },
+        {
+          "id": 2,
+          "text": "realpath of a path inside an unreadable (mode 000) directory fails EACCES -> within throws 'cannot resolve <path>: ...'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:24:15.137Z"
+        }
+      ],
+      "nextExampleId": 3,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/workspaces.ts canonicalPath: resolve(), realpathSync, on ENOENT/ENOTDIR recurse on dirname and join basename; the filesystem root always exists. Used by within() for discovery (server/daemon.ts), servingWorkspace (session.ts, board.ts).",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:24:15.157Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "estimate": 2
     },
     "FSPEC-063": {
       "id": "FSPEC-063",
@@ -7413,7 +7487,6 @@
   },
   "states": {
     "backlog": [
-      "FSPEC-062",
       "FSPEC-063",
       "FSPEC-064",
       "FSPEC-065",
@@ -7487,7 +7560,8 @@
       "FSPEC-058",
       "FSPEC-059",
       "FSPEC-060",
-      "FSPEC-061"
+      "FSPEC-061",
+      "FSPEC-062"
     ],
     "blocked": []
   },

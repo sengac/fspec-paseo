@@ -5,7 +5,7 @@
       "testMappings": [
         {
           "file": "test/daemon-workspace-guard.test.ts",
-          "lines": "41-55",
+          "lines": "42-56",
           "implMappings": [
             {
               "file": "server/session.ts",
@@ -54,24 +54,23 @@
             {
               "file": "server/workspaces.ts",
               "lines": [
-                22,
-                23,
-                24,
-                25,
-                26,
-                27,
-                28,
-                29,
-                30,
-                31,
-                32,
-                33,
-                34,
                 35,
                 36,
                 37,
                 38,
-                39
+                39,
+                40,
+                41,
+                42,
+                43,
+                44,
+                45,
+                46,
+                47,
+                48,
+                49,
+                50,
+                51
               ]
             }
           ]
@@ -83,7 +82,7 @@
       "testMappings": [
         {
           "file": "test/daemon-workspace-guard.test.ts",
-          "lines": "57-71",
+          "lines": "58-72",
           "implMappings": [
             {
               "file": "server/session.ts",
@@ -128,7 +127,7 @@
       "testMappings": [
         {
           "file": "test/daemon-workspace-guard.test.ts",
-          "lines": "73-93",
+          "lines": "74-94",
           "implMappings": [
             {
               "file": "server/session.ts",
@@ -149,7 +148,6 @@
             {
               "file": "server/workspaces.ts",
               "lines": [
-                13,
                 14,
                 15,
                 16,
@@ -162,7 +160,19 @@
                 23,
                 24,
                 25,
-                26
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38
               ]
             }
           ]
@@ -174,23 +184,28 @@
       "testMappings": [
         {
           "file": "test/daemon-workspace-guard.test.ts",
-          "lines": "95-105",
+          "lines": "142-152",
           "implMappings": [
             {
               "file": "server/workspaces.ts",
               "lines": [
-                28,
-                29,
-                30,
-                31,
-                32,
-                33,
-                34,
                 35,
                 36,
                 37,
                 38,
-                39
+                39,
+                40,
+                41,
+                42,
+                43,
+                44,
+                45,
+                46,
+                47,
+                48,
+                49,
+                50,
+                51
               ]
             },
             {
@@ -217,7 +232,7 @@
       "testMappings": [
         {
           "file": "test/daemon-workspace-guard.test.ts",
-          "lines": "107-127",
+          "lines": "154-174",
           "implMappings": [
             {
               "file": "server/session.ts",
@@ -246,7 +261,7 @@
       "testMappings": [
         {
           "file": "test/daemon-workspace-guard.test.ts",
-          "lines": "129-155",
+          "lines": "176-202",
           "implMappings": [
             {
               "file": "server/wire.ts",
@@ -324,7 +339,7 @@
       "testMappings": [
         {
           "file": "test/daemon-workspace-guard.test.ts",
-          "lines": "157-171",
+          "lines": "204-218",
           "implMappings": [
             {
               "file": "server/session.ts",
@@ -344,12 +359,82 @@
           ]
         }
       ]
+    },
+    {
+      "name": "A directory not yet created under a symlinked workspace path is inside it",
+      "testMappings": [
+        {
+          "file": "test/daemon-workspace-guard.test.ts",
+          "lines": "96-121",
+          "implMappings": [
+            {
+              "file": "server/workspaces.ts",
+              "lines": [
+                14,
+                15,
+                16,
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A path that cannot be resolved is an error",
+      "testMappings": [
+        {
+          "file": "test/daemon-workspace-guard.test.ts",
+          "lines": "123-140",
+          "implMappings": [
+            {
+              "file": "server/workspaces.ts",
+              "lines": [
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 3,
-    "coveredScenarios": 7,
-    "coveragePercent": 233,
+    "coveredScenarios": 9,
+    "coveragePercent": 300,
     "testFiles": [
       "test/daemon-workspace-guard.test.ts"
     ],
@@ -358,6 +443,6 @@
       "server/wire.ts",
       "server/workspaces.ts"
     ],
-    "totalLinesCovered": 338
+    "totalLinesCovered": 431
   }
 }

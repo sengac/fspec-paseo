@@ -4,18 +4,30 @@
  * Which of a multi-workspace fspec daemon's workspaces (list_workspaces,
  * idx 124 — fspec RPC-441..445) a Paseo directory belongs to. Paths are
  * compared by realpath, so a symlinked or trailing-slash spelling of a
- * workspace still matches. Pure apart from the realpath lookups.
+ * workspace still matches, also for a directory that does not exist yet
+ * (FSPEC-062). Pure apart from the realpath lookups.
  */
 import { realpathSync } from "node:fs";
-import { isAbsolute, relative, resolve } from "node:path";
+import { basename, dirname, isAbsolute, join, relative, resolve } from "node:path";
 import type { Result, WorkspaceEntry } from "./wire.js";
 
-/** Resolves symlinks when the path exists; otherwise normalizes it. */
+/**
+ * The real path of the deepest existing ancestor with the not-yet-existing
+ * remainder appended (FSPEC-062): one rule for every path, so a directory not
+ * created yet under a symlinked spelling of a workspace still matches it.
+ * Only ENOENT/ENOTDIR mean "does not exist"; any other failure is an error.
+ */
 function canonicalPath(path: string): string {
+  const absolute = resolve(path);
   try {
-    return realpathSync(path);
-  } catch {
-    return resolve(path);
+    return realpathSync(absolute);
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    const parent = dirname(absolute);
+    if ((code === "ENOENT" || code === "ENOTDIR") && parent !== absolute) {
+      return join(canonicalPath(parent), basename(absolute));
+    }
+    throw new Error(`cannot resolve ${absolute}: ${(error as Error).message}`);
   }
 }
 

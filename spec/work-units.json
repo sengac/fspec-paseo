@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T00:02:55.992Z"
+    "lastUpdated": "2026-11-01T00:07:23.028Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -6300,12 +6300,118 @@
       "id": "FSPEC-053",
       "title": "Show the fspec board for every workspace the daemon serves",
       "type": "story",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-10-31T23:39:45.096Z",
-      "updatedAt": "2026-10-31T23:39:45.096Z",
+      "updatedAt": "2026-11-01T00:07:23.028Z",
       "description": "The board, its availability check and the phone menu entry only exist for the daemon's start workspace. Use list_workspaces (idx 124) and list_workspace_work_units (idx 125) to serve the board of any listed workspace, kept live by WorkspaceWorkUnitsUpdate pushes (envelope 9, FSPEC-049).",
       "epic": "kanban-board",
-      "children": []
+      "children": [],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T00:04:00.190Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T00:04:28.991Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T00:07:16.864Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T00:07:22.893Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T00:07:23.028Z"
+        }
+      ],
+      "userStory": {
+        "role": "Paseo user with several projects on one fspec daemon",
+        "action": "see the live fspec board of whichever served workspace I am in, on desktop and phone",
+        "benefit": "every project's board is one tap away without restarting the daemon in it"
+      },
+      "rules": [
+        {
+          "id": 0,
+          "text": "The board serves a cwd held by any workspace list_workspaces lists (deepest match); the start workspace's board comes from the connect-time WorkUnitsUpdate and later WorkUnitsUpdate pushes, any other workspace's from list_workspace_work_units (idx 125) on first watch and WorkspaceWorkUnitsUpdate pushes (envelope 9) tagged with its path",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:04:00.237Z"
+        },
+        {
+          "id": 1,
+          "text": "A push for one workspace changes only that workspace's board: watches of other workspaces keep holding; pushes for workspaces no panel has loaded are ignored",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:04:00.257Z"
+        },
+        {
+          "id": 2,
+          "text": "A workspace's board shows the focus of the sessions whose project is that workspace (SessionInfo.project from the snapshot and Created events); sessions of other workspaces are left out",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:04:00.277Z"
+        },
+        {
+          "id": 3,
+          "text": "fspec.board.available answers true for a cwd held by any served workspace, so the phone '···' menu entry appears for every served workspace, not only the start workspace",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:04:00.298Z"
+        },
+        {
+          "id": 4,
+          "text": "A cwd no served workspace holds answers unavailable 'the fspec daemon serves <paths>, not <cwd> — start fspec in <cwd> to use it there' and is never opened as a workspace by the board",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:04:00.316Z"
+        },
+        {
+          "id": 5,
+          "text": "Card details (get_work_unit_details) and Move up/down (move_work_unit_up/down) read and write the daemon's start workspace only, so on another workspace's board they answer 'card details and moves are only available in the fspec daemon's start workspace (<start>)'",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:04:00.334Z"
+        }
+      ],
+      "nextRuleId": 6,
+      "examples": [
+        {
+          "id": 0,
+          "text": "Daemon started in /ws also serves /app; watch { cwd: '/app/web' } -> list_workspace_work_units('/app') -> ready, workspace '/app', units [APP-001]",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:04:00.352Z"
+        },
+        {
+          "id": 1,
+          "text": "Held watch on /app; push WorkspaceWorkUnitsUpdate('/app', [APP-002]) -> answers APP-002; push WorkUnitsUpdate (start) -> /app's board unchanged",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:04:00.370Z"
+        },
+        {
+          "id": 2,
+          "text": "Sessions s-ws (project /ws, focused FSPEC-001) and s-app (project /app, focused APP-001) -> /app's focus { APP-001: [s-app] }",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:04:00.388Z"
+        },
+        {
+          "id": 3,
+          "text": "available('/app/web') -> true, available('/other') -> false",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:04:00.409Z"
+        }
+      ],
+      "nextExampleId": 4,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/board.ts keeps one board per served workspace path (units + revision), a session -> project map, and per-workspace waiters; watch/available/details/move resolve the cwd with server/workspaces.ts servingWorkspace over list_workspaces. Boards of non-start workspaces load with list_workspace_work_units (which opens the workspace and makes the daemon push WorkspaceWorkUnitsUpdate for it, fspec RPC-445 workspace_fanout.rs) and stay live from those pushes. get_work_unit_details and move_work_unit_up/down take no workspace and act on the daemon's cwd (rpc service_implementation schedule_loops.rs / workspace_history.rs), so they are refused off the start workspace rather than answering for the wrong project. TUI parity: board-workspace-dropdown.feature (WorkUnitsLoaded from the start stream is dropped while another workspace is selected; WorkspaceWorkUnitsLoaded applies only to the selected path; sessions shown per workspace by project). The client is unchanged: the panel and the phone entry already go through watch/available.",
+          "deleted": false,
+          "createdAt": "2026-11-01T00:04:00.429Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "attachments": [
+        "spec/attachments/FSPEC-053/ast-research.md"
+      ],
+      "estimate": 5
     },
     "FSPEC-054": {
       "id": "FSPEC-054",
@@ -6333,7 +6439,6 @@
   "states": {
     "backlog": [
       "FSPEC-047",
-      "FSPEC-053",
       "FSPEC-054",
       "FSPEC-055"
     ],
@@ -6393,7 +6498,8 @@
       "FSPEC-050",
       "FSPEC-046",
       "FSPEC-051",
-      "FSPEC-052"
+      "FSPEC-052",
+      "FSPEC-053"
     ],
     "blocked": []
   },

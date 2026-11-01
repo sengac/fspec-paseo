@@ -162,7 +162,11 @@ daemon opened **besides** its start workspace change; `workspace` is that
 workspace's canonical path. A workspace is opened by `list_workspace_work_units` or
 `create_session_in_workspace` (§5). The start workspace keeps using
 `WorkUnitsUpdate` (3). The plugin decodes it (FSPEC-049); a client that does not
-use it ignores it — it must never be treated as the start workspace's board.
+use it ignores it — it must never be treated as the start workspace's board. The
+plugin's board (FSPEC-053) reads a served workspace's units with
+`list_workspace_work_units` on its first watch and then follows these pushes for
+that path only. `get_work_unit_details` (123) and `move_work_unit_up/down` (18/19)
+take no workspace and act on the daemon's start workspace.
 
 Direction rules: `Rpc` is the only client→server payload. All other variants
 flow server→client only; a client-sent push variant is counted in

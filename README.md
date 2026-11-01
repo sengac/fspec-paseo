@@ -39,6 +39,7 @@ The plugin is an ordinary client of a running **fspec daemon**. It doesn't start
 **The fspec board as a Paseo workspace panel**
 
 - The columns are backlog, specifying, testing, implementing, validating, done, and blocked, with a story-point summary. The board updates live as the daemon pushes work-unit changes.
+- **Every workspace the daemon serves has its board.** A Paseo workspace shows the board of the fspec workspace that holds its directory, whether that's the daemon's start workspace or another one it serves. Only the sessions of that workspace show as focused on its cards. Card details and **Move up** / **Move down** read and write the daemon's start workspace only, so on another workspace's board they say so.
 - You can search by id, title, or description.
 - **Tapping a card opens its details in a drawer** that slides in from the right over the board. The board stays usable beside it, and tapping another card switches the drawer to that card.
   - The drawer shows the card's full fspec record as formatted sections: description, user story, numbered rules, examples, questions with answers, notes, event storm, relationships, attachments and status history.
@@ -277,9 +278,10 @@ This project is itself built with fspec. Every feature has a work unit and a Ghe
 | fspec provider unavailable: `no daemon.json found at …` | No daemon is running. Run `fspec daemon` (or `fspec`) in the project. |
 | `stale daemon.json removed at …` | The daemon died without cleaning up. Start it again. |
 | `fspec could not create a session in X: …` | The daemon could not open X as a workspace, or could not create the session there. The reason follows the colon. |
-| `the fspec daemon serves X, not Y` (board) | The board only shows the daemon's start workspace. Start fspec in Y, or open the board in X. |
+| `the fspec daemon serves X, not Y` (board) | No workspace the daemon serves holds Y. Open an fspec agent in Y (the daemon then serves it), or start fspec there. |
+| `card details and moves are only available in the fspec daemon's start workspace (X)` | The fspec daemon reads card details and reorders cards in its start workspace X only. |
 | No models in the picker | fspec has no reachable model provider. Fix the provider config or credentials in fspec. |
 | `non-loopback daemon host …` | `FSPEC_DAEMON_URL` points at a non-loopback host. Only loopback is supported, because the daemon has no auth or TLS. |
-| No fspec board button on phone | The workspace's directory isn't served by the running daemon. |
+| No fspec board button on phone | No workspace the running daemon serves holds the workspace's directory. |
 | Board shows "Reconnecting: …" | The daemon restarted or went away. The panel recovers once the daemon is back. |
 | Plugin doesn't load at all | Check `pluginsEnabled: true`, `paseo plugin ls`, and `paseo plugin logs fspec-paseo-provider`. |

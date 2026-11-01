@@ -74,7 +74,7 @@ This screen mirrors the fspec TUI's `/provider` view.
 ## Requirements
 
 - **Paseo ≥ 0.13.0** with plugins enabled.
-- **fspec** installed, with the daemon running in the project you want to work in. This was developed against fspec 0.10.9 at commit `344d00b4`, which has multi-workspace daemons, `submit_input`, `get_default_model`, per-daemon discovery files and bearer auth. Older daemons lack those RPCs.
+- **fspec** installed, with the daemon running in the project you want to work in. This is verified against fspec 0.10.9 at commit `76cb29f6` (fspec HEAD), which has multi-workspace daemons, `submit_input`, `get_default_model`, per-daemon discovery files, bearer auth, `ProviderInfo.provider_id`, `send_input` results and workspace-scoped card details and moves. Older daemons are not supported: their wire layout differs.
 - Node.js ≥ 20, but only if you want to run the typecheck or tests. Paseo compiles the plugin's TypeScript itself, so there's no build step.
 
 ## Setup

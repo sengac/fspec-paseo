@@ -5,8 +5,8 @@ Source of truth: `rust/rpc-server/src/{envelope,transport,pump,server,bounded_re
 `rust/fspec-tui/src/transport/websocket.rs`, `rust/fspec/src/common/daemon_registry.rs`. Verified at commit
 `626eee1e`; re-verified at `344d00b4` (method order `rust/rpc/tests/fixtures/wire_order_frozen.txt`, indices
 124–128, Envelope 9, PauseState details/tool_call_id, InputMode, discovery files, bearer auth); re-verified at
-`76cb29f6` (fspec HEAD: `ProviderInfo.provider_id`, `send_input` results, workspace-scoped card details and moves,
-explicit daemons/ discovery; no implicit default-model writes).
+`76cb29f6`, fspec HEAD (method order unchanged; `ProviderInfo.provider_id` BUG-325, `send_input` /
+`send_input_with_thinking` results BUG-328, workspace-scoped card details and moves RPC-450).
 Wire codec: **bincode 1.3.3 free functions** (`bincode::serialize` / `bincode::deserialize`).
 
 ---
@@ -419,7 +419,7 @@ The `#[tarpc::service]` macro (tarpc-plugins 0.13.1) generates
 `FspecServiceRequest` (struct variants, one per method, params in order) and
 `FspecServiceResponse` (tuple variants, one per method, field = return type).
 Variant index = 0-based position in the trait. Full order verified from
-`rust/rpc/src/lib.rs` (129 methods, indices 0–128 as of fspec `344d00b4`).
+`rust/rpc/src/lib.rs` (129 methods, indices 0–128 as of fspec `344d00b4`, unchanged at `76cb29f6`).
 
 ### 5.1 Methods the Paseo plugin uses (by 0-based index)
 

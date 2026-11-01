@@ -69,7 +69,8 @@ This screen mirrors the fspec TUI's `/provider` view.
   - **◆ custom models** and **+ Add model to <profile>**, under each OpenAI profile: models your local server offers that fspec can't discover. The form has the TUI model selector's fields: Model ID, Display Name, Facade, Context Window, Max Output Tokens, Compaction Trigger (`80%` or `200000`), Reasoning and Vision. Models can be added, edited (changing the ID replaces the model) or deleted. fspec doesn't report a saved model's Facade, Max Output Tokens or Compaction Trigger, so editing starts them blank, as in the TUI. Every change shows up in Paseo's fspec model picker. Each write names the profile's base provider as fspec reports it, and anything fspec refuses (a missing profile, an unknown model ID) is shown on the form.
 - **Keys and tokens stay off the app.** API keys, profile keys, OAuth tokens and PKCE verifiers never reach it. You see masked keys or "a key is stored", and leaving a key field empty keeps the stored key.
 - **Default model:** the **Default model** row at the top lists every reachable model as `provider/model` and shows fspec's current default. Choosing one makes it fspec's default (the same setting the TUI's model selector writes), so new fspec agents start on it.
-- **Paseo's fspec model picker updates after every change.** Changes made in the fspec TUI are picked up too.
+- **Paseo's fspec model picker updates after every change.** Changes made in the fspec TUI are picked up too. If a change is saved but the list or Paseo's models can't be refreshed afterwards, the save still counts and a warning says what could not be refreshed. When the plugin can't read fspec's credential state at all, Paseo shows the fspec provider in error with the reason.
+- **Sign-in failures are shown.** A sign-in whose status can't be read ends with that reason instead of waiting forever, and a code that can't be copied says so.
 
 ## Requirements
 

@@ -4,6 +4,7 @@ import { type ReactNode, useEffect, useRef, useState } from "react";
 import { Text, View } from "react-native";
 import type { OAuthStartInput, OAuthStartOutput, OAuthStatusOutput, OAuthStep, WriteOutput } from "../shared/settings.js";
 import { StripButton } from "./board-details.js";
+import { cancelOnClose, copyCode, watchSignIn } from "./oauth-flow.js";
 import { logoutPrompt, type OAuthMethod, oauthIntro, oauthLabel } from "./settings-model.js";
 
 type Theme = PluginSurfaceProps["theme"];
@@ -91,6 +92,7 @@ export function OAuthLoginSheet(props: {
   const label = oauthLabel(props.providerId);
   const copilot = props.providerId === "github-copilot";
   const [phase, setPhase] = useState<Phase>(copilot ? { kind: "host" } : { kind: "starting" });
+  const [copyError, setCopyError] = useState<string | null>(null);
   const host = useRef("");
   const code = useRef("");
   const live = useRef(true);
@@ -123,22 +125,13 @@ export function OAuthLoginSheet(props: {
     await props.onChanged(`Signed in to ${label}`);
   }
 
-  /** Long-polls the sign-in until it ends or the sheet closes. */
+  /** Long-polls the sign-in until it ends, fails to be read, or the sheet closes (FSPEC-065). */
   async function watch(id: string) {
-    while (live.current && loginId.current === id) {
-      let status: OAuthStatusOutput;
-      try {
-        status = await rpcs.current.status({ loginId: id });
-      } catch {
-        await new Promise<void>((resolve) => setTimeout(() => resolve(), 2000));
-        continue;
-      }
-      if (!live.current || loginId.current !== id) return;
-      if (status.state === "pending") continue;
-      if (status.state === "succeeded") return void succeeded();
-      loginId.current = null;
-      return setPhase({ kind: "failed", error: status.state === "failed" ? status.error : "The sign-in was abandoned" });
-    }
+    const outcome = await watchSignIn((input) => rpcs.current.status(input), id, () => live.current && loginId.current === id);
+    if (outcome.kind === "stopped") return;
+    if (outcome.kind === "succeeded") return void succeeded();
+    loginId.current = null;
+    setPhase({ kind: "failed", error: outcome.error });
   }
 
   async function submitCode(id: string) {
@@ -158,7 +151,7 @@ export function OAuthLoginSheet(props: {
     return () => {
       live.current = false;
       // Closing the sheet abandons a sign-in still in progress.
-      if (loginId.current !== null) void rpcs.current.cancel({ loginId: loginId.current }).catch(() => {});
+      if (loginId.current !== null) void cancelOnClose((input) => rpcs.current.cancel(input), loginId.current);
     };
     // Start once per sheet; the screen re-keys the sheet for another method.
   }, []);
@@ -219,8 +212,9 @@ export function OAuthLoginSheet(props: {
                 {step.userCode}
               </Text>
               <View style={{ flexDirection: "row", gap: 8 }}>
-                <StripButton theme={props.theme} label="Copy code" onPress={() => void copyText(step.userCode).catch(() => {})} />
+                <StripButton theme={props.theme} label="Copy code" onPress={() => void copyCode(copyText, step.userCode).then(setCopyError)} />
               </View>
+              {copyError !== null ? <Text style={{ color: c.statusDanger }}>{copyError}</Text> : null}
               <ExternalLink href={step.verificationUrl}>{step.verificationUrl}</ExternalLink>
             </View>
           ) : null}

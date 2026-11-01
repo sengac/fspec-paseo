@@ -37,7 +37,7 @@ import { StripButton } from "./board-details.js";
 import { CustomModelSheet } from "./custom-model-sheet.js";
 import { OAuthLoginSheet, OAuthStatusSheet } from "./oauth-sheet.js";
 import { FormSheet } from "./settings-form-sheet.js";
-import { runWrite } from "./settings-actions.js";
+import { runWrite as runSettingsWrite, type WriteDeps, type WriteOutcome, type WriteOutput as SettingsWriteOutput } from "./settings-actions.js";
 import {
   removePrompt,
   screenState,
@@ -130,6 +130,12 @@ export function SettingsScreen({ theme }: PluginSurfaceProps) {
   }, [reload]);
 
   const refreshPaseo = useCallback(() => paseo.providers.refresh({ providers: ["fspec"] }), [paseo]);
+  /** Every write shows its warnings (FSPEC-065: including a failed refresh after it). */
+  async function runWrite<T extends SettingsWriteOutput>(deps: WriteDeps<T>): Promise<WriteOutcome> {
+    const outcome = await runSettingsWrite(deps);
+    if (outcome.ok && outcome.warning !== undefined) toast.show(outcome.warning, { variant: "warning", durationMs: 8000 });
+    return outcome;
+  }
   const badge = (id: string, text: string, ok: boolean) => setBadges((current) => ({ ...current, [id]: { text, ok } }));
 
   async function test(providerId: string) {
@@ -340,8 +346,7 @@ export function SettingsScreen({ theme }: PluginSurfaceProps) {
                 });
                 if (outcome.ok) {
                   setSheet(null);
-                  if (outcome.warning !== undefined) toast.show(outcome.warning, { variant: "warning", durationMs: 8000 });
-                  else toast.show(`Removed the ${open.displayName} key`, { variant: "success" });
+                  if (outcome.warning === undefined) toast.show(`Removed the ${open.displayName} key`, { variant: "success" });
                 }
                 return outcome;
               }}

@@ -5,7 +5,7 @@
       "testMappings": [
         {
           "file": "test/provider-oauth.test.ts",
-          "lines": "48-72",
+          "lines": "49-72",
           "implMappings": [
             {
               "file": "server/oauth.ts",
@@ -1178,7 +1178,7 @@
       "testMappings": [
         {
           "file": "test/provider-oauth.test.ts",
-          "lines": "73-96",
+          "lines": "74-96",
           "implMappings": [
             {
               "file": "server/oauth.ts",
@@ -2351,7 +2351,7 @@
       "testMappings": [
         {
           "file": "test/provider-oauth.test.ts",
-          "lines": "97-111",
+          "lines": "98-111",
           "implMappings": [
             {
               "file": "server/oauth.ts",
@@ -3524,7 +3524,7 @@
       "testMappings": [
         {
           "file": "test/provider-oauth.test.ts",
-          "lines": "112-130",
+          "lines": "113-130",
           "implMappings": [
             {
               "file": "server/oauth.ts",
@@ -4697,7 +4697,7 @@
       "testMappings": [
         {
           "file": "test/provider-oauth.test.ts",
-          "lines": "131-147",
+          "lines": "132-147",
           "implMappings": [
             {
               "file": "server/oauth.ts",
@@ -5870,7 +5870,7 @@
       "testMappings": [
         {
           "file": "test/provider-oauth.test.ts",
-          "lines": "148-166",
+          "lines": "149-166",
           "implMappings": [
             {
               "file": "server/oauth.ts",
@@ -7043,7 +7043,7 @@
       "testMappings": [
         {
           "file": "test/provider-oauth.test.ts",
-          "lines": "167-180",
+          "lines": "168-182",
           "implMappings": [
             {
               "file": "server/oauth.ts",
@@ -8210,12 +8210,85 @@
           ]
         }
       ]
+    },
+    {
+      "name": "A sign-in whose status cannot be read fails with the reason",
+      "testMappings": [
+        {
+          "file": "test/provider-oauth.test.ts",
+          "lines": "184-197",
+          "implMappings": [
+            {
+              "file": "client/oauth-flow.ts",
+              "lines": [
+                17,
+                18,
+                19,
+                20,
+                21,
+                22,
+                23,
+                24,
+                25,
+                26,
+                27,
+                28,
+                29,
+                30,
+                31,
+                32,
+                33,
+                34,
+                35,
+                36,
+                37,
+                38,
+                39
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Copy and cancel failures are reported",
+      "testMappings": [
+        {
+          "file": "test/provider-oauth.test.ts",
+          "lines": "199-222",
+          "implMappings": [
+            {
+              "file": "client/oauth-flow.ts",
+              "lines": [
+                41,
+                42,
+                43,
+                44,
+                45,
+                46,
+                47,
+                48,
+                49,
+                50,
+                51,
+                52,
+                53,
+                54,
+                55,
+                56,
+                57,
+                58
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 7,
-    "coveredScenarios": 7,
-    "coveragePercent": 100,
+    "coveredScenarios": 9,
+    "coveragePercent": 129,
     "testFiles": [
       "test/provider-oauth.test.ts"
     ],
@@ -8224,8 +8297,9 @@
       "server/settings.ts",
       "shared/settings.ts",
       "client/oauth-sheet.tsx",
-      "client/settings-model.ts"
+      "client/settings-model.ts",
+      "client/oauth-flow.ts"
     ],
-    "totalLinesCovered": 8092
+    "totalLinesCovered": 8166
   }
 }

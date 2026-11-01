@@ -4,7 +4,8 @@
  * This test file validates the acceptance criteria defined in the feature file.
  * Scenarios in this test map directly to scenarios in the Gherkin feature.
  */
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { cancelOnClose, copyCode, watchSignIn } from "../client/oauth-flow.js";
 import { logoutPrompt, oauthIntro } from "../client/settings-model.js";
 import { createSettingsFeed } from "../server/settings.js";
 import type * as wire from "../server/wire.js";
@@ -177,6 +178,43 @@ describe("Feature: Sign in to OAuth providers for fspec from Paseo", () => {
       // @step And the daemon receives oauth_clear_tokens(codex)
       expect(daemon.sent("oauthClearTokens")).toEqual([{ method: "oauthClearTokens", providerId: "codex" }]);
       expect(answer).toEqual({ ok: true });
+    });
+  });
+
+  describe("Scenario: A sign-in whose status cannot be read fails with the reason", () => {
+    it("ends the watch as failed without polling again", async () => {
+      // @step Given a device-code sign-in for codex is waiting for approval
+      const status = vi
+        .fn<(input: { loginId: string }) => Promise<{ state: "pending" }>>()
+        .mockResolvedValueOnce({ state: "pending" })
+        // @step When the status RPC fails with "request timed out"
+        .mockRejectedValueOnce(new Error("request timed out"));
+      const outcome = await watchSignIn((input) => status(input), "login-1", () => true);
+      // @step Then the sign-in ends as failed with "The sign-in status could not be read: request timed out" and is not polled again
+      expect(outcome).toEqual({ kind: "failed", error: "The sign-in status could not be read: request timed out" });
+      expect(status).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe("Scenario: Copy and cancel failures are reported", () => {
+    it("shows the copy failure and logs the cancel failure", async () => {
+      // @step Given a device-code sign-in shows its code
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+      try {
+        // @step When copying the code fails with "clipboard denied" and cancelling on close fails with "socket closed"
+        const copied = await copyCode(async () => {
+          throw new Error("clipboard denied");
+        }, "ABCD-1234");
+        await cancelOnClose(async () => {
+          throw new Error("socket closed");
+        }, "login-1");
+        // @step Then the sheet shows "The code could not be copied: clipboard denied"
+        expect(copied).toBe("The code could not be copied: clipboard denied");
+        // @step And the console logs the failed cancel naming "socket closed"
+        expect(logged).toHaveBeenCalledWith(expect.stringContaining("socket closed"));
+      } finally {
+        logged.mockRestore();
+      }
     });
   });
 });

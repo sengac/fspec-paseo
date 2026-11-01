@@ -256,6 +256,32 @@ describe("Feature: Manage fspec providers from a Paseo settings screen", () => {
     });
   });
 
+  describe("Scenario: A saved key whose refresh fails reports the refresh failure as a warning", () => {
+    it("keeps the write ok and adds one warning line per failed refresh", async () => {
+      // @step Given saving the Gemini key succeeds with the warning "The key returns when the fspec daemon restarts unless removed from the environment."
+      const warning = "The key returns when the fspec daemon restarts unless removed from the environment.";
+      // @step When reloading the list fails with "socket closed" and refreshing Paseo's models fails with "provider busy"
+      const outcome = await runWrite({
+        write: async () => ({ ok: true as const, warning }),
+        reload: async () => {
+          throw new Error("socket closed");
+        },
+        refreshPaseo: async () => {
+          throw new Error("provider busy");
+        },
+      });
+      // @step Then the save is ok with the warning lines "The key returns when the fspec daemon restarts unless removed from the environment.", "Saved, but the provider list could not be reloaded: socket closed" and "Saved, but Paseo's fspec models could not be refreshed: provider busy"
+      expect(outcome).toEqual({
+        ok: true,
+        warning: [
+          warning,
+          "Saved, but the provider list could not be reloaded: socket closed",
+          "Saved, but Paseo's fspec models could not be refreshed: provider busy",
+        ].join("\n"),
+      });
+    });
+  });
+
   describe("Scenario: Removing a key asks first and passes on the environment warning", () => {
     it("names the provider and returns the warning", async () => {
       // @step Given gemini's key comes from the environment

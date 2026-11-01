@@ -1,5 +1,5 @@
 /** What a settings write answers: the feed's ok/failed/unavailable shapes. */
-type WriteOutput =
+export type WriteOutput =
   | { ok: true; warning?: string }
   | { ok: false; error: string }
   | { state: "unavailable"; reason: string };
@@ -23,7 +23,8 @@ function message(error: unknown): string {
 /**
  * Runs one settings write (FSPEC-043). Only a successful write reloads the
  * list and refreshes Paseo's fspec models; a failure changes nothing and
- * comes back as the row's error.
+ * comes back as the row's error. A refresh that fails after a successful
+ * write is reported as a warning line, never dropped (FSPEC-065).
  */
 export async function runWrite<T extends WriteOutput>(deps: WriteDeps<T>): Promise<WriteOutcome> {
   let output: WriteOutput;
@@ -35,8 +36,16 @@ export async function runWrite<T extends WriteOutput>(deps: WriteDeps<T>): Promi
   if ("state" in output) return { ok: false, error: output.reason };
   if (!output.ok) return { ok: false, error: output.error };
   deps.onSuccess?.();
-  // The write succeeded; a failed refresh must not report it as failed.
-  await Promise.resolve(deps.reload()).catch(() => {});
-  await deps.refreshPaseo().catch(() => {});
-  return output.warning === undefined ? { ok: true } : { ok: true, warning: output.warning };
+  const warnings = output.warning === undefined ? [] : [output.warning];
+  try {
+    await deps.reload();
+  } catch (error) {
+    warnings.push(`Saved, but the provider list could not be reloaded: ${message(error)}`);
+  }
+  try {
+    await deps.refreshPaseo();
+  } catch (error) {
+    warnings.push(`Saved, but Paseo's fspec models could not be refreshed: ${message(error)}`);
+  }
+  return warnings.length === 0 ? { ok: true } : { ok: true, warning: warnings.join("\n") };
 }

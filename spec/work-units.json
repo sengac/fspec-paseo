@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:31:56.139Z"
+    "lastUpdated": "2026-11-01T03:34:51.980Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -7602,16 +7602,96 @@
       "id": "FSPEC-065",
       "title": "Surface catalog-key, post-write refresh and sign-in polling failures in provider settings",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-11-01T03:22:19.666Z",
-      "updatedAt": "2026-11-01T03:23:57.103Z",
+      "updatedAt": "2026-11-01T03:34:51.980Z",
       "description": "catalogCacheKey answers no key on any error; runWrite swallows reload/refresh failures after a successful write; the OAuth sheet retries a failed status poll silently forever, swallows a failed copy and a failed cancel. Propagate the catalog-key error (Paseo shows the provider in error), report post-write refresh failures as the write's warning, end the sign-in on a failed poll with its reason, show copy failures and log cancel failures.",
       "epic": "provider-settings",
       "children": [],
       "attachments": [
         "spec/attachments/FSPEC-065/root-cause.md",
         "spec/attachments/FSPEC-065/ast-research.md"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:32:20.117Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:32:38.362Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:33:05.620Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T03:34:44.390Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T03:34:51.980Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "getCatalogCacheKey rejects with the reason when the key cannot be derived: the discovery/connection error itself, or 'fspec daemon list_provider_credentials failed: <error>'; Paseo then shows the fspec provider in error with that message (provider-snapshot-manager.ts:928-948)",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:32:20.160Z"
+        },
+        {
+          "id": 1,
+          "text": "After a successful settings write, a failed reload of the provider list adds the warning 'Saved, but the provider list could not be reloaded: <reason>' and a failed Paseo model refresh adds 'Saved, but Paseo's fspec models could not be refreshed: <reason>'; they follow the write's own warning, one per line, and the outcome stays ok",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:32:20.182Z"
+        },
+        {
+          "id": 2,
+          "text": "A sign-in status poll that fails ends the sign-in as failed with 'The sign-in status could not be read: <reason>' instead of retrying silently",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:32:20.203Z"
+        },
+        {
+          "id": 3,
+          "text": "A failed copy of the device code shows 'The code could not be copied: <reason>' on the sheet; a failed cancel when the sheet closes is logged to the console",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:32:20.224Z"
+        }
+      ],
+      "nextRuleId": 4,
+      "examples": [
+        {
+          "id": 0,
+          "text": "No fspec daemon running -> getCatalogCacheKey rejects 'no fspec daemon is running — no live entry in <dir>; start fspec daemon first'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:32:20.249Z"
+        },
+        {
+          "id": 1,
+          "text": "Saving a Gemini key succeeds, reload rejects 'socket closed' -> { ok: true, warning: 'Saved, but the provider list could not be reloaded: socket closed' }",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:32:20.271Z"
+        },
+        {
+          "id": 2,
+          "text": "Device sign-in pending, the status RPC rejects 'request timed out' -> failed 'The sign-in status could not be read: request timed out'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:32:20.297Z"
+        }
+      ],
+      "nextExampleId": 3,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/provider.ts catalogCacheKey throws. client/settings-actions.ts runWrite collects refresh warnings. New client/oauth-flow.ts (pure): watchSignIn(status, current), copyCode(copy, code), cancelOnClose(cancel, loginId) used by client/oauth-sheet.tsx.",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:32:20.319Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "estimate": 3
     },
     "FSPEC-066": {
       "id": "FSPEC-066",
@@ -7661,7 +7741,6 @@
   },
   "states": {
     "backlog": [
-      "FSPEC-065",
       "FSPEC-066",
       "FSPEC-067",
       "FSPEC-068"
@@ -7735,7 +7814,8 @@
       "FSPEC-061",
       "FSPEC-062",
       "FSPEC-063",
-      "FSPEC-064"
+      "FSPEC-064",
+      "FSPEC-065"
     ],
     "blocked": []
   },

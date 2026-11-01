@@ -2,10 +2,10 @@
 @provider
 @core
 @FSPEC-044
+@FSPEC-065
 Feature: Sign in to OAuth providers for fspec from Paseo
-
   """
-  server/oauth.ts (createOAuthLogins(call)): logins keyed by id with state pending | code | succeeded | failed; start(providerId, method, enterpriseHost) runs the daemon calls (long deadline via DaemonConnection.request(message, { deadlineMs })), complete(loginId, code) uses the server-held verifier, status(loginId) long-polls with a 20 s hold (like BOARD_HOLD_MS), cancel(loginId) forgets it. RPCs fspec.settings.oauth-start / oauth-complete / oauth-status / oauth-cancel / oauth-logout. Client: client/oauth-sheet.tsx renders the flow; pure step text in client/settings-model.ts.
+  server/oauth.ts (createOAuthLogins(call)): logins keyed by id with state pending | code | succeeded | failed; start(providerId, method, enterpriseHost) runs the daemon calls (long deadline via DaemonConnection.request(message, { deadlineMs })), complete(loginId, code) uses the server-held verifier, status(loginId) long-polls with a 20 s hold (like BOARD_HOLD_MS), cancel(loginId) forgets it. RPCs fspec.settings.oauth-start / oauth-complete / oauth-status / oauth-cancel / oauth-logout. Client: client/oauth-sheet.tsx renders the flow; pure step text in client/settings-model.ts. FSPEC-065: client/oauth-flow.ts (pure) holds the status watch, the code copy and the close-time cancel, each reporting its failure.
   """
 
   # ========================================
@@ -17,6 +17,7 @@ Feature: Sign in to OAuth providers for fspec from Paseo
   #   2. A sign-in that waits (browser, device code) runs as a server-side task with a 15-minute daemon deadline; the sheet long-polls its status in holds under Paseo's 30 s RPC limit until it succeeds, fails or is cancelled; closing the sheet or Cancel abandons it and a late result is ignored.
   #   3. The PKCE verifier and every token stay on the plugin server: the client only ever sees a login id, the link, the user code and the outcome.
   #   4. The '✓ Logged in [Claude|ChatGPT|GitHub Copilot]' row opens a sheet offering 'Log out', which asks for confirmation and calls oauth_clear_tokens.
+  #   6. FSPEC-065: a sign-in status poll that fails ends the sign-in as failed with 'The sign-in status could not be read: <reason>'; a failed copy shows 'The code could not be copied: <reason>'; a failed cancel when the sheet closes is logged
   #   5. After a successful sign-in or log-out the list reloads and Paseo refreshes the fspec provider; a failure shows the daemon's message in the sheet.
   #
   # EXAMPLES:
@@ -28,7 +29,6 @@ Feature: Sign in to OAuth providers for fspec from Paseo
   #   6. '✓ Logged in [ChatGPT]' → Log out → 'Log out of ChatGPT in fspec?' → oauth_clear_tokens(codex); the header then reads '(not configured)'.
   #
   # ========================================
-
   Background: User Story
     As a Paseo user running fspec agents
     I want to sign fspec in to and out of OAuth providers from the fspec providers screen
@@ -75,3 +75,14 @@ Feature: Sign in to OAuth providers for fspec from Paseo
     When the user opens "✓ Logged in [ChatGPT]" and confirms
     Then the confirmation reads "Log out of ChatGPT in fspec?"
     And the daemon receives oauth_clear_tokens(codex)
+
+  Scenario: A sign-in whose status cannot be read fails with the reason
+    Given a device-code sign-in for codex is waiting for approval
+    When the status RPC fails with "request timed out"
+    Then the sign-in ends as failed with "The sign-in status could not be read: request timed out" and is not polled again
+
+  Scenario: Copy and cancel failures are reported
+    Given a device-code sign-in shows its code
+    When copying the code fails with "clipboard denied" and cancelling on close fails with "socket closed"
+    Then the sheet shows "The code could not be copied: clipboard denied"
+    And the console logs the failed cancel naming "socket closed"

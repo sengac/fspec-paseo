@@ -3,8 +3,8 @@
 @core
 @FSPEC-043
 @FSPEC-047
+@FSPEC-065
 Feature: Manage fspec providers from a Paseo settings screen
-
   """
   Client layout mirrors the board: client/settings-model.ts (pure: grouping, row descriptions, which actions a row offers, form validation, result text), client/settings-actions.ts (pure orchestration of a write: call the RPC, then on success reload the list and call paseo.providers.refresh({ providers: ['fspec'] }); on failure return the error and do nothing else), client/settings-screen.tsx (thin React Native component using @getpaseo/plugin/client/ui SettingsSection/SettingsCard/SettingsRow/SettingsInput(secureTextEntry)/SettingsAction, Modal for confirm, useToast, useRpc, usePaseo), registerSettings in client/register.ts wired from index.client.tsx. Paseo owns header, Back, scrolling and the phone full-screen push (public-docs/plugins/reference.md 'Settings screens'). Manual check: open on a phone-width window.
   Tree model (client/settings-model.ts): buildTree(providers) folds '<provider>:<profile>' rows into their parent, orders configured first, and yields per-provider header segments and child rows (kind: oauthStatus | oauthLogin | apiKey | settings | profile | addProfile) in the TUI order (rust/fspec-tui/src/views/provider_settings/nav_item.rs build_nav_items, projection.rs oauth_login_methods/oauth_label, row_render.rs icons and tints). Each child row opens a Paseo Modal sheet; the screen keeps one 'open sheet' state.
@@ -42,7 +42,6 @@ Feature: Manage fspec providers from a Paseo settings screen
   #   10. Removing Gemini's key from its API key sheet asks 'Remove the Gemini key from fspec?'; for a key from the environment, a warning then says it returns when the daemon restarts unless removed from the environment.
   #
   # ========================================
-
   Background: User Story
     As a Paseo user running fspec agents
     I want to manage fspec's providers from a Paseo settings screen
@@ -89,6 +88,11 @@ Feature: Manage fspec providers from a Paseo settings screen
     Then save-credentials is called with kind "api_key" and key "AIza-test"
     And the list is reloaded and Paseo is asked to refresh the fspec provider
     And the key field is cleared
+
+  Scenario: A saved key whose refresh fails reports the refresh failure as a warning
+    Given saving the Gemini key succeeds with the warning "The key returns when the fspec daemon restarts unless removed from the environment."
+    When reloading the list fails with "socket closed" and refreshing Paseo's models fails with "provider busy"
+    Then the save is ok with the warning lines "The key returns when the fspec daemon restarts unless removed from the environment.", "Saved, but the provider list could not be reloaded: socket closed" and "Saved, but Paseo's fspec models could not be refreshed: provider busy"
 
   Scenario: Removing a key asks first and passes on the environment warning
     Given gemini's key comes from the environment

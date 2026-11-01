@@ -5,7 +5,7 @@
       "testMappings": [
         {
           "file": "test/provider-settings-feed.test.ts",
-          "lines": "77-112",
+          "lines": "77-111",
           "implMappings": [
             {
               "file": "server/settings.ts",
@@ -301,7 +301,7 @@
       "testMappings": [
         {
           "file": "test/provider-settings-feed.test.ts",
-          "lines": "113-153",
+          "lines": "113-152",
           "implMappings": [
             {
               "file": "server/settings.ts",
@@ -597,7 +597,7 @@
       "testMappings": [
         {
           "file": "test/provider-settings-feed.test.ts",
-          "lines": "154-175",
+          "lines": "154-174",
           "implMappings": [
             {
               "file": "server/settings.ts",
@@ -893,7 +893,7 @@
       "testMappings": [
         {
           "file": "test/provider-settings-feed.test.ts",
-          "lines": "176-197",
+          "lines": "176-196",
           "implMappings": [
             {
               "file": "server/settings.ts",
@@ -1189,7 +1189,7 @@
       "testMappings": [
         {
           "file": "test/provider-settings-feed.test.ts",
-          "lines": "198-216",
+          "lines": "198-215",
           "implMappings": [
             {
               "file": "server/settings.ts",
@@ -1485,7 +1485,7 @@
       "testMappings": [
         {
           "file": "test/provider-settings-feed.test.ts",
-          "lines": "217-233",
+          "lines": "217-232",
           "implMappings": [
             {
               "file": "server/settings.ts",
@@ -1781,7 +1781,7 @@
       "testMappings": [
         {
           "file": "test/provider-settings-feed.test.ts",
-          "lines": "234-255",
+          "lines": "234-254",
           "implMappings": [
             {
               "file": "server/settings.ts",
@@ -2077,7 +2077,7 @@
       "testMappings": [
         {
           "file": "test/provider-settings-feed.test.ts",
-          "lines": "256-281",
+          "lines": "256-280",
           "implMappings": [
             {
               "file": "server/provider.ts",
@@ -2129,30 +2129,15 @@
       ]
     },
     {
-      "name": "The catalog cache key is absent while the daemon is unreachable",
+      "name": "The catalog cache key lookup fails with the daemon's reason",
       "testMappings": [
         {
           "file": "test/provider-settings-feed.test.ts",
-          "lines": "282-292",
+          "lines": "282-293",
           "implMappings": [
             {
               "file": "server/provider.ts",
               "lines": [
-                54,
-                55,
-                56,
-                57,
-                58,
-                59,
-                60,
-                61,
-                62,
-                63,
-                64,
-                65,
-                66,
-                67,
-                68,
                 69,
                 70,
                 71,
@@ -2177,7 +2162,56 @@
                 90,
                 91,
                 92,
-                93
+                93,
+                94,
+                95,
+                96,
+                97
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A refused credential listing fails the catalog cache key",
+      "testMappings": [
+        {
+          "file": "test/provider-settings-feed.test.ts",
+          "lines": "295-312",
+          "implMappings": [
+            {
+              "file": "server/provider.ts",
+              "lines": [
+                69,
+                70,
+                71,
+                72,
+                73,
+                74,
+                75,
+                76,
+                77,
+                78,
+                79,
+                80,
+                81,
+                82,
+                83,
+                84,
+                85,
+                86,
+                87,
+                88,
+                89,
+                90,
+                91,
+                92,
+                93,
+                94,
+                95,
+                96,
+                97
               ]
             }
           ]
@@ -2187,8 +2221,8 @@
   ],
   "stats": {
     "totalScenarios": 9,
-    "coveredScenarios": 9,
-    "coveragePercent": 100,
+    "coveredScenarios": 10,
+    "coveragePercent": 111,
     "testFiles": [
       "test/provider-settings-feed.test.ts"
     ],
@@ -2198,6 +2232,6 @@
       "index.server.ts",
       "server/provider.ts"
     ],
-    "totalLinesCovered": 2186
+    "totalLinesCovered": 2230
   }
 }

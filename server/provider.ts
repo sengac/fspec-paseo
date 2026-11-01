@@ -70,16 +70,18 @@ export function createFspecProvider(
  * Paseo reuses a provider catalog while its cache key is unchanged (FSPEC-042).
  * The key hashes the daemon target and its credential state, so a key added or
  * removed anywhere (Paseo or the fspec TUI) makes Paseo re-fetch the models.
- * One short-lived socket per lookup. No key while no single daemon can be
- * reached: Paseo then shares no catalog, and the catalog request itself
- * reports the reason.
+ * One short-lived socket per lookup. A lookup that fails rejects with its
+ * reason, which Paseo shows as the fspec provider's error (FSPEC-065).
  */
-async function catalogCacheKey(options: DaemonClientOptions): Promise<string | undefined> {
+async function catalogCacheKey(options: DaemonClientOptions): Promise<string> {
   const daemon = createFspecDaemonClient(options);
   try {
     const connection = await daemon.connect();
     const response = await connection.request({ method: "listProviderCredentials" });
-    if (!response.ok || response.method !== "listProviderCredentials") return undefined;
+    if (!response.ok) throw new Error(`fspec daemon list_provider_credentials failed: ${response.error}`);
+    if (response.method !== "listProviderCredentials") {
+      throw new Error(`fspec daemon answered list_provider_credentials with ${response.method}`);
+    }
     const state = response.credentials.map((row) => [
       row.providerId,
       row.configured,
@@ -89,8 +91,6 @@ async function catalogCacheKey(options: DaemonClientOptions): Promise<string | u
       row.source,
     ]);
     return createHash("sha256").update(JSON.stringify([connection.target.url, state])).digest("hex");
-  } catch {
-    return undefined;
   } finally {
     await daemon.close();
   }

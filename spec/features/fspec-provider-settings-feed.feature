@@ -2,10 +2,10 @@
 @provider
 @core
 @FSPEC-042
+@FSPEC-065
 Feature: Serve fspec provider settings to Paseo plugin UI
-
   """
-  RPCs (shared/settings.ts, defineRpc + zod, like shared/board.ts): fspec.settings.list, fspec.settings.save-credentials {providerId, kind: api_key|custom, apiKey?, customEndpoint?, customApiKey?}, fspec.settings.remove-credentials, fspec.settings.test, fspec.settings.refresh-models {providerId | ''}. server/settings.ts createSettingsFeed() owns one FspecDaemonClient (lazy, reconnects after connection-lost), registered in index.server.ts. getCatalogCacheKey on the registration in server/provider.ts: a hash of list_provider_credentials (providerId, configured, credentialType, modelCount) + daemon target, undefined when unreachable. The client-side paseo.providers.refresh call after writes belongs to FSPEC-043 (the screen).
+  RPCs (shared/settings.ts, defineRpc + zod, like shared/board.ts): fspec.settings.list, fspec.settings.save-credentials {providerId, kind: api_key|custom, apiKey?, customEndpoint?, customApiKey?}, fspec.settings.remove-credentials, fspec.settings.test, fspec.settings.refresh-models {providerId | ''}. server/settings.ts createSettingsFeed() owns one FspecDaemonClient (lazy, reconnects after connection-lost), registered in index.server.ts. getCatalogCacheKey on the registration in server/provider.ts: a hash of list_provider_credentials (providerId, configured, credentialType, modelCount) + daemon target; FSPEC-065: a lookup that fails rejects with its reason, which Paseo shows as the provider's error. The client-side paseo.providers.refresh call after writes belongs to FSPEC-043 (the screen).
   """
 
   # ========================================
@@ -45,7 +45,6 @@ Feature: Serve fspec provider settings to Paseo plugin UI
   #   A: Both: the settings screen refreshes Paseo after its own writes (paseo.providers.refresh), and the fspec provider registers getCatalogCacheKey derived from the daemon's credential state so edits made in the fspec TUI are picked up too.
   #
   # ========================================
-
   Background: User Story
     As a Paseo user running fspec agents
     I want to list fspec's providers, add or remove keys, test connections and refresh models through the plugin
@@ -99,7 +98,12 @@ Feature: Serve fspec provider settings to Paseo plugin UI
     When a key is added for openai, from Paseo or from the fspec TUI
     Then the fspec provider's next catalog cache key differs, so Paseo re-fetches the catalog and lists OpenAI's models
 
-  Scenario: The catalog cache key is absent while the daemon is unreachable
+  Scenario: The catalog cache key lookup fails with the daemon's reason
     Given no fspec daemon is running
     When Paseo asks the fspec provider for its catalog cache key
-    Then it answers no key, so Paseo does not reuse a stale catalog
+    Then the lookup rejects with "no fspec daemon is running — no live entry in …; start fspec daemon first", which Paseo shows as the provider's error
+
+  Scenario: A refused credential listing fails the catalog cache key
+    Given list_provider_credentials answers the error "credential store locked"
+    When Paseo asks the fspec provider for its catalog cache key
+    Then the lookup rejects with "fspec daemon list_provider_credentials failed: credential store locked"

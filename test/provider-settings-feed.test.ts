@@ -279,16 +279,35 @@ describe("Feature: Serve fspec provider settings to Paseo plugin UI", () => {
     });
   });
 
-  describe("Scenario: The catalog cache key is absent while the daemon is unreachable", () => {
-    it("answers no key", async () => {
+  describe("Scenario: The catalog cache key lookup fails with the daemon's reason", () => {
+    it("rejects with the discovery error", async () => {
       // @step Given no fspec daemon is running
       const home = tempHome();
       disposers.push(home.dispose);
       const provider = createFspecProvider({ env: {}, homeDir: home.homeDir });
       // @step When Paseo asks the fspec provider for its catalog cache key
-      const key = await provider.getCatalogCacheKey!({ scope: "global" });
-      // @step Then it answers no key, so Paseo does not reuse a stale catalog
-      expect(key).toBeUndefined();
+      const key = provider.getCatalogCacheKey!({ scope: "global" });
+      // @step Then the lookup rejects with "no fspec daemon is running — no live entry in …; start fspec daemon first", which Paseo shows as the provider's error
+      await expect(key).rejects.toThrow(/^no fspec daemon is running — no live entry in .*; start fspec daemon first$/);
+    });
+  });
+
+  describe("Scenario: A refused credential listing fails the catalog cache key", () => {
+    it("rejects with the daemon's error", async () => {
+      // @step Given list_provider_credentials answers the error "credential store locked"
+      const home = tempHome();
+      home.writeDaemonEntry();
+      disposers.push(home.dispose);
+      const daemon = new FakeDaemon();
+      daemon.handlers.listProviderCredentials = () => {
+        throw new Error("credential store locked");
+      };
+      const provider = createFspecProvider(daemonOptions(home, daemon));
+      // @step When Paseo asks the fspec provider for its catalog cache key
+      const key = provider.getCatalogCacheKey!({ scope: "global" });
+      // @step Then the lookup rejects with "fspec daemon list_provider_credentials failed: credential store locked"
+      await expect(key).rejects.toThrow("fspec daemon list_provider_credentials failed: credential store locked");
+      expect(daemon.sockets.every((socket) => socket.readyState !== 1)).toBe(true);
     });
   });
 });

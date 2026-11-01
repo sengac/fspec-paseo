@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:14:36.062Z"
+    "lastUpdated": "2026-11-01T03:23:57.220Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -7304,10 +7304,123 @@
       ],
       "nextNoteId": 1,
       "estimate": 3
+    },
+    "FSPEC-062": {
+      "id": "FSPEC-062",
+      "title": "Compare workspace paths through the real path of their deepest existing ancestor",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-11-01T03:22:19.563Z",
+      "updatedAt": "2026-11-01T03:23:56.979Z",
+      "description": "within() (server/workspaces.ts) realpaths a path that exists but only resolve()s one that does not, so a directory not yet created under a symlinked spelling of a workspace (macOS /var vs /private/var) is compared unresolved against a resolved root and wrongly reported outside it; any realpath error was swallowed. Canonicalise both paths the same way: the deepest existing ancestor's real path plus the missing remainder; only ENOENT/ENOTDIR mean 'does not exist', any other failure is an error naming the path.",
+      "epic": "provider-plugin",
+      "children": [],
+      "attachments": [
+        "spec/attachments/FSPEC-062/root-cause.md",
+        "spec/attachments/FSPEC-062/ast-research.md"
+      ]
+    },
+    "FSPEC-063": {
+      "id": "FSPEC-063",
+      "title": "Attach a sub-agent child only to the AgentManager spawn call whose result names it",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-11-01T03:22:19.609Z",
+      "updatedAt": "2026-11-01T03:23:57.021Z",
+      "description": "openChild finds the parent's tool call by searching every tool output for the child's daemon id (transcript.toolCallMentioning), so a get_status/message/list result or a shell output that mentions the id becomes the child's toolCallId. fspec's explicit link is the AgentManager spawn result {\"session_id\":...} (AgentManagerResult::Spawned). Use only that; without it the child opens unattached. A failed get_supervisors lookup is logged, not swallowed.",
+      "epic": "provider-plugin",
+      "children": [],
+      "attachments": [
+        "spec/attachments/FSPEC-063/root-cause.md",
+        "spec/attachments/FSPEC-063/ast-research.md"
+      ]
+    },
+    "FSPEC-064": {
+      "id": "FSPEC-064",
+      "title": "Fail the daemon connection on undecodable frames and require an explicit daemon URL port",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-11-01T03:22:19.641Z",
+      "updatedAt": "2026-11-01T03:23:57.062Z",
+      "description": "server/daemon.ts ignores a binary frame whose envelope or rpc response frame cannot be decoded, ignores text frames silently, and an explicit connect URL without a port silently dials 80/443 (wss is silently rewritten to ws and the path dropped). An undecodable frame is a protocol error: log it, close the socket and drop the connection with the reason, like the daemon's pump (rust/rpc-server/src/pump.rs:139-145). Text frames are logged and ignored (pump.rs:181-183). An explicit URL must be ws://, name a port and the / path, or the connection fails naming the URL.",
+      "epic": "provider-plugin",
+      "children": [],
+      "attachments": [
+        "spec/attachments/FSPEC-064/root-cause.md",
+        "spec/attachments/FSPEC-064/ast-research.md"
+      ]
+    },
+    "FSPEC-065": {
+      "id": "FSPEC-065",
+      "title": "Surface catalog-key, post-write refresh and sign-in polling failures in provider settings",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-11-01T03:22:19.666Z",
+      "updatedAt": "2026-11-01T03:23:57.103Z",
+      "description": "catalogCacheKey answers no key on any error; runWrite swallows reload/refresh failures after a successful write; the OAuth sheet retries a failed status poll silently forever, swallows a failed copy and a failed cancel. Propagate the catalog-key error (Paseo shows the provider in error), report post-write refresh failures as the write's warning, end the sign-in on a failed poll with its reason, show copy failures and log cancel failures.",
+      "epic": "provider-settings",
+      "children": [],
+      "attachments": [
+        "spec/attachments/FSPEC-065/root-cause.md",
+        "spec/attachments/FSPEC-065/ast-research.md"
+      ]
+    },
+    "FSPEC-066": {
+      "id": "FSPEC-066",
+      "title": "Tell an unserved directory from a failed board check and open agents only on fspec's default model",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-11-01T03:22:19.690Z",
+      "updatedAt": "2026-11-01T03:23:57.141Z",
+      "description": "fspec.board.available answers false on any error, and the client turns a failed RPC into false too, so a broken daemon looks like an unserved directory. Answer served / unserved (no daemon or no workspace serves it) / failed (anything else) and show failures. Open in agent falls back to the first listed model when none is the default and treats a Paseo listModels error as no models: use only fspec's default model and surface listModels errors. The workspace subscription release error is logged.",
+      "epic": "kanban-board",
+      "children": [],
+      "attachments": [
+        "spec/attachments/FSPEC-066/root-cause.md",
+        "spec/attachments/FSPEC-066/ast-research.md"
+      ]
+    },
+    "FSPEC-067": {
+      "id": "FSPEC-067",
+      "title": "Report every failed background daemon call of a session",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-11-01T03:22:19.715Z",
+      "updatedAt": "2026-11-01T03:23:57.181Z",
+      "description": "server/session.ts swallows failures of set_active_session, interrupt, the cleanup destroy of a half-opened session, list_checkpoints, get_work_unit_focus, checkpoint attachment, the steer's deny reply, a child's clear_active_session, sub-agent destroys and the prompt search. Each failure is logged and, where the user is affected, shown as a session notice or fails the request; a failed cleanup never hides the original error.",
+      "epic": "provider-plugin",
+      "children": [],
+      "attachments": [
+        "spec/attachments/FSPEC-067/root-cause.md",
+        "spec/attachments/FSPEC-067/ast-research.md"
+      ]
+    },
+    "FSPEC-068": {
+      "id": "FSPEC-068",
+      "title": "Decode transcript entries and interaction snapshots strictly",
+      "type": "bug",
+      "status": "backlog",
+      "createdAt": "2026-11-01T03:22:19.739Z",
+      "updatedAt": "2026-11-01T03:23:57.220Z",
+      "description": "server/transcript-json.ts and server/interactions.ts default every missing or mistyped field of daemon JSON to an empty string, 0, an empty list, info severity or a user interruption, and map an unknown Paseo action or a missing HITL answer object to a guessed reply. Decode the serde shapes exactly (rpc-types stream_chunk.rs, chunk_support.rs, background_session/interactions.rs) and fail with the field that is wrong.",
+      "epic": "provider-plugin",
+      "children": [],
+      "attachments": [
+        "spec/attachments/FSPEC-068/root-cause.md",
+        "spec/attachments/FSPEC-068/ast-research.md"
+      ]
     }
   },
   "states": {
-    "backlog": [],
+    "backlog": [
+      "FSPEC-062",
+      "FSPEC-063",
+      "FSPEC-064",
+      "FSPEC-065",
+      "FSPEC-066",
+      "FSPEC-067",
+      "FSPEC-068"
+    ],
     "specifying": [],
     "testing": [],
     "implementing": [],
@@ -7379,6 +7492,6 @@
     "blocked": []
   },
   "prefixCounters": {
-    "FSPEC": 61
+    "FSPEC": 68
   }
 }

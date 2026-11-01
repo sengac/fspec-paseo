@@ -4,6 +4,7 @@
 @FSPEC-043
 @FSPEC-047
 @FSPEC-065
+@FSPEC-069
 Feature: Manage fspec providers from a Paseo settings screen
   """
   Client layout mirrors the board: client/settings-model.ts (pure: grouping, row descriptions, which actions a row offers, form validation, result text), client/settings-actions.ts (pure orchestration of a write: call the RPC, then on success reload the list and call paseo.providers.refresh({ providers: ['fspec'] }); on failure return the error and do nothing else), client/settings-screen.tsx (thin React Native component using @getpaseo/plugin/client/ui SettingsSection/SettingsCard/SettingsRow/SettingsInput(secureTextEntry)/SettingsAction, Modal for confirm, useToast, useRpc, usePaseo), registerSettings in client/register.ts wired from index.client.tsx. Paseo owns header, Back, scrolling and the phone full-screen push (public-docs/plugins/reference.md 'Settings screens'). Manual check: open on a phone-width window.
@@ -22,7 +23,7 @@ Feature: Manage fspec providers from a Paseo settings screen
   #   5. Test shows the result on the row (connected with latency, or the daemon's error); Refresh shows the new model count; 'Refresh all models' refreshes every provider.
   #   6. After every successful save, remove or refresh the screen reloads the list and asks Paseo to refresh the fspec provider (paseo.providers.refresh) so the model picker updates.
   #   7. A failed action leaves the list unchanged and shows the daemon's error on that row.
-  #   8. Providers are one tree in a single card, as in the fspec TUI: configured providers first, then the rest in the daemon's order; each provider header shows ▶/▼, its name and status segments — green '✓ <masked key>' with a dim '[<source>]' for keys, '✓ OAuth [Claude|ChatGPT|GitHub Copilot]' for OAuth sign-ins, gray '(not configured)' otherwise — plus '(N profiles)' when it has profiles and the last test result.
+  #   8. Providers are one tree in a single card, as in the fspec TUI: configured providers first, then the rest in the daemon's order; each provider header shows ▶/▼, its name and status segments — green '✓ <masked key>' with a dim '[<source>]' for keys, '✓ OAuth [Claude|ChatGPT|GitHub Copilot]' for OAuth sign-ins, gray '(not configured)' otherwise — then ' · not listed by fspec' when the row's listing is 'unlisted' (FSPEC-069) — plus '(N profiles)' when it has profiles and the last test result.
   #   9. An expanded provider shows a Test and Refresh models action line, then its child rows in the TUI's order: OAuth status and sign-in rows (OAuth providers), '🔑 API key' (API-key providers except openai), '⚙ Settings', one '📁 <profile> → <base URL>' row per profile ('(inherits auth)' when the profile has no base URL), and '+ Add profile'. FSPEC-047: each openai profile row is followed by its custom models ('◆ <name>') and '+ Add model to <profile>'.
   #   10. Profiles reported by the daemon as their own providers ('<provider>:<profile>', e.g. 'openai:Strata') are folded under their parent provider as profile rows, never listed as separate providers.
   #   11. Tapping a child row opens its sheet (Paseo Modal, a bottom sheet on phones); this story delivers the API key sheet (masked current key, secure new-key field, Save, Test, Remove). The Settings and profile sheets come with FSPEC-045, OAuth sign-in with FSPEC-044; until then those rows open a sheet that says so.
@@ -34,7 +35,7 @@ Feature: Manage fspec providers from a Paseo settings screen
   #   2. Testing anthropic shows 'Connected · 812 ms' or 'Failed: 401 Unauthorized' on the row.
   #   3. With no daemon running, the screen shows 'no daemon.json found at … — start fspec daemon first' and a Retry action; Retry re-runs the list.
   #   4. On a phone, Settings → Plugins → fspec for Paseo → fspec providers opens the screen full-screen with Back navigation.
-  #   5. Credentials anthropic (OAuth), openai (key sk-••••abcd from env), openai:Strata and openai:spark (custom) and gemini (unconfigured) become three providers: Anthropic '✓ OAuth [Claude]', OpenAI '✓ sk-••••abcd [env] (2 profiles)' and Gemini '(not configured)'.
+  #   5. Credentials anthropic (OAuth), openai (key sk-••••abcd from env), openai:Strata and openai:spark (custom) and gemini (unconfigured) become three providers: Anthropic '✓ OAuth [Claude]', OpenAI '✓ sk-••••abcd [env] (2 profiles)' and Gemini '(not configured) · not listed by fspec' (FSPEC-069: list_providers has no gemini section).
   #   6. Expanded OpenAI shows: Test · Refresh models, ⚙ Settings, 📁 Strata → http://10.0.0.5:8080/v1, 📁 spark → http://spark:8000/v1, + Add profile — and no API key row.
   #   7. Expanded Anthropic shows: Test · Refresh models, ✓ Logged in [Claude], 🔑 Sign in with browser, 🔑 Sign in with code, ⚙ Settings, + Add profile.
   #   8. Expanded Gemini shows: 🔑 API key (not set), ⚙ Settings, + Add profile; tapping 🔑 API key opens a sheet with a secure key field.
@@ -62,7 +63,7 @@ Feature: Manage fspec providers from a Paseo settings screen
     Given credentials for anthropic (OAuth, 17 models), openai (key "sk-••••abcd" from env, profiles Strata and spark), openai:Strata and openai:spark (custom) and gemini (unconfigured)
     When the screen builds the provider tree
     Then the providers are Anthropic, OpenAI and Gemini in that order
-    And their headers read "✓ OAuth [Claude]", "✓ sk-••••abcd [env] (2 profiles)" and "(not configured)"
+    And their headers read "✓ OAuth [Claude]", "✓ sk-••••abcd [env] (2 profiles)" and "(not configured) · not listed by fspec"
 
   Scenario: An expanded OpenAI shows Settings and its profiles but no API key row
     Given the provider tree from the credentials above
@@ -115,3 +116,9 @@ Feature: Manage fspec providers from a Paseo settings screen
     When the user saves a key
     Then the list is not reloaded and Paseo is not asked to refresh
     And the sheet shows "credentials file is read-only"
+
+  Scenario: An unlisted provider says so and offers no Default model choice
+    Given provider rows anthropic with listing "reachable" and model "claude-sonnet-4" and openai configured with key "sk-••••abcd" and listing "unlisted"
+    When the settings screen builds its tree and its Default model row
+    Then OpenAI's header reads "✓ sk-••••abcd · not listed by fspec"
+    And the Default model row offers only "anthropic/claude-sonnet-4"

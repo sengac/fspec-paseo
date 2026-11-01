@@ -3,6 +3,7 @@
 @core
 @FSPEC-042
 @FSPEC-065
+@FSPEC-069
 Feature: Serve fspec provider settings to Paseo plugin UI
   """
   RPCs (shared/settings.ts, defineRpc + zod, like shared/board.ts): fspec.settings.list, fspec.settings.save-credentials {providerId, kind: api_key|custom, apiKey?, customEndpoint?, customApiKey?}, fspec.settings.remove-credentials, fspec.settings.test, fspec.settings.refresh-models {providerId | ''}. server/settings.ts createSettingsFeed() owns one FspecDaemonClient (lazy, reconnects after connection-lost), registered in index.server.ts. getCatalogCacheKey on the registration in server/provider.ts: a hash of list_provider_credentials (providerId, configured, credentialType, modelCount) + daemon target; FSPEC-065: a lookup that fails rejects with its reason, which Paseo shows as the provider's error. The client-side paseo.providers.refresh call after writes belongs to FSPEC-043 (the screen).
@@ -21,7 +22,7 @@ Feature: Serve fspec provider settings to Paseo plugin UI
   #   6. Allow Remove and override on env/dotenv-sourced rows, with a warning that the key returns when the daemon restarts unless it is removed from the shell environment or .env.
   #   7. Both: the settings screen refreshes Paseo after its own writes (paseo.providers.refresh), and the fspec provider registers getCatalogCacheKey derived from the daemon's credential state so edits made in the fspec TUI are picked up too.
   #   8. No default-model control in this story (see the follow-up card that depends on an fspec get_default_model RPC).
-  #   9. settings.list answers the daemon's workspace (get_workspace_info cwd) and one row per provider fspec knows — configured or not, configured first — merged from list_provider_credentials and list_providers: id, display name, configured, credential type, masked key, source, model count, unreachable flag and models.
+  #   9. settings.list answers the daemon's workspace (get_workspace_info cwd) and one row per provider fspec knows — configured or not, configured first — merged from list_provider_credentials and list_providers: id, display name, configured, credential type, masked key, source, model count, listing and models. FSPEC-069: listing is 'reachable' or 'unreachable' from the row's list_providers section (is_unreachable), or 'unlisted' when list_providers has no section for a credential row (fspec drops sections with no models, profile_sections.rs retain_populated_cloud_sections); an unlisted row has no models and its reachability is never guessed.
   #
   # EXAMPLES:
   #   1. With anthropic configured from file and openai unconfigured, settings.list answers both rows, anthropic first, with anthropic's masked key 'sk-ant-••••mnop' and source 'file' and its 12 models.
@@ -107,3 +108,9 @@ Feature: Serve fspec provider settings to Paseo plugin UI
     Given list_provider_credentials answers the error "credential store locked"
     When Paseo asks the fspec provider for its catalog cache key
     Then the lookup rejects with "fspec daemon list_provider_credentials failed: credential store locked"
+
+  Scenario: A credential row fspec lists no provider for is unlisted
+    Given the fspec daemon lists credentials for anthropic and openai but list_providers has a reachable section only for anthropic
+    When the client calls fspec.settings.list
+    Then anthropic has listing "reachable"
+    And openai has listing "unlisted" and no models

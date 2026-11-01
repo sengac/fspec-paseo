@@ -2217,12 +2217,58 @@
           ]
         }
       ]
+    },
+    {
+      "name": "A credential row fspec lists no provider for is unlisted",
+      "testMappings": [
+        {
+          "file": "test/provider-settings-feed.test.ts",
+          "lines": "314-327",
+          "implMappings": [
+            {
+              "file": "server/settings.ts",
+              "lines": [
+                162,
+                163,
+                164,
+                191,
+                192,
+                193,
+                194,
+                195,
+                196,
+                197,
+                198,
+                199,
+                200,
+                201,
+                202,
+                203,
+                204,
+                205,
+                223
+              ]
+            },
+            {
+              "file": "shared/settings.ts",
+              "lines": [
+                32,
+                33,
+                34,
+                35,
+                36,
+                37
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 9,
-    "coveredScenarios": 10,
-    "coveragePercent": 111,
+    "coveredScenarios": 11,
+    "coveragePercent": 122,
     "testFiles": [
       "test/provider-settings-feed.test.ts"
     ],
@@ -2232,6 +2278,6 @@
       "index.server.ts",
       "server/provider.ts"
     ],
-    "totalLinesCovered": 2230
+    "totalLinesCovered": 2254
   }
 }

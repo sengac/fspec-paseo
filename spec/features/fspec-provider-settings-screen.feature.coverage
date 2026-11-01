@@ -628,7 +628,7 @@
       "testMappings": [
         {
           "file": "test/provider-settings-screen.test.ts",
-          "lines": "154-165",
+          "lines": "154-169",
           "implMappings": [
             {
               "file": "client/settings-model.ts",
@@ -6434,12 +6434,59 @@
           ]
         }
       ]
+    },
+    {
+      "name": "An unlisted provider says so and offers no Default model choice",
+      "testMappings": [
+        {
+          "file": "test/provider-settings-screen.test.ts",
+          "lines": "367-388",
+          "implMappings": [
+            {
+              "file": "client/settings-model.ts",
+              "lines": [
+                94,
+                95,
+                96,
+                97,
+                98,
+                99,
+                100,
+                101,
+                102,
+                103,
+                104,
+                244,
+                245,
+                246,
+                247,
+                248,
+                249,
+                250,
+                251,
+                252,
+                253,
+                254,
+                255,
+                256,
+                257,
+                258,
+                259,
+                260,
+                261,
+                262,
+                263
+              ]
+            }
+          ]
+        }
+      ]
     }
   ],
   "stats": {
     "totalScenarios": 11,
-    "coveredScenarios": 12,
-    "coveragePercent": 109,
+    "coveredScenarios": 13,
+    "coveragePercent": 118,
     "testFiles": [
       "test/provider-settings-screen.test.ts"
     ],
@@ -6452,6 +6499,6 @@
       "client/settings-screen.tsx",
       "client/settings-actions.ts"
     ],
-    "totalLinesCovered": 6458
+    "totalLinesCovered": 6527
   }
 }

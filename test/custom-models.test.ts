@@ -34,7 +34,7 @@ function row(id: string, overrides: Partial<SettingsProvider> = {}): SettingsPro
     maskedKey: null,
     source: null,
     modelCount: 0,
-    unreachable: false,
+    listing: "reachable",
     models: [],
     profiles: [],
     providerId: id,

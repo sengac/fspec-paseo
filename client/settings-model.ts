@@ -97,6 +97,7 @@ function headerStatus(row: SettingsProvider, profileCount: number): string {
   else if (row.credentialType === "oauth") status = `✓ OAuth [${oauthLabel(row.id)}]`;
   else if (row.credentialType === "custom") status = "✓ custom endpoint";
   else status = keySegments(row);
+  if (row.listing === "unlisted") status += " · not listed by fspec";
   if (profileCount > 0) status += ` (${profileCount} ${profileCount === 1 ? "profile" : "profiles"})`;
   return status;
 }
@@ -240,7 +241,7 @@ export function testBadge(output: TestProviderOutput): string {
 }
 
 /**
- * The Default model row (FSPEC-046): every reachable model as provider/model,
+ * The Default model row (FSPEC-046): every model of a provider fspec lists as reachable (FSPEC-069), as provider/model,
  * selecting fspec's current default, or "Not set" first when fspec has none.
  */
 export function defaultModelChoice(list: Extract<SettingsListOutput, { state: "ready" }>): {
@@ -248,7 +249,7 @@ export function defaultModelChoice(list: Extract<SettingsListOutput, { state: "r
   options: Array<{ label: string; value: string }>;
 } {
   const options = list.providers
-    .filter((provider) => !provider.unreachable)
+    .filter((provider) => provider.listing === "reachable")
     .flatMap((provider) =>
       provider.models.map((model) => {
         const id = `${provider.id}/${model.id}`;

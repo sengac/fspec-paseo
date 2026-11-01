@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:47:18.797Z"
+    "lastUpdated": "2026-11-01T03:52:15.423Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -8085,6 +8085,95 @@
       ],
       "nextNoteId": 1,
       "estimate": 5
+    },
+    "FSPEC-069": {
+      "id": "FSPEC-069",
+      "title": "Represent a credential row fspec lists no provider for exactly",
+      "type": "bug",
+      "status": "done",
+      "createdAt": "2026-11-01T03:49:43.149Z",
+      "updatedAt": "2026-11-01T03:52:15.423Z",
+      "description": "server/settings.ts:200 sets unreachable: provider?.isUnreachable ?? !row.configured for a list_provider_credentials row with no list_providers section, guessing reachability. fspec's list_providers drops cloud/custom sections with no models (retain_populated_cloud_sections, PROV-127) and folds openai into Codex (PROV-129), so such a row means fspec offers no models for it, not that it is unreachable. Represent it as listing 'unlisted', shown as 'not listed by fspec' and never offered as a Default model choice.",
+      "epic": "provider-settings",
+      "children": [],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:49:45.521Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:50:36.732Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:51:01.493Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T03:51:31.642Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T03:52:15.423Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "fspec's list_providers drops every cloud or custom section with no models (profile_sections.rs:58-63 retain_populated_cloud_sections, PROV-127) and folds openai into Codex (handle_impl_5.rs PROV-129); cloud and custom sections are always is_unreachable false (profile_sections.rs:37-46)",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:49:56.810Z"
+        },
+        {
+          "id": 1,
+          "text": "A settings row carries listing: 'reachable' or 'unreachable' from its list_providers section's is_unreachable, or 'unlisted' when list_providers has no section for its credential row; reachability is never derived from configured",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:49:56.846Z"
+        },
+        {
+          "id": 2,
+          "text": "An unlisted row has no models (fspec offers none), its header status ends with ' · not listed by fspec', and only reachable rows' models are Default model choices",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:49:56.868Z"
+        }
+      ],
+      "nextRuleId": 3,
+      "examples": [
+        {
+          "id": 0,
+          "text": "openai credential row unconfigured, list_providers has no openai section -> row listing 'unlisted', models [], header '(not configured) · not listed by fspec'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:49:56.890Z"
+        },
+        {
+          "id": 1,
+          "text": "anthropic credential row with a reachable list_providers section -> listing 'reachable' and its models are Default model choices",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:49:56.910Z"
+        },
+        {
+          "id": 2,
+          "text": "a configured row fspec does not list contributes no Default model choice",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:49:56.931Z"
+        }
+      ],
+      "nextExampleId": 3,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "shared/settings.ts listing enum replaces unreachable; server/settings.ts list() sets it from the matched section; client/settings-model.ts headerStatus and defaultModelChoice read it.",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:49:56.952Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "attachments": [
+        "spec/attachments/FSPEC-069/root-cause.md",
+        "spec/attachments/FSPEC-069/ast-research.md"
+      ],
+      "estimate": 2
     }
   },
   "states": {
@@ -8162,11 +8251,12 @@
       "FSPEC-065",
       "FSPEC-066",
       "FSPEC-067",
-      "FSPEC-068"
+      "FSPEC-068",
+      "FSPEC-069"
     ],
     "blocked": []
   },
   "prefixCounters": {
-    "FSPEC": 68
+    "FSPEC": 69
   }
 }

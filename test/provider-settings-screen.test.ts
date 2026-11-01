@@ -7,7 +7,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { registerSettings, SETTINGS_SCREEN_ID } from "../client/register.js";
 import { runWrite } from "../client/settings-actions.js";
-import { buildTree, removePrompt, screenState, sheetFor, testBadge, toggleExpanded } from "../client/settings-model.js";
+import { buildTree, defaultModelChoice, removePrompt, screenState, sheetFor, testBadge, toggleExpanded } from "../client/settings-model.js";
 import { createSettingsFeed } from "../server/settings.js";
 import type * as wire from "../server/wire.js";
 import type { SettingsProvider } from "../shared/settings.js";
@@ -27,7 +27,7 @@ function row(id: string, overrides: Partial<SettingsProvider> = {}): SettingsPro
     maskedKey: null,
     source: null,
     modelCount: 0,
-    unreachable: true,
+    listing: "unlisted",
     models: [],
     profiles: [],
     providerId: id,
@@ -38,21 +38,21 @@ function row(id: string, overrides: Partial<SettingsProvider> = {}): SettingsPro
 
 /** The feed's rows for the credentials used across the tree scenarios. */
 const feedRows: SettingsProvider[] = [
-  row("anthropic", { displayName: "Anthropic", configured: true, credentialType: "oauth", modelCount: 17, unreachable: false }),
+  row("anthropic", { displayName: "Anthropic", configured: true, credentialType: "oauth", modelCount: 17, listing: "reachable" }),
   row("openai", {
     displayName: "OpenAI",
     configured: true,
     maskedKey: "sk-••••abcd",
     source: "env",
     modelCount: 30,
-    unreachable: false,
+    listing: "reachable",
     profiles: [
       { name: "Strata", baseUrl: "http://10.0.0.5:8080/v1" },
       { name: "spark", baseUrl: "http://spark:8000/v1" },
     ],
   }),
-  row("openai:Strata", { displayName: "Strata", providerId: "openai", profileName: "Strata", configured: true, credentialType: "custom", modelCount: 1 }),
-  row("openai:spark", { displayName: "spark", providerId: "openai", profileName: "spark", configured: true, credentialType: "custom", modelCount: 1 }),
+  row("openai:Strata", { displayName: "Strata", providerId: "openai", profileName: "Strata", configured: true, credentialType: "custom", modelCount: 1, listing: "reachable" }),
+  row("openai:spark", { displayName: "spark", providerId: "openai", profileName: "spark", configured: true, credentialType: "custom", modelCount: 1, listing: "reachable" }),
   row("gemini", { displayName: "Gemini" }),
 ];
 
@@ -159,8 +159,12 @@ describe("Feature: Manage fspec providers from a Paseo settings screen", () => {
       const tree = buildTree(rows);
       // @step Then the providers are Anthropic, OpenAI and Gemini in that order
       expect(tree.map((p) => p.displayName)).toEqual(["Anthropic", "OpenAI", "Gemini"]);
-      // @step And their headers read "✓ OAuth [Claude]", "✓ sk-••••abcd [env] (2 profiles)" and "(not configured)"
-      expect(tree.map((p) => p.status)).toEqual(["✓ OAuth [Claude]", "✓ sk-••••abcd [env] (2 profiles)", "(not configured)"]);
+      // @step And their headers read "✓ OAuth [Claude]", "✓ sk-••••abcd [env] (2 profiles)" and "(not configured) · not listed by fspec"
+      expect(tree.map((p) => p.status)).toEqual([
+        "✓ OAuth [Claude]",
+        "✓ sk-••••abcd [env] (2 profiles)",
+        "(not configured) · not listed by fspec",
+      ]);
     });
   });
 
@@ -357,6 +361,29 @@ describe("Feature: Manage fspec providers from a Paseo settings screen", () => {
       expect(
         await runWrite({ write: async () => Promise.reject(new Error("rpc timed out")), reload, refreshPaseo }),
       ).toEqual({ ok: false, error: "rpc timed out" });
+    });
+  });
+
+  describe("Scenario: An unlisted provider says so and offers no Default model choice", () => {
+    it("marks the unlisted header and keeps its row out of the Default model", () => {
+      // @step Given provider rows anthropic with listing "reachable" and model "claude-sonnet-4" and openai configured with key "sk-••••abcd" and listing "unlisted"
+      const providers = [
+        row("anthropic", {
+          displayName: "Anthropic",
+          configured: true,
+          maskedKey: "sk-ant-••••mnop",
+          listing: "reachable",
+          models: [{ id: "claude-sonnet-4", displayName: "Claude Sonnet 4", contextWindow: 200000 }],
+        }),
+        row("openai", { displayName: "OpenAI", configured: true, maskedKey: "sk-••••abcd", listing: "unlisted" }),
+      ];
+      // @step When the settings screen builds its tree and its Default model row
+      const tree = buildTree(providers);
+      const choice = defaultModelChoice({ state: "ready", workspace: "/work/app", providers, defaultModel: null });
+      // @step Then OpenAI's header reads "✓ sk-••••abcd · not listed by fspec"
+      expect(tree.find((p) => p.id === "openai")?.status).toBe("✓ sk-••••abcd · not listed by fspec");
+      // @step And the Default model row offers only "anthropic/claude-sonnet-4"
+      expect(choice.options.map((option) => option.value)).toEqual(["", "anthropic/claude-sonnet-4"]);
     });
   });
 });

@@ -29,7 +29,12 @@ export const settingsProviderSchema = z.object({
   maskedKey: z.string().nullable(),
   source: z.string().nullable(),
   modelCount: z.number(),
-  unreachable: z.boolean(),
+  /**
+   * FSPEC-069: "reachable" / "unreachable" from the row's list_providers section
+   * (is_unreachable); "unlisted" when list_providers has no section for a
+   * credential row, i.e. fspec offers no models for it.
+   */
+  listing: z.enum(["reachable", "unreachable", "unlisted"]),
   models: z.array(settingsModelSchema),
   /** The provider's named profiles (list_provider_settings); never their keys. */
   profiles: z.array(z.object({ name: z.string(), baseUrl: z.string() })),

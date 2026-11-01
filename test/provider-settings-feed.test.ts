@@ -103,7 +103,7 @@ describe("Feature: Serve fspec provider settings to Paseo plugin UI", () => {
         credentialType: "api_key",
         maskedKey: "sk-ant-••••mnop",
         source: "file",
-        unreachable: false,
+        listing: "reachable",
       });
       expect(listed.providers[0]!.models).toHaveLength(12);
       expect(listed.providers[1]).toMatchObject({ configured: false, maskedKey: null, source: null, models: [] });
@@ -308,6 +308,21 @@ describe("Feature: Serve fspec provider settings to Paseo plugin UI", () => {
       // @step Then the lookup rejects with "fspec daemon list_provider_credentials failed: credential store locked"
       await expect(key).rejects.toThrow("fspec daemon list_provider_credentials failed: credential store locked");
       expect(daemon.sockets.every((socket) => socket.readyState !== 1)).toBe(true);
+    });
+  });
+
+  describe("Scenario: A credential row fspec lists no provider for is unlisted", () => {
+    it("answers listing from the provider section, or unlisted without one", async () => {
+      // @step Given the fspec daemon lists credentials for anthropic and openai but list_providers has a reachable section only for anthropic
+      const { feed } = setup();
+      // @step When the client calls fspec.settings.list
+      const listed = await feed.list({});
+      if (listed.state !== "ready") throw new Error(listed.reason);
+      const byId = new Map(listed.providers.map((row) => [row.id, row]));
+      // @step Then anthropic has listing "reachable"
+      expect(byId.get("anthropic")?.listing).toBe("reachable");
+      // @step And openai has listing "unlisted" and no models
+      expect(byId.get("openai")).toMatchObject({ listing: "unlisted", models: [] });
     });
   });
 });

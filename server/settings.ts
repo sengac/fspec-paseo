@@ -38,6 +38,7 @@ import type {
   ModelEntry,
   ProfileDefinition,
   ProviderCredentialInput,
+  ProviderInfo,
   ProviderSettingsConfig,
 } from "./wire.js";
 
@@ -158,6 +159,10 @@ export function createSettingsFeed(
 
   const logins = createOAuthLogins(call, tuning.oauthHoldMs);
 
+  function reach(provider: ProviderInfo): "reachable" | "unreachable" {
+    return provider.isUnreachable ? "unreachable" : "reachable";
+  }
+
   /** One provider's stored settings and profiles, keys included: server-side only. */
   async function settingsOf(providerId: string): Promise<ProviderSettingsConfig | null> {
     const { result } = await call({ method: "listProviderSettings" });
@@ -197,7 +202,7 @@ export function createSettingsFeed(
             source: row.source,
             // The daemon's model_count reads 0 for OAuth providers; the listed models are authoritative.
             modelCount: provider?.models.length ?? row.modelCount,
-            unreachable: provider?.isUnreachable ?? !row.configured,
+            listing: provider === undefined ? "unlisted" : reach(provider),
             models: models(provider?.models ?? []),
             profiles: profilesOf.get(row.providerId) ?? [],
             // A credential row is a base provider, never a profile section.
@@ -215,7 +220,7 @@ export function createSettingsFeed(
             maskedKey: null,
             source: null,
             modelCount: provider.models.length,
-            unreachable: provider.isUnreachable,
+            listing: reach(provider),
             models: models(provider.models),
             profiles: profilesOf.get(provider.key) ?? [],
             providerId: provider.providerId,

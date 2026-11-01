@@ -50,7 +50,7 @@ describe("Feature: Answer fspec sub-agent approvals and questions from the paren
       // @step Then the provider emitted session.permission on "paseo-1" titled "Sub-agent sub-9: Allow Bash?"
       expect(permission).toMatchObject({ sessionId: "paseo-1", request: { title: "Sub-agent sub-9: Allow Bash?" } });
       // @step And when Paseo allows it on "paseo-1" the provider called reply_interaction_checked for daemon session "sub-9" and request "p-7"
-      await h.send({ type: "session.permission", sessionId: "paseo-1", permissionId: permission.request.id, response: { behavior: "allow", selectedActionId: "approve_once" } });
+      await h.send({ type: "session.permission", sessionId: "paseo-1", permissionId: permission.request.id, response: { behavior: "allow", selectedActionId: "approve" } });
       await vi.waitFor(() => expect(h.daemon.sent("replyInteractionChecked")).toMatchObject([{ sessionId: "sub-9", requestId: "p-7" }]));
       // @step And it emitted session.permission_resolved on "paseo-1"
       const resolved = await h.waitFor("session.permission_resolved");

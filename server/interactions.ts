@@ -11,6 +11,7 @@ import type {
   ProviderPermissionResponse,
   ProviderToolCallDetail,
 } from "@getpaseo/plugin/server/provider";
+import { asObject, type Json, list, nullableList, nullableObject, nullableString, object, string } from "./json-fields.js";
 import type { HitlAnswer, HitlQuestion } from "./wire.js";
 
 export type PauseKind = "triple" | "confirm" | "continue";
@@ -51,67 +52,61 @@ const TRIPLE_CHOICES: Record<string, string> = {
   deny: "Deny",
 };
 
-type Json = Record<string, unknown>;
-const record = (value: unknown): Json | null =>
-  value !== null && typeof value === "object" && !Array.isArray(value) ? (value as Json) : null;
-const text = (value: unknown): string => (typeof value === "string" ? value : "");
+/** fspec PauseKind as the snapshot writes it (format!("{:?}")). */
+const PAUSE_KINDS = ["Continue", "Confirm", "Triple"] as const;
+const SNAPSHOT = "interaction snapshot";
 
 /**
- * Parses the snapshot JSON { pause: { request_id, state }, hitl: { request_id, state } }.
- * A pause wins over a HITL question; null when nothing is pending.
+ * Parses the snapshot JSON { pause: { request_id, state }, hitl: { request_id, state } }
+ * exactly as fspec writes it (rust/sessions/src/background_session/interactions.rs,
+ * FSPEC-068): any other shape is an error naming the field. A pause wins over
+ * a HITL question; null when nothing is pending.
  */
-/** The snapshot's pause kind (fspec PauseKind: Confirm, Triple, Continue); any other is an error. */
-function pauseKindOf(kind: string): PauseKind {
-  switch (kind.toLowerCase()) {
-    case "confirm":
-      return "confirm";
-    case "triple":
-      return "triple";
-    case "continue":
-      return "continue";
-    default:
-      throw new Error(`unknown fspec pause kind ${kind}`);
-  }
-}
-
 export function parseInteractionSnapshot(json: string): Interaction | null {
-  const snapshot = record(JSON.parse(json)) ?? {};
-  const pause = record(snapshot["pause"]);
-  const pauseState = record(pause?.["state"]);
-  if (pause && pauseState) {
-    const kind = text(pauseState["kind"]);
+  const snapshot = asObject(JSON.parse(json), SNAPSHOT);
+  const pause = object(snapshot, "pause", SNAPSHOT);
+  const pauseRequestId = string(pause, "request_id", `${SNAPSHOT} pause`);
+  const pauseState = nullableObject(pause, "state", `${SNAPSHOT} pause`);
+  const hitl = object(snapshot, "hitl", SNAPSHOT);
+  const hitlRequestId = string(hitl, "request_id", `${SNAPSHOT} hitl`);
+  const hitlState = nullableObject(hitl, "state", `${SNAPSHOT} hitl`);
+  const questions = hitlState === null ? null : hitlQuestions(hitlState);
+  if (pauseState !== null) {
+    const at = `${SNAPSHOT} pause.state`;
+    const kind = string(pauseState, "kind", at);
+    if (!(PAUSE_KINDS as readonly string[]).includes(kind)) throw new Error(`unknown fspec pause kind ${kind}`);
     return {
       kind: "pause",
-      requestId: text(pause["request_id"]),
-      pauseKind: pauseKindOf(kind),
-      toolName: text(pauseState["tool_name"]),
-      message: text(pauseState["message"]),
-      details: typeof pauseState["details"] === "string" ? pauseState["details"] : null,
+      requestId: pauseRequestId,
+      pauseKind: kind.toLowerCase() as PauseKind,
+      toolName: string(pauseState, "tool_name", at),
+      message: string(pauseState, "message", at),
+      details: nullableString(pauseState, "details", at),
     };
   }
-  const hitl = record(snapshot["hitl"]);
-  const hitlState = record(hitl?.["state"]);
-  const questions = Array.isArray(hitlState?.["questions"]) ? (hitlState["questions"] as unknown[]) : [];
-  if (hitl && questions.length > 0) {
+  return questions === null ? null : { kind: "hitl", requestId: hitlRequestId, questions };
+}
+
+/** fspec's HitlRequest { questions: [{ id, header, question, options: [{ label, description }] | null }] }. */
+function hitlQuestions(state: Json): HitlQuestion[] {
+  const at = `${SNAPSHOT} hitl.state`;
+  const raw = list(state, "questions", at);
+  if (raw.length === 0) throw new Error(`${at}.questions is empty`);
+  return raw.map((entry, index) => {
+    const where = `${at}.questions[${index}]`;
+    const question = asObject(entry, where);
+    const options = nullableList(question, "options", where) ?? [];
     return {
-      kind: "hitl",
-      requestId: text(hitl["request_id"]),
-      questions: questions.map((raw) => {
-        const question = record(raw) ?? {};
-        const options = Array.isArray(question["options"]) ? (question["options"] as unknown[]) : [];
-        return {
-          id: text(question["id"]),
-          header: text(question["header"]),
-          question: text(question["question"]),
-          options: options.map((option) => ({
-            label: text(record(option)?.["label"]),
-            description: text(record(option)?.["description"]),
-          })),
-        };
+      id: string(question, "id", where),
+      header: string(question, "header", where),
+      question: string(question, "question", where),
+      options: options.map((option, n) => {
+        const optionAt = `${where}.options[${n}]`;
+        const fields = asObject(option, optionAt);
+        return { label: string(fields, "label", optionAt), description: string(fields, "description", optionAt) };
       }),
     };
-  }
-  return null;
+  });
 }
 
 export function questionHeader(question: HitlQuestion): string {
@@ -171,10 +166,15 @@ export function permissionRequest(
  * user's own text. fspec wants selected labels or free text per question.
  */
 function hitlAnswers(questions: HitlQuestion[], raw: unknown): HitlAnswer[] {
-  const answers = record(raw) ?? {};
+  // FSPEC-068: an allowed answer without answers is not "no answer".
+  if (raw === null || typeof raw !== "object" || Array.isArray(raw)) {
+    throw new Error("the answer to the fspec question carries no answers");
+  }
+  const answers = raw as Record<string, unknown>;
   return questions.map((question) => {
     const value = answers[questionHeader(question)];
-    const answer = typeof value === "string" ? value.trim() : "";
+    if (typeof value !== "string") throw new Error(`the answer to the fspec question carries no answer for ${questionHeader(question)}`);
+    const answer = value.trim();
     if (answer === "") return { id: question.id, selected: [], other: null };
     const labels = new Set(question.options.map((option) => option.label));
     const parts = answer.split(", ");
@@ -196,10 +196,13 @@ export function interactionReply(interaction: Interaction, response: ProviderPer
   if (interaction.pauseKind === "continue") return { method: "pause_resume", arguments: "{}" };
   const { behavior, selectedActionId } = response;
   if (interaction.pauseKind === "triple") {
-    const choice =
-      (selectedActionId !== undefined ? TRIPLE_CHOICES[selectedActionId] : undefined) ??
-      (behavior === "allow" ? "Approve" : "Deny");
+    // An action id is one of the request's actions (FSPEC-068); without one the behavior answers.
+    const choice = selectedActionId === undefined ? (behavior === "allow" ? "Approve" : "Deny") : TRIPLE_CHOICES[selectedActionId];
+    if (choice === undefined) throw new Error(`unknown fspec approval action ${selectedActionId}`);
     return { method: "pause_triple", arguments: JSON.stringify({ choice }) };
+  }
+  if (selectedActionId !== undefined && selectedActionId !== "accept" && selectedActionId !== "deny") {
+    throw new Error(`unknown fspec approval action ${selectedActionId}`);
   }
   const accept = selectedActionId !== undefined ? selectedActionId === "accept" : behavior === "allow";
   return { method: "pause_confirm", arguments: JSON.stringify({ accept }) };

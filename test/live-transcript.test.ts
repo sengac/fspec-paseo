@@ -403,4 +403,57 @@ describe("Feature: Stream the live fspec transcript into Paseo's timeline", () =
       expect(opened.at(-1)).toMatchObject({ type: "session.ready", sessionId: "paseo-1" });
     });
   });
+
+  describe("Scenario: A transcript entry missing a field fails the replay with the field", () => {
+    it("replays what decoded and warns naming the field", async () => {
+      // @step Given a persisted fspec session whose transcript holds UserInput "hi" and then the entry {"Text":{"text":"hello"}} without its correlation fields
+      const h = await harness();
+      h.daemon.handlers.getTranscriptPage = transcriptPages([
+        JSON.stringify({ UserInput: { text: "hi" } }),
+        JSON.stringify({ Text: { text: "hello" } }),
+      ]);
+      // @step When Paseo reopens it with history "replay"
+      const opened = await h.open("paseo-1", {}, { version: 1, data: { sessionId: DAEMON } }, "replay");
+      // @step Then the provider published user_message "hi" and a warning session.notice "transcript entry Text.correlationId is not a string or null"
+      expect(h.ofType("timeline.item", opened).map((event) => event.item)).toEqual([
+        expect.objectContaining({ type: "user_message", text: "hi" }),
+      ]);
+      const notice = h.ofType("session.notice", opened)[0]!.notice;
+      expect(notice).toMatchObject({ severity: "warning", description: "transcript entry Text.correlationId is not a string or null" });
+      // @step And the open still completed with session.ready
+      expect(opened.at(-1)).toMatchObject({ type: "session.ready", sessionId: "paseo-1" });
+    });
+  });
+
+  describe("Scenario: Transcript entries decode only fspec's serde shapes", () => {
+    it("names the wrong variant and field", () => {
+      // @step Given transcript entries with a severity "Critical", an interruption reason "timeout", a body that is a string and a null entry
+      const entries = [
+        JSON.stringify({ UserNotification: { message: "m", severity: "Critical" } }),
+        JSON.stringify({ InterruptedWithReason: { queuedInputs: [], reason: "timeout" } }),
+        JSON.stringify({ UserInput: "hi" }),
+        "null",
+        JSON.stringify({ Done: null, Error: { error: "x" } }),
+      ];
+      // @step When the codec decodes them
+      const failures = entries.map((entry) => {
+        try {
+          parseStreamChunkJson(entry);
+          return "decoded";
+        } catch (error) {
+          return (error as Error).message;
+        }
+      });
+      // @step Then each fails naming the variant and field that is wrong
+      expect(failures).toEqual([
+        "transcript entry UserNotification.severity is not one of Info, Warning, Error",
+        "transcript entry InterruptedWithReason.reason is not one of user, loopDetector",
+        "transcript entry UserInput body is not an object",
+        "transcript entry is not a unit variant string or a one-key object",
+        "transcript entry is not a unit variant string or a one-key object",
+      ]);
+      // @step And the golden StreamChunk JSON lines still decode
+      expect(golden("stream-chunk-json.txt").trim().split("\n").map(parseStreamChunkJson)).toHaveLength(9);
+    });
+  });
 });

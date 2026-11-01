@@ -2,8 +2,8 @@
 @core
 @provider
 @FSPEC-006
+@FSPEC-068
 Feature: Stream the live fspec transcript into Paseo's timeline
-
   """
   server/transcript.ts is a per-session fold from StreamChunk to timeline snapshots and usage, called by the FSPEC-005 registry for live Envelope::Event chunks and for replayed transcript entries. Terminal chunks first terminalize transient rows through the fold, then FSPEC-005 settles the turn. Replay adds get_transcript_page (idx 117) to server/wire.ts (TranscriptCursor/Page/Fragment/Error bincode shapes from rpc-types/src/transcript.rs) and parses the assembled JSON StreamChunks (serde externally tagged) in server/transcript-json.ts.
   """
@@ -26,6 +26,7 @@ Feature: Stream the live fspec transcript into Paseo's timeline
   #   11. History replay decodes each assembled transcript entry as a serde-JSON StreamChunk (externally tagged, e.g. {"Text":{"text":..}} / "Done") and folds it through the same mapper as the live stream; replay publishes timeline items only (no usage, no session.turn) with timestamp = original.timestamp when present
   #   12. Replay pages with get_transcript_page(session_id, cursor, snapshot_end, max_bytes 65536): first call cursor None + snapshot_end None, then the returned snapshot_end and next_cursor until complete; a TranscriptError does not fail the open — it publishes a warning session.notice and the session still becomes ready
   #   13. Item ids never collide with rows Paseo already stored: tool items use 'tool:<daemon tool call id>'; every other item is '<epoch>:<n>:<kind>' where epoch is unique per session.open (so a reopened session never reuses an earlier open's ids) and n is a per-open counter of rendered items; snapshots of one item always reuse its id
+  #   14. FSPEC-068: a transcript entry is a bare unit-variant string or a one-key object whose body is an object; every field of the variant (rust/rpc-types/src/stream_chunk.rs, chunk_support.rs) must be present with its serde type, Options null or that type, NotificationSeverity Info|Warning|Error, InterruptionReason user|loopDetector; anything else fails the replay with 'transcript entry <Variant>.<field> is not <type>', reported as the history warning
   #
   # EXAMPLES:
   #   1. ToolProgress {toolCallId:'call-1', outputChunk:'a.txt\n'} re-publishes tool:call-1 with detail.output 'a.txt\n'; ToolResult {toolCallId:'call-1', content:'a.txt\nb.txt\n', isError:false} re-publishes it completed with output 'a.txt\nb.txt\n'; a ToolCall named 'Read' with input '{"path":"x"}' renders detail {type:'unknown', input:{path:'x'}, output:null}
@@ -56,7 +57,6 @@ Feature: Stream the live fspec transcript into Paseo's timeline
   #   2. Chunks the timeline does not render (SessionStateChange, ProviderWaiting, ResponseAttempt*, ContextSnapshot, work-unit/footer/debug/isolation updates, unsupported indices) are ignored and do not close an open text segment
   #
   # ========================================
-
   Background: User Story
     As a Paseo user running an fspec session
     I want to see the agent's live transcript (text, reasoning, tool calls, notifications, errors, compaction, usage) in Paseo's timeline as it streams
@@ -69,13 +69,11 @@ Feature: Stream the live fspec transcript into Paseo's timeline
     And it published tool_call "tool:call-1" with callId "call-1", status running, error null and shell detail command "ls"
     And the text "Done" was published under a new assistant_message id
 
-
   Scenario: Reasoning streams as its own reasoning item
     Given an open fspec session with an active Paseo turn
     When the daemon streams Thinking "plan", Thinking "ning", then Text "ok"
     Then the provider published reasoning snapshots "plan" then "planning" under one item id
     And the text "ok" was published as a separate assistant_message item
-
 
   Scenario: Tool progress and results update the same tool call item
     Given an open fspec session with a running Bash tool call "call-1"
@@ -83,12 +81,10 @@ Feature: Stream the live fspec transcript into Paseo's timeline
     Then the provider re-published "tool:call-1" running with shell output "a.txt\n" and then completed with output "a.txt\nb.txt\n"
     And a ToolCall named "Read" with input {"path":"x"} is published with unknown detail input {"path":"x"} and output null
 
-
   Scenario: A failing tool result marks the tool call failed
     Given an open fspec session with a running tool call "call-1"
     When the daemon streams a ToolResult for "call-1" with isError true and content "permission denied"
     Then the provider published "tool:call-1" with status failed and error "permission denied"
-
 
   Scenario: Running tool calls are terminalized before the terminal turn event
     Given an open fspec session whose active turn has a running tool call "call-2"
@@ -96,26 +92,22 @@ Feature: Stream the live fspec transcript into Paseo's timeline
     Then the provider re-published "tool:call-2" with status canceled
     And that tool_call event came before the session.turn canceled event
 
-
   Scenario: Notifications and errors render as timeline rows
     Given an open fspec session with an active Paseo turn
     When the daemon streams UserNotification "Rate limited" with severity Warning and then Error "provider exploded"
     Then the provider published a notification item with level warning and message "Rate limited"
     And it published an error item with message "provider exploded" before the session.turn failed event
 
-
   Scenario: Compaction renders as one row that goes from loading to completed
     Given an open fspec session with an active Paseo turn
     When the daemon streams CompactionProgressUpdate with progress and then CompactionComplete with original_tokens 90000
     Then the provider published one compaction item with status loading and then the same id with status completed and preTokens 90000
-
 
   Scenario: Token and context usage publish session.usage
     Given an open fspec session whose active turn is "turn-1"
     When the daemon streams TokenUpdate input 1200, output 300, cache_read 800 and ContextFillUpdate effective_tokens 50000 of context_window 200000
     Then the provider published session.usage with turnId "turn-1" and usage inputTokens 1200, outputTokens 300, cachedInputTokens 800
     And it published session.usage with contextWindowUsedTokens 50000 and contextWindowMaxTokens 200000
-
 
   Scenario: Activity from another client renders without inventing turns
     Given an open fspec session with no active Paseo turn
@@ -124,7 +116,6 @@ Feature: Stream the live fspec transcript into Paseo's timeline
     And it emitted no session.turn event
     And a Paseo prompt "fix it" with clientMessageId "client-1" followed by UserInput "fix it" publishes a user_message carrying clientMessageId "client-1"
 
-
   Scenario: Reopening with history replay publishes the daemon transcript before ready
     Given a persisted fspec session "fspec-sess-42" whose daemon transcript holds UserInput "hi", Text "hello" and Done across several pages
     When Paseo reopens it with that persistence and history "replay"
@@ -132,10 +123,20 @@ Feature: Stream the live fspec transcript into Paseo's timeline
     And it published user_message "hi" and assistant_message "hello" between session.config and session.ready with no session.turn or session.usage
     And live chunks after ready are published under new ids that do not collide with the replayed ones
 
-
   Scenario: A transcript error does not fail a replaying open
     Given a persisted fspec session whose get_transcript_page fails with SessionUnavailable
     When Paseo reopens it with history "replay"
     Then the provider published a warning session.notice naming the transcript error
     And the open still completed with session.ready
 
+  Scenario: A transcript entry missing a field fails the replay with the field
+    Given a persisted fspec session whose transcript holds UserInput "hi" and then the entry {"Text":{"text":"hello"}} without its correlation fields
+    When Paseo reopens it with history "replay"
+    Then the provider published user_message "hi" and a warning session.notice "transcript entry Text.correlationId is not a string or null"
+    And the open still completed with session.ready
+
+  Scenario: Transcript entries decode only fspec's serde shapes
+    Given transcript entries with a severity "Critical", an interruption reason "timeout", a body that is a string and a null entry
+    When the codec decodes them
+    Then each fails naming the variant and field that is wrong
+    And the golden StreamChunk JSON lines still decode

@@ -9,6 +9,7 @@ import {
   type ProviderRegistration,
 } from "@getpaseo/plugin/server/provider";
 import { buildCatalog } from "./catalog.js";
+import { describeError, logFailure } from "./log.js";
 import {
   createFspecDaemonClient,
   type DaemonClientOptions,
@@ -187,6 +188,7 @@ function createConnection(
     }
   }
 
+  let answerFailures = 0;
   function failed(input: ProviderInput, failure: unknown): void {
     if (input.type === "session.prompt") {
       emit({
@@ -197,6 +199,19 @@ function createConnection(
       });
     } else if ("requestId" in input) {
       emit({ type: "request.failed", requestId: input.requestId, error: providerError(failure) });
+    } else {
+      // A permission answer has no request to fail (FSPEC-068): log it and show it on the session.
+      logFailure(`fspec could not apply the answer to ${input.permissionId} (${input.sessionId})`, failure);
+      emit({
+        type: "session.notice",
+        sessionId: input.sessionId,
+        notice: {
+          id: `answer-error:${input.permissionId}:${++answerFailures}`,
+          severity: "error",
+          title: "fspec could not apply your answer",
+          description: describeError(failure),
+        },
+      });
     }
   }
 

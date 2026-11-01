@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:42:14.515Z"
+    "lastUpdated": "2026-11-01T03:47:18.797Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -7947,22 +7947,148 @@
       "id": "FSPEC-068",
       "title": "Decode transcript entries and interaction snapshots strictly",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-11-01T03:22:19.739Z",
-      "updatedAt": "2026-11-01T03:23:57.220Z",
+      "updatedAt": "2026-11-01T03:47:18.797Z",
       "description": "server/transcript-json.ts and server/interactions.ts default every missing or mistyped field of daemon JSON to an empty string, 0, an empty list, info severity or a user interruption, and map an unknown Paseo action or a missing HITL answer object to a guessed reply. Decode the serde shapes exactly (rpc-types stream_chunk.rs, chunk_support.rs, background_session/interactions.rs) and fail with the field that is wrong.",
       "epic": "provider-plugin",
       "children": [],
       "attachments": [
         "spec/attachments/FSPEC-068/root-cause.md",
         "spec/attachments/FSPEC-068/ast-research.md"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:43:00.919Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:43:23.844Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:44:16.087Z"
+        },
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:46:01.557Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:46:01.807Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:46:11.955Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T03:47:11.443Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T03:47:18.797Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "A transcript entry is a bare string naming a unit variant or an object with exactly one key, the variant, whose body is an object; anything else is an error",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:43:00.960Z"
+        },
+        {
+          "id": 1,
+          "text": "Every field of a decoded StreamChunk variant (rust/rpc-types/src/stream_chunk.rs, chunk_support.rs) must be present with its serde type; Option fields are null or that type; a missing or mistyped field fails with 'transcript entry <Variant>.<field> is not <type>'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:43:00.979Z"
+        },
+        {
+          "id": 2,
+          "text": "NotificationSeverity is 'Info', 'Warning' or 'Error' and InterruptionReason 'user' or 'loopDetector'; any other value is an error naming it",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:43:00.999Z"
+        },
+        {
+          "id": 3,
+          "text": "A transcript entry that does not decode fails the replay, which the open reports as the 'fspec history could not be replayed' warning (FSPEC-012)",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:43:01.018Z"
+        },
+        {
+          "id": 4,
+          "text": "The interaction snapshot needs pause and hitl objects with a string request_id and a state that is null or the exact PauseState / HitlRequest shape (rust/sessions/src/background_session/interactions.rs:72-77); pause kind is 'Continue', 'Confirm' or 'Triple'; HITL options are null or a list; a HITL request without questions is an error; errors surface as the FSPEC-059 pause-unreadable notice",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:43:01.036Z"
+        },
+        {
+          "id": 5,
+          "text": "An allowed HITL answer needs an answers object; an approval answer whose selectedActionId is not one of the request's actions is an error, never mapped from its behavior",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:43:01.055Z"
+        },
+        {
+          "id": 6,
+          "text": "A Paseo permission answer the provider cannot apply (a refused mapping, a failed reply or stdin write) has no request to fail: it is logged and shown as an error session.notice 'fspec could not apply your answer' with the reason",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:46:01.611Z"
+        }
+      ],
+      "nextRuleId": 7,
+      "examples": [
+        {
+          "id": 0,
+          "text": "{\"Text\":{\"text\":\"hi\"}} (no correlationId) -> 'transcript entry Text.correlationId is not a string or null'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:43:01.074Z"
+        },
+        {
+          "id": 1,
+          "text": "{\"UserNotification\":{\"message\":\"m\",\"severity\":\"Critical\"}} -> 'transcript entry UserNotification.severity is not one of Info, Warning, Error'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:43:01.091Z"
+        },
+        {
+          "id": 2,
+          "text": "{\"Done\":null} -> 'transcript entry Done is not a unit variant string or a one-key object'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:43:01.111Z"
+        },
+        {
+          "id": 3,
+          "text": "snapshot {\"pause\":{\"request_id\":\"p-1\",\"state\":{\"kind\":\"Triple\",\"tool_name\":\"Bash\",\"message\":7,\"details\":null}},...} -> 'interaction snapshot pause.state.message is not a string'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:43:01.128Z"
+        },
+        {
+          "id": 4,
+          "text": "triple approval answered with selectedActionId 'maybe' -> 'unknown fspec approval action maybe'",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:43:01.147Z"
+        },
+        {
+          "id": 5,
+          "text": "Triple approval answered with action 'maybe' -> error notice 'fspec could not apply your answer' / 'unknown fspec approval action maybe'; the approval stays shown",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:46:01.632Z"
+        }
+      ],
+      "nextExampleId": 6,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/transcript-json.ts strict readers (field(body, name, type)) per variant. server/interactions.ts strict snapshot parser and strict answers. New shared helper server/json-fields.ts (required/nullable string, number, boolean, string list, object) used by both.",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:43:01.166Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "estimate": 5
     }
   },
   "states": {
-    "backlog": [
-      "FSPEC-068"
-    ],
+    "backlog": [],
     "specifying": [],
     "testing": [],
     "implementing": [],
@@ -8035,7 +8161,8 @@
       "FSPEC-064",
       "FSPEC-065",
       "FSPEC-066",
-      "FSPEC-067"
+      "FSPEC-067",
+      "FSPEC-068"
     ],
     "blocked": []
   },

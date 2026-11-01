@@ -7,6 +7,7 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { interactionReply, type Interaction } from "../server/interactions.js";
 import * as wire from "../server/wire.js";
 import { interactionSnapshot, type SnapshotHitl, type SnapshotPause } from "./support/fake-daemon.js";
 import { disposeHarnesses, harness, toolCall } from "./support/provider-harness.js";
@@ -137,6 +138,68 @@ describe("Feature: Answer fspec interactions with the request-bound interaction 
       const hex = Buffer.from(frame).toString("hex");
       const str = (value: string) => Buffer.from(new Uint8Array(new BigUint64Array([BigInt(value.length)]).buffer)).toString("hex") + Buffer.from(value).toString("hex");
       expect(hex.endsWith("78000000" + str("s") + str("pause_resume") + str("r") + str("{}"))).toBe(true);
+    });
+  });
+
+  describe("Scenario: A malformed interaction snapshot is shown as unreadable", () => {
+    it("shows the unreadable-pause notice naming the field", async () => {
+      // @step Given a paused session whose interaction snapshot pause state has message 7
+      const h = await harness();
+      await h.open("paseo-1");
+      await h.send(h.prompt("paseo-1", "go"));
+      await h.waitFor("session.turn", (event) => event.state === "started");
+      h.daemon.handlers.getInteractionSnapshot = () => ({
+        ok: true,
+        value: JSON.stringify({
+          pause: { request_id: "p-1", state: { kind: "Triple", tool_name: "Bash", message: 7, details: null } },
+          hitl: { request_id: "", state: null },
+        }),
+      });
+      // @step When the provider reads the snapshot
+      await h.stream(DAEMON, toolCall("call-1", "Bash", { command: "ps" }), { type: "sessionStateChange", state: "paused" });
+      // @step Then the session shows the error notice "fspec paused this session but the pause could not be read" naming "interaction snapshot pause.state.message is not a string"
+      const notice = await h.waitFor("session.notice", (event) => event.notice.title === "fspec paused this session but the pause could not be read");
+      expect(notice.notice).toMatchObject({ severity: "error", description: "interaction snapshot pause.state.message is not a string" });
+      // @step And no permission request is emitted
+      expect(h.ofType("session.permission")).toEqual([]);
+    });
+  });
+
+  describe("Scenario: Answers that do not fit the request are refused", () => {
+    it("refuses an unknown action and a question answer without answers", () => {
+      // @step Given a Triple approval request and a HITL question request
+      const approval: Interaction = { kind: "pause", requestId: "p-1", pauseKind: "triple", toolName: "Bash", message: "risky", details: null };
+      const question: Interaction = {
+        kind: "hitl",
+        requestId: "h-1",
+        questions: [{ id: "q1", header: "Env", question: "Which?", options: [{ label: "dev", description: "" }] }],
+      };
+      // @step When Paseo answers the approval with action "maybe" and allows the question without an answers object
+      const approve = () => interactionReply(approval, { behavior: "allow", selectedActionId: "maybe" });
+      const answer = () => interactionReply(question, { behavior: "allow" });
+      // @step Then mapping the approval fails with "unknown fspec approval action maybe"
+      expect(approve).toThrow("unknown fspec approval action maybe");
+      // @step And mapping the question fails with "the answer to the fspec question carries no answers"
+      expect(answer).toThrow("the answer to the fspec question carries no answers");
+      expect(interactionReply(approval, { behavior: "deny" })).toEqual({ method: "pause_triple", arguments: '{"choice":"Deny"}' });
+    });
+  });
+
+  describe("Scenario: An answer the provider cannot apply is shown on the session", () => {
+    it("shows an error notice and keeps the approval", async () => {
+      // @step Given a permission request for a Triple approval
+      const logged = vi.spyOn(console, "error").mockImplementation(() => {});
+      const { h, request } = await pausedWith({ pause: { requestId: "p-7", kind: "Triple", toolName: "Bash", message: "risky" } });
+      // @step When Paseo answers it with action "maybe"
+      await h.send({ type: "session.permission", sessionId: "paseo-1", permissionId: request.request.id, response: { behavior: "allow", selectedActionId: "maybe" } });
+      // @step Then the session shows the error notice "fspec could not apply your answer" naming "unknown fspec approval action maybe"
+      const notice = await h.waitFor("session.notice", (event) => event.notice.title === "fspec could not apply your answer");
+      expect(notice.notice).toMatchObject({ severity: "error", description: "unknown fspec approval action maybe" });
+      expect(logged).toHaveBeenCalledWith(expect.stringContaining("unknown fspec approval action maybe"));
+      // @step And the approval is not resolved and no reply was sent
+      expect(h.ofType("session.permission_resolved")).toEqual([]);
+      expect(h.daemon.sent("replyInteractionChecked")).toEqual([]);
+      logged.mockRestore();
     });
   });
 });

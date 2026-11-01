@@ -526,6 +526,14 @@ completed/failed, `UserNotification`(8)→ notification, `Error`(14)→ error,
 `InterruptedWithReason`(30) are turn terminals; an interrupt is followed by a
 `Done` and its `queued_inputs` stay parked in the daemon (§6.9).
 
+**Replayed transcript entries** (`get_transcript_page`) are the same chunks as serde JSON:
+externally tagged, a unit variant as a bare string (`"Done"`), every other variant a
+one-key object whose body carries every field (no `skip_serializing_if`, `Option`s are
+`null`; `NotificationSeverity` is `"Info"|"Warning"|"Error"`, `InterruptionReason`
+`"user"|"loopDetector"`). The plugin decodes them strictly (FSPEC-068): a missing or
+mistyped field fails the replay with `transcript entry <Variant>.<field> is not <type>`,
+shown as the history warning; nothing is defaulted.
+
 ### 6.2 Supporting payloads (verbatim)
 
 ```rust
@@ -647,7 +655,12 @@ therefore reads the snapshot for the request and `get_pause_state` only for
 `tool_call_id`, so the Paseo permission is attached to the gated tool call (FSPEC-050). Without
 a `tool_call_id` the transcript knows, the permission is shown unattached — never matched to a
 guessed (e.g. running) call; a snapshot or pause state the plugin cannot read, or a pause kind
-other than Confirm/Triple/Continue, is shown as an error notice (FSPEC-059).
+other than Confirm/Triple/Continue, is shown as an error notice (FSPEC-059). The snapshot is decoded
+strictly (FSPEC-068): `pause` and `hitl` objects with a string `request_id`, each `state`
+null or exactly the shape above (`options` null or a list, at least one question), or the
+error notice names the field. An answer that does not fit the request (an action id that
+is not one of its actions, a question answer without answers) is never mapped from its
+behavior; it is shown as the error notice `fspec could not apply your answer`.
 
 ### 6.9 Steer, queue and interrupt — `submit_input` (idx 128, RIG-016)
 

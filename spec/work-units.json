@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T03:54:48.796Z"
+    "lastUpdated": "2026-11-01T04:02:05.058Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -8248,6 +8248,76 @@
         "spec/attachments/FSPEC-070/ast-research.md"
       ],
       "estimate": 2
+    },
+    "FSPEC-071": {
+      "id": "FSPEC-071",
+      "title": "Re-anchor stale coverage line references in every feature",
+      "type": "task",
+      "status": "done",
+      "createdAt": "2026-11-01T03:55:58.995Z",
+      "updatedAt": "2026-11-01T04:02:05.058Z",
+      "description": "Audit every spec/features/*.feature.coverage: each test mapping's line range must be the describe('Scenario: <name>') block carrying that scenario's @step comments, and each impl mapping must still point at the code it pointed at when it was linked. Code edits since have shifted many ranges. Fix test ranges to the scenario block and re-anchor impl ranges through the git diff from the commit that first recorded each mapping to HEAD.",
+      "epic": "provider-plugin",
+      "children": [],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T03:56:07.016Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T04:02:04.822Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T04:02:04.943Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T04:02:05.058Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "A test mapping's line range is exactly the describe('Scenario: <name>') block (opening line to its closing '});') in its test file that carries the scenario's @step comments",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:56:07.036Z"
+        },
+        {
+          "id": 1,
+          "text": "An impl mapping keeps pointing at the lines it named when it was linked: each run is carried from the impl file at the commit that first recorded that exact mapping to HEAD through the line diff; lines deleted since drop out, lines inserted inside a run stay in it",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:56:07.056Z"
+        },
+        {
+          "id": 2,
+          "text": "A mapping that covered its whole impl file when linked covers the whole current file; an impl mapping with no surviving line is removed and reported",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:56:07.077Z"
+        },
+        {
+          "id": 3,
+          "text": "Only line references change: scenario names, files and the stats block that fspec maintains stay as they are",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:56:07.096Z"
+        }
+      ],
+      "nextRuleId": 4,
+      "examples": [
+        {
+          "id": 0,
+          "text": "fspec-provider-settings-screen 'An expanded OpenAI shows Settings...' test range 167-187 -> 171-191 after FSPEC-069 grew the test above it",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:56:07.115Z"
+        }
+      ],
+      "nextExampleId": 1,
+      "estimate": 5,
+      "attachments": [
+        "spec/attachments/FSPEC-071/root-cause.md",
+        "spec/attachments/FSPEC-071/ast-research.md"
+      ]
     }
   },
   "states": {
@@ -8327,11 +8397,12 @@
       "FSPEC-067",
       "FSPEC-068",
       "FSPEC-069",
-      "FSPEC-070"
+      "FSPEC-070",
+      "FSPEC-071"
     ],
     "blocked": []
   },
   "prefixCounters": {
-    "FSPEC": 70
+    "FSPEC": 71
   }
 }

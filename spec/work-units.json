@@ -2,7 +2,7 @@
   "version": "0.7.1",
   "meta": {
     "version": "1.0.0",
-    "lastUpdated": "2026-11-01T02:59:41.745Z"
+    "lastUpdated": "2026-11-01T03:02:18.512Z"
   },
   "workUnits": {
     "FOUND-001": {
@@ -6935,16 +6935,90 @@
       "id": "FSPEC-058",
       "title": "Card details and reordering act on the board's workspace",
       "type": "bug",
-      "status": "backlog",
+      "status": "done",
       "createdAt": "2026-11-01T02:49:35.666Z",
-      "updatedAt": "2026-11-01T02:53:12.801Z",
+      "updatedAt": "2026-11-01T03:02:18.512Z",
       "description": "fspec RPC-450: get_work_unit_details, move_work_unit_up and move_work_unit_down take (workspace, id); an unknown workspace is an error. The plugin sends (id) only and refuses details and moves outside the daemon's start workspace (FSPEC-053). Send the board panel's served workspace for every board, drop the start-only refusal, and drop the get_workspace_info fallback when list_workspaces fails or is empty.",
       "epic": "kanban-board",
       "children": [],
       "attachments": [
         "spec/attachments/FSPEC-058/root-cause.md",
         "spec/attachments/FSPEC-058/ast-research.md"
-      ]
+      ],
+      "stateHistory": [
+        {
+          "state": "specifying",
+          "timestamp": "2026-11-01T02:59:45.825Z"
+        },
+        {
+          "state": "testing",
+          "timestamp": "2026-11-01T03:00:16.475Z"
+        },
+        {
+          "state": "implementing",
+          "timestamp": "2026-11-01T03:01:03.000Z"
+        },
+        {
+          "state": "validating",
+          "timestamp": "2026-11-01T03:02:04.199Z"
+        },
+        {
+          "state": "done",
+          "timestamp": "2026-11-01T03:02:18.512Z"
+        }
+      ],
+      "rules": [
+        {
+          "id": 0,
+          "text": "get_work_unit_details (idx 123), move_work_unit_up (18) and move_work_unit_down (19) take (workspace, id) (fspec RPC-450); the board sends the served workspace holding the panel's cwd, for the start workspace and every other served workspace alike",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:00:16.166Z"
+        },
+        {
+          "id": 1,
+          "text": "The start-workspace-only refusal of details and moves (FSPEC-053) is removed",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:00:16.200Z"
+        },
+        {
+          "id": 2,
+          "text": "A list_workspaces error, an empty list or a list without a start workspace is an error with that reason for the board and for opening an agent; get_workspace_info is never used in its place",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:00:16.223Z"
+        },
+        {
+          "id": 3,
+          "text": "A session whose project the board does not know shows on no workspace's board",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:00:16.241Z"
+        }
+      ],
+      "nextRuleId": 4,
+      "examples": [
+        {
+          "id": 0,
+          "text": "Panel of /app/web: details APP-001 -> get_work_unit_details('/app', 'APP-001'); Move up -> move_work_unit_up('/app', 'APP-001'); args bytes = golden work_unit_details_args for ('/w/b', 'AUTH-001')",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:00:16.258Z"
+        },
+        {
+          "id": 1,
+          "text": "list_workspaces answers Err('workspace registry unavailable: locked') -> watch unavailable 'fspec daemon list_workspaces failed: workspace registry unavailable: locked'; open fails with the same reason",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:00:16.277Z"
+        }
+      ],
+      "nextExampleId": 2,
+      "architectureNotes": [
+        {
+          "id": 0,
+          "text": "server/wire.ts: getWorkUnitDetails/moveWorkUnitUp/moveWorkUnitDown requests { workspace, id }. server/board.ts details/move pass found.entry.path, startOnly removed; workspaces() throws on Err/empty/no start; workspaceOf unknown project -> null. server/session.ts workspaces() throws the same way.",
+          "deleted": false,
+          "createdAt": "2026-11-01T03:00:16.296Z"
+        }
+      ],
+      "nextNoteId": 1,
+      "estimate": 3
     },
     "FSPEC-059": {
       "id": "FSPEC-059",
@@ -6994,7 +7068,6 @@
   },
   "states": {
     "backlog": [
-      "FSPEC-058",
       "FSPEC-059",
       "FSPEC-060",
       "FSPEC-061"
@@ -7061,7 +7134,8 @@
       "FSPEC-055",
       "FSPEC-047",
       "FSPEC-056",
-      "FSPEC-057"
+      "FSPEC-057",
+      "FSPEC-058"
     ],
     "blocked": []
   },

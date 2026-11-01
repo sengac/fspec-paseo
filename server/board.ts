@@ -20,7 +20,7 @@ import type {
   WorkUnitInfo,
   WorkspaceEntry,
 } from "./wire.js";
-import { servingWorkspace } from "./workspaces.js";
+import { servedWorkspaces, servingWorkspace } from "./workspaces.js";
 
 /**
  * How long a watch with a current revision is held. Paseo times plugin RPCs
@@ -42,8 +42,6 @@ export interface BoardFeed {
 
 interface Live {
   connection: DaemonConnection;
-  /** The daemon's start workspace: the board the connect-time frames seed. */
-  start: string;
 }
 
 /** One served workspace's board at one revision. */
@@ -239,14 +237,9 @@ function createDaemonBoardFeed(options: DaemonClientOptions): BoardFeed {
     return created;
   }
 
-  /** The daemon's workspaces, start first; a daemon that cannot list them serves its start workspace. */
+  /** The daemon's workspaces, start first (FSPEC-058: a list the daemon cannot give is an error). */
   async function workspaces(connection: DaemonConnection): Promise<WorkspaceEntry[]> {
-    const { result } = await call(connection, { method: "listWorkspaces" });
-    if (result.ok && result.value.length > 0) served = result.value;
-    else {
-      const { workspace } = await call(connection, { method: "getWorkspaceInfo" });
-      served = [{ path: workspace.cwd, name: workspace.cwd, start: true }];
-    }
+    served = servedWorkspaces((await call(connection, { method: "listWorkspaces" })).result);
     return served;
   }
 
@@ -263,7 +256,7 @@ function createDaemonBoardFeed(options: DaemonClientOptions): BoardFeed {
       connection.onEnvelope(onEnvelope);
     }
     const listed = await workspaces(connection);
-    const startPath = (listed.find((entry) => entry.start) ?? listed[0]!).path;
+    const startPath = listed.find((entry) => entry.start)!.path;
     boards.clear();
     loading.clear();
     focus.clear();
@@ -276,7 +269,7 @@ function createDaemonBoardFeed(options: DaemonClientOptions): BoardFeed {
     }
     unavailable = null;
     changed();
-    return { connection, start: startPath };
+    return { connection };
   }
 
   /** The connected daemon, (re)connecting after a loss; one attempt at a time. */
@@ -305,10 +298,10 @@ function createDaemonBoardFeed(options: DaemonClientOptions): BoardFeed {
     await pending;
   }
 
-  /** The served workspace a session belongs to; an unknown project is the start workspace's. */
+  /** The served workspace a session belongs to; a session of unknown project belongs to none. */
   function workspaceOf(sessionId: string): string | null {
     const project = projects.get(sessionId);
-    if (project === undefined) return start;
+    if (project === undefined) return null;
     return servingWorkspace(served, project)?.path ?? null;
   }
 
@@ -342,11 +335,6 @@ function createDaemonBoardFeed(options: DaemonClientOptions): BoardFeed {
   function refusal(entries: readonly WorkspaceEntry[], cwd: string): string {
     const paths = entries.map((entry) => entry.path).join(", ");
     return `the fspec daemon serves ${paths}, not ${cwd} — start fspec in ${cwd} to use it there`;
-  }
-
-  /** get_work_unit_details and move_work_unit_* act on the daemon's cwd only. */
-  function startOnly(startPath: string): string {
-    return `card details and moves are only available in the fspec daemon's start workspace (${startPath})`;
   }
 
   /**
@@ -388,8 +376,8 @@ function createDaemonBoardFeed(options: DaemonClientOptions): BoardFeed {
       try {
         const found = await resolve(cwd);
         if ("refused" in found) return { state: "unavailable", reason: found.refused };
-        if (!found.entry.start) return { state: "unavailable", reason: startOnly(found.current.start) };
-        const { result } = await call(found.current.connection, { method: "getWorkUnitDetails", id });
+        const workspace = found.entry.path;
+        const { result } = await call(found.current.connection, { method: "getWorkUnitDetails", workspace, id });
         if (!result.ok) return { state: "unavailable", reason: result.error };
         const envelope = JSON.parse(result.value) as { workUnit?: unknown };
         const record = envelope.workUnit;
@@ -406,9 +394,8 @@ function createDaemonBoardFeed(options: DaemonClientOptions): BoardFeed {
       try {
         const found = await resolve(cwd);
         if ("refused" in found) return { ok: false, error: found.refused };
-        if (!found.entry.start) return { ok: false, error: startOnly(found.current.start) };
         const method = direction === "up" ? "moveWorkUnitUp" : "moveWorkUnitDown";
-        const { result } = await call(found.current.connection, { method, id });
+        const { result } = await call(found.current.connection, { method, workspace: found.entry.path, id });
         // The new order arrives as the daemon's next WorkUnitsUpdate.
         return result.ok ? { ok: true } : { ok: false, error: result.error };
       } catch (error) {

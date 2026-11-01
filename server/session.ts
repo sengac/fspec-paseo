@@ -42,7 +42,7 @@ import {
   parseGoal,
 } from "./commands.js";
 import { createTranscript, type Transcript } from "./transcript.js";
-import { servingWorkspace, within } from "./workspaces.js";
+import { servedWorkspaces, servingWorkspace, within } from "./workspaces.js";
 import { parseStreamChunkJson } from "./transcript-json.js";
 import {
   describeTranscriptError,
@@ -874,12 +874,9 @@ export function createSessionRegistry(deps: SessionDeps) {
     return result.value;
   }
 
-  /** The daemon's workspaces, start first; a daemon that cannot list them serves its start workspace. */
+  /** The daemon's workspaces, start first (FSPEC-058: a list the daemon cannot give is an error). */
   async function workspaces(): Promise<WorkspaceEntry[]> {
-    const { result } = await request({ method: "listWorkspaces" });
-    if (result.ok && result.value.length > 0) return result.value;
-    const { workspace } = await request({ method: "getWorkspaceInfo" });
-    return [{ path: workspace.cwd, name: workspace.cwd, start: true }];
+    return servedWorkspaces((await request({ method: "listWorkspaces" })).result);
   }
 
   /**

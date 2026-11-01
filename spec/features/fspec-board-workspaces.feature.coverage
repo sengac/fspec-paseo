@@ -238,51 +238,132 @@
       ]
     },
     {
-      "name": "Card details and moves stay with the start workspace",
+      "name": "Card details and moves act on the panel's workspace",
       "testMappings": [
         {
           "file": "test/board-workspaces.test.ts",
-          "lines": "138-153",
+          "lines": "142-169",
           "implMappings": [
             {
               "file": "server/board.ts",
               "lines": [
-                285,
-                286,
-                287,
-                288,
-                324,
-                325,
-                326,
-                327,
-                328,
-                329,
-                330,
-                331,
-                332,
-                333,
-                334,
-                335,
-                336,
-                337,
-                338,
-                339,
-                340,
-                341,
-                342,
-                343,
-                344,
-                345,
-                346,
-                347,
-                348,
-                349,
-                350,
-                351,
-                352,
-                353,
-                354,
-                355
+                375,
+                376,
+                377,
+                378,
+                379,
+                380,
+                381,
+                395,
+                396,
+                397,
+                398,
+                399
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "Card details and move requests match the daemon's encoding",
+      "testMappings": [
+        {
+          "file": "test/board-workspaces.test.ts",
+          "lines": "171-188",
+          "implMappings": [
+            {
+              "file": "server/wire.ts",
+              "lines": [
+                682,
+                683,
+                684,
+                685,
+                1860,
+                1861,
+                1862,
+                1863,
+                1864,
+                2036,
+                2037,
+                2038,
+                2039,
+                2040,
+                2041
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A workspace list the daemon cannot give is an error",
+      "testMappings": [
+        {
+          "file": "test/board-workspaces.test.ts",
+          "lines": "190-216",
+          "implMappings": [
+            {
+              "file": "server/workspaces.ts",
+              "lines": [
+                40,
+                41,
+                42,
+                43,
+                44,
+                45,
+                46,
+                47,
+                48,
+                49,
+                50,
+                51,
+                52,
+                53,
+                54,
+                55
+              ]
+            },
+            {
+              "file": "server/board.ts",
+              "lines": [
+                240,
+                241,
+                242,
+                243,
+                244,
+                259
+              ]
+            },
+            {
+              "file": "server/session.ts",
+              "lines": [
+                877,
+                878,
+                879,
+                880
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "A session of unknown project shows on no board",
+      "testMappings": [
+        {
+          "file": "test/board-workspaces.test.ts",
+          "lines": "218-235",
+          "implMappings": [
+            {
+              "file": "server/board.ts",
+              "lines": [
+                301,
+                302,
+                303,
+                304,
+                305,
+                306
               ]
             }
           ]
@@ -292,15 +373,17 @@
   ],
   "stats": {
     "totalScenarios": 5,
-    "coveredScenarios": 5,
-    "coveragePercent": 100,
+    "coveredScenarios": 8,
+    "coveragePercent": 160,
     "testFiles": [
       "test/board-workspaces.test.ts"
     ],
     "implFiles": [
       "server/board.ts",
-      "server/workspaces.ts"
+      "server/workspaces.ts",
+      "server/wire.ts",
+      "server/session.ts"
     ],
-    "totalLinesCovered": 279
+    "totalLinesCovered": 377
   }
 }

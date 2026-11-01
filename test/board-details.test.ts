@@ -33,7 +33,7 @@ describe("Feature: Show full fspec work unit details from the Paseo board", () =
       const details = await feed.details({ cwd: "/ws", id: "FSPEC-001" });
       // @step Then it answers state ready with the work unit record
       expect(details).toEqual({ state: "ready", id: "FSPEC-001", workUnit: record });
-      expect(daemon.sent("getWorkUnitDetails")).toEqual([{ method: "getWorkUnitDetails", id: "FSPEC-001" }]);
+      expect(daemon.sent("getWorkUnitDetails")).toEqual([{ method: "getWorkUnitDetails", workspace: "/ws", id: "FSPEC-001" }]);
       // @step And a daemon error "work unit NOPE-1 not found" answers state unavailable with that reason
       await expect(feed.details({ cwd: "/ws", id: "NOPE-1" })).resolves.toEqual({
         state: "unavailable",

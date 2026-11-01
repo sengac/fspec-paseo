@@ -8,7 +8,7 @@
  */
 import { realpathSync } from "node:fs";
 import { isAbsolute, relative, resolve } from "node:path";
-import type { WorkspaceEntry } from "./wire.js";
+import type { Result, WorkspaceEntry } from "./wire.js";
 
 /** Resolves symlinks when the path exists; otherwise normalizes it. */
 function canonicalPath(path: string): string {
@@ -36,4 +36,18 @@ export function servingWorkspace(entries: readonly WorkspaceEntry[], cwd: string
     if (best === null || within(best.path, entry.path)) best = entry;
   }
   return best;
+}
+
+/**
+ * The workspaces list_workspaces (idx 124) answered. Its error, an empty
+ * list or a list naming no start workspace is an error (FSPEC-058): no
+ * other source stands in for it.
+ */
+export function servedWorkspaces(result: Result<WorkspaceEntry[]>): WorkspaceEntry[] {
+  if (!result.ok) throw new Error(`fspec daemon list_workspaces failed: ${result.error}`);
+  if (result.value.length === 0) throw new Error("fspec daemon list_workspaces failed: the daemon lists no workspaces");
+  if (!result.value.some((entry) => entry.start)) {
+    throw new Error("fspec daemon list_workspaces failed: the daemon lists no start workspace");
+  }
+  return result.value;
 }

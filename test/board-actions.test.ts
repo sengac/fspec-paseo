@@ -77,8 +77,8 @@ describe("Feature: Reorder fspec cards and open them in an agent from the Paseo 
       const up = await feed.move({ cwd: "/ws", id: "FSPEC-003", direction: "up" });
       const down = await feed.move({ cwd: "/ws", id: "FSPEC-004", direction: "down" });
       // @step Then the daemon receives move_work_unit_up "FSPEC-003" and move_work_unit_down "FSPEC-004" and both answer ok
-      expect(daemon.sent("moveWorkUnitUp")).toEqual([{ method: "moveWorkUnitUp", id: "FSPEC-003" }]);
-      expect(daemon.sent("moveWorkUnitDown")).toEqual([{ method: "moveWorkUnitDown", id: "FSPEC-004" }]);
+      expect(daemon.sent("moveWorkUnitUp")).toEqual([{ method: "moveWorkUnitUp", workspace: "/ws", id: "FSPEC-003" }]);
+      expect(daemon.sent("moveWorkUnitDown")).toEqual([{ method: "moveWorkUnitDown", workspace: "/ws", id: "FSPEC-004" }]);
       expect(up).toEqual({ ok: true });
       expect(down).toEqual({ ok: true });
       // @step And a daemon error "cannot move done work unit" answers not ok with that error

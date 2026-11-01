@@ -679,9 +679,10 @@ export type FspecServiceRequest =
   | { method: "getHitlRequest"; sessionId: string }
   | { method: "sendHitlResponse"; sessionId: string; response: HitlResponse }
   | { method: "getInteractionSnapshot"; sessionId: string }
-  | { method: "getWorkUnitDetails"; id: string }
-  | { method: "moveWorkUnitUp"; id: string }
-  | { method: "moveWorkUnitDown"; id: string }
+  /** fspec RPC-450: each acts on the named served workspace; an unknown one is an error. */
+  | { method: "getWorkUnitDetails"; workspace: string; id: string }
+  | { method: "moveWorkUnitUp"; workspace: string; id: string }
+  | { method: "moveWorkUnitDown"; workspace: string; id: string }
   | { method: "getSupervisors"; sessionId: string }
   | { method: "getSubordinates"; sessionId: string }
   | { method: "setActiveSession"; sessionId: string }
@@ -1859,7 +1860,7 @@ function writeServiceRequest(w: BincodeWriter, message: FspecServiceRequest): vo
     case "getWorkUnitDetails":
     case "moveWorkUnitUp":
     case "moveWorkUnitDown":
-      w.string(message.id);
+      w.string(message.workspace).string(message.id);
       return;
     case "clearActiveSession":
     case "getActiveSession":
@@ -2034,8 +2035,10 @@ function readServiceRequest(r: BincodeReader): FspecServiceRequest {
     }
     case "getWorkUnitDetails":
     case "moveWorkUnitUp":
-    case "moveWorkUnitDown":
-      return { method, id: r.string("id") };
+    case "moveWorkUnitDown": {
+      const workspace = r.string("workspace");
+      return { method, workspace, id: r.string("id") };
+    }
     case "setContinueState": {
       const sessionId = r.string("SessionId");
       const enabled = r.bool("enabled");
